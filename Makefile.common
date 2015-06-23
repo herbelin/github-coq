@@ -62,7 +62,7 @@ PLUGINDIRS:=\
   setoid_ring 	extraction 	fourier \
   cc 		funind 		firstorder 	derive \
   rtauto 	nsatz           syntax          btauto \
-  ssrmatching	ltac
+  ssrmatching	ltac            redeffect
 
 SRCDIRS:=\
   $(CORESRCDIRS)  \
@@ -119,6 +119,7 @@ OTHERSYNTAXCMO:=$(addprefix plugins/syntax/, \
         string_syntax_plugin.cmo )
 DERIVECMO:=plugins/derive/derive_plugin.cmo
 LTACCMO:=plugins/ltac/ltac_plugin.cmo
+REDEFFECTCMO:=plugins/redeffect/redeffect_plugin.cmo
 SSRMATCHINGCMO:=plugins/ssrmatching/ssrmatching_plugin.cmo
 
 PLUGINSCMO:=$(LTACCMO) $(OMEGACMO) $(ROMEGACMO) $(MICROMEGACMO) \
