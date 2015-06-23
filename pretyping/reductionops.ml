@@ -40,6 +40,48 @@ let _ = Goptions.declare_bool_option {
 let get_refolding_in_reduction () = !refolding_in_reduction
 let set_refolding_in_reduction = (:=) refolding_in_reduction
 
+(** Support for reduction effects *)
+
+open Mod_subst
+open Libobject
+
+(** create a persistent set to store effect functions *)
+module ConstrMap = Map.Make (Constr)
+
+let effect_table = Summary.ref ~name:"reduction-side-effect" ConstrMap.empty
+
+type reduction_effect = (Environ.env -> Evd.evar_map -> Constr.constr -> unit) CEphemeron.key
+
+let get_info x =
+  try CEphemeron.get x
+  with CEphemeron.InvalidKey ->
+    CErrors.anomaly Pp.(str "Reduction effect can't be accessed by a worker")
+
+(** a test to know whether a constant is actually the effect function *)
+let reduction_effect_hook env sigma key c =
+  try
+    let effect = get_info (ConstrMap.find key !effect_table) in
+    effect env sigma (Lazy.force c)
+  with Not_found -> ()
+
+let cache_reduction_effect (_,(key,f)) =
+  effect_table := ConstrMap.add key f !effect_table
+
+let subst_reduction_effect (subst,(key,f)) =
+  (subst_mps subst key,f)
+
+let inReductionEffect : Constr.constr * reduction_effect -> obj =
+  declare_object {(default_object "REDUCTION-EFFECT") with
+    cache_function = cache_reduction_effect;
+    open_function = (fun i o -> if Int.equal i 1 then cache_reduction_effect o);
+    subst_function = subst_reduction_effect;
+    classify_function = (fun o -> Substitute o) }
+
+(** A function to set the value of the print function *)
+let set_reduction_effect x f =
+  Lib.add_anonymous_leaf (inReductionEffect (Universes.constr_of_global x,(CEphemeron.create f)))
+
+
 (** Machinery to custom the behavior of the reduction *)
 module ReductionBehaviour = struct
   open Globnames
@@ -859,9 +901,12 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
       (match safe_meta_value sigma ev with
       | Some body -> whrec cst_l (EConstr.of_constr body, stack)
       | None -> fold ())
-    | Const (c,u as const) when CClosure.RedFlags.red_set flags (CClosure.RedFlags.fCONST c) ->
-        let u' = EInstance.kind sigma u in
-       (match constant_opt_value_in env (fst const, u') with
+    | Const (c,u as const) ->
+      reduction_effect_hook env sigma (EConstr.to_constr sigma x)
+         (lazy (EConstr.to_constr sigma (Stack.zip sigma (x,stack))));
+      if CClosure.RedFlags.red_set flags (CClosure.RedFlags.fCONST c) then
+       let u' = EInstance.kind sigma u in
+       (match constant_opt_value_in env (c, u') with
 	| None -> fold ()
 	| Some body ->
           let body = EConstr.of_constr body in
@@ -901,7 +946,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 		    | Some (bef,arg,s') ->
 		      whrec Cst_stack.empty 
 			(arg,Stack.Cst(Stack.Cst_const (fst const, u'),curr,remains,bef,cst_l)::s')
-       )
+       ) else fold ()
     | Proj (p, c) when CClosure.RedFlags.red_projection flags p ->
       (let pb = lookup_projection p env in
        let kn = Projection.constant p in
@@ -1035,7 +1080,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 	|_ -> fold ()
       else fold ()
 
-    | Rel _ | Var _ | Const _ | LetIn _ | Proj _ -> fold ()
+    | Rel _ | Var _ | LetIn _ | Proj _ -> fold ()
     | Sort _ | Ind _ | Prod _ -> fold ()
   in
   fun xs ->
