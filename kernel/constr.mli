@@ -67,6 +67,9 @@ type constr = t
 
 type types = constr
 
+(** [branch] is the type of "match" branches *)
+type 'a branch = 'a
+
 (** {5 Functions for dealing with constr terms. }
   The following functions are intended to simplify and to uniform the
   manipulation of terms. Some of these functions may be overlapped with
@@ -145,7 +148,7 @@ val mkConstructUi : pinductive * int -> constr
 
     [ac]{^ ith} element is ith constructor case presented as 
     {e lambda construct_args (without params). case_term } *)
-val mkCase : case_info * constr * constr * constr array -> constr
+val mkCase : case_info * constr * constr * constr branch array -> constr
 
 (** If [recindxs = [|i1,...in|]]
       [funnames = [|f1,.....fn|]]
@@ -229,7 +232,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
 
   | Ind       of (inductive * 'univs)                 (** A name of an inductive type defined by [Variant], [Inductive] or [Record] Vernacular-commands. *)
   | Construct of (constructor * 'univs)              (** A constructor of an inductive type defined by [Variant], [Inductive] or [Record] Vernacular-commands. *)
-  | Case      of case_info * 'constr * 'constr * 'constr array
+  | Case      of case_info * 'constr * 'constr * 'constr branch array
   | Fix       of ('constr, 'types) pfixpoint
   | CoFix     of ('constr, 'types) pcofixpoint
   | Proj      of Projection.t * 'constr
@@ -391,7 +394,6 @@ type compacted_context = compacted_declaration list
 val map_under_context : (constr -> constr) -> int -> constr -> constr
 
 (** [map_branches f br] maps [f] on the immediate subterms of an array
-   of "match" branches [br] in canonical eta-let-expanded form; it is
    not recursive and the order with which subterms are processed is
    not specified; it preserves sharing; the immediate subterms are the
    types and possibly terms occurring in the context of each branch as

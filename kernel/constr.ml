@@ -80,6 +80,7 @@ type 'a puniverses = 'a Univ.puniverses
 type pconstant = Constant.t puniverses
 type pinductive = inductive puniverses
 type pconstructor = constructor puniverses
+type 'a branch = 'a
 
 (* [Var] is used for named variables and [Rel] for variables as
    de Bruijn indices. *)
@@ -97,7 +98,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | Const     of (Constant.t * 'univs)
   | Ind       of (inductive * 'univs)
   | Construct of (constructor * 'univs)
-  | Case      of case_info * 'constr * 'constr * 'constr array
+  | Case      of case_info * 'constr * 'constr * 'constr branch array
   | Fix       of ('constr, 'types) pfixpoint
   | CoFix     of ('constr, 'types) pcofixpoint
   | Proj      of Projection.t * 'constr

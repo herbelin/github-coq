@@ -367,7 +367,7 @@ and fterm =
   | FProj of Projection.t * fconstr
   | FFix of fixpoint * fconstr subs
   | FCoFix of cofixpoint * fconstr subs
-  | FCaseT of case_info * constr * fconstr * constr array * fconstr subs (* predicate and branches are closures *)
+  | FCaseT of case_info * constr * fconstr * constr branch array * fconstr subs (* predicate and branches are closures *)
   | FLambda of int * (Name.t * constr) list * constr * fconstr subs
   | FProd of Name.t * fconstr * fconstr
   | FLetIn of Name.t * fconstr * fconstr * constr * fconstr subs
@@ -397,7 +397,7 @@ let update ~share v1 no t =
 
 type stack_member =
   | Zapp of fconstr array
-  | ZcaseT of case_info * constr * constr array * fconstr subs
+  | ZcaseT of case_info * constr * constr branch array * fconstr subs
   | Zproj of Projection.Repr.t
   | Zfix of fconstr * stack
   | Zshift of int
