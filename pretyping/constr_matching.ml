@@ -501,12 +501,25 @@ let sub_match ?(closed=true) env sigma pat c =
        | [app';c] -> mk_ctx (mkApp (app',[|c|]))
        | _ -> assert false in
      try_aux [(env, app); (env, Array.last lc)] mk_ctx next
-  | Case (ci,hd,c1,lc) ->
+  | Case (ci,p,c,brs) ->
+      (* Warning: this assumes predicate and branches to be
+         in canonical form using let and fun of the signature *)
+      let nardecls = List.length ci.ci_pp_info.ind_tags in
+      let sign_p,p = decompose_lam_n_decls sigma (nardecls + 1) p in
+      let env_p = push_rel_context sign_p env in
+      let brs = Array.map2 (decompose_lam_n_decls sigma) ci.ci_cstr_ndecls brs in
+      let sign_brs = Array.map fst brs in
+      let f (sign,br) = (push_rel_context sign env, br) in
+      let sub_br = Array.map f brs in
       let next_mk_ctx = function
-      | c1 :: hd :: lc -> mk_ctx (mkCase (ci,hd,c1,Array.of_list lc))
+      | c :: p :: brs ->
+        let p = it_mkLambda_or_LetIn p sign_p in
+        let brs =
+          Array.map2 it_mkLambda_or_LetIn (Array.of_list brs) sign_brs in
+        mk_ctx (mkCase (ci,p,c,brs))
       | _ -> assert false
       in
-      let sub = (env, c1) :: (env, hd) :: subargs env lc in
+      let sub = (env, c) :: (env_p, p) :: Array.to_list sub_br in
       try_aux sub next_mk_ctx next
   | Fix (indx,(names,types,bodies as recdefs)) ->
     let nb_fix = Array.length types in
