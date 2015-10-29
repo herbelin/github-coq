@@ -75,6 +75,20 @@ let check_privacy_block mib =
 (* Building case analysis schemes *)
 (* Christine Paulin, 1996 *)
 
+let make_branch_arg env f cstr =
+  (* ici, cstrprods est la liste des produits du constructeur instantié *)
+  let rec process_constr env f = function
+    | LocalAssum (n,t) as d::cprest ->
+        mkLambda_name env
+          (n,t,
+           process_constr (push_rel d env) (applist (lift 1 f, [(mkRel 1)]))
+             cprest)
+    | LocalDef (n,c,t) as d::cprest ->
+        mkLetIn (n,c,t,process_constr (push_rel d env) (lift 1 f) cprest)
+    | [] -> f
+  in
+  process_constr env f (List.rev cstr.cs_args)
+
 let mis_make_case_com dep env sigma (ind, u as pind) (mib,mip as specif) kind =
   let lnamespar = Vars.subst_instance_context u mib.mind_params_ctxt in
   let indf = make_ind_family(pind, Context.Rel.to_extended_list mkRel 0 lnamespar) in
@@ -117,8 +131,12 @@ let mis_make_case_com dep env sigma (ind, u as pind) (mib,mip as specif) kind =
       in
       let obj = 
 	match projs with
-	| None -> mkCase (ci, lift ndepar p,  mkRel 1,
-			  Termops.rel_vect ndepar k)
+        | None ->
+            let indf'' = lift_inductive_family ndepar indf' in
+            let constrs = get_constructors env indf'' in
+            let fi = Termops.rel_vect ndepar k in
+            let brs = Array.map2 (make_branch_arg env) fi constrs in
+            mkCase (ci, lift ndepar p, mkRel 1, brs)
 	| Some ps -> 
 	  let term = 
 	    mkApp (mkRel 2, 
