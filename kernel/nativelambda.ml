@@ -493,6 +493,7 @@ let rec lambda_of_constr cache env sigma c =
       let lt = lambda_of_constr cache env sigma t in
       (* translation of branches *)
       let mk_branch i b =
+        let b = Constr.constr_of_branch b in
 	let cn = (ind,i+1) in
 	let _, arity = tbl.(i) in
         let b = lambda_of_constr cache env sigma b in

@@ -152,7 +152,7 @@ and infer_stack infos variances (stk:CClosure.stack) =
         infer_stack infos variances a
       | ZcaseT (ci,p,br,e) ->
         let variances = infer_fterm CONV infos variances (mk_clos e p) [] in
-        infer_vect infos variances (Array.map (mk_clos e) br)
+        infer_vect infos variances (Array.map (constr_of_branch %> mk_clos e) br)
       | Zshift _ -> variances
       | Zupdate _ -> variances
     in

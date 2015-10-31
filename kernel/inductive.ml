@@ -738,7 +738,7 @@ let rec subterm_specif renv stack t =
        let stl =
 	 Array.mapi (fun i br' ->
 		     let stack_br = push_stack_args (cases_spec.(i)) stack' in
-		     subterm_specif renv stack_br br')
+                     subterm_specif renv stack_br (Constr.constr_of_branch br'))
 		    lbr in
        let spec = subterm_spec_glb stl in
        restrict_spec renv.env spec p
@@ -935,7 +935,7 @@ let check_one_fix renv recpos trees def =
             let stack' = filter_stack_domain renv.env p stack' in
               Array.iteri (fun k br' -> 
 			     let stack_br = push_stack_args case_spec.(k) stack' in
-			     check_rec_call renv stack_br br') lrest
+                             check_rec_call renv stack_br (Constr.constr_of_branch br')) lrest
 
         (* Enables to traverse Fixpoint definitions in a more intelligent
            way, ie, the rule :
@@ -1181,7 +1181,7 @@ let check_one_cofix env nbfix def deftype =
 		 if (noccur_with_meta n nbfix tm) then
 		   if (List.for_all (noccur_with_meta n nbfix) args) then
 		     let vlra = dest_subterms tree in
-		     Array.iter (check_rec_call env alreadygrd n tree vlra) vrest
+                     Array.iter (fun b -> check_rec_call env alreadygrd n tree vlra (Constr.constr_of_branch b)) vrest
 		   else
 		     raise (CoFixGuardError (env,RecCallInCaseFun c))
 		 else

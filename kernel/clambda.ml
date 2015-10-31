@@ -675,7 +675,7 @@ let rec lambda_of_constr env c =
     let blocks = Array.make oib.mind_nb_args ([||],dummy_lambda) in
     for i = 0 to Array.length rtbl - 1 do
       let tag, arity = rtbl.(i) in
-      let b = lambda_of_constr env branches.(i) in
+      let b = lambda_of_constr env (Constr.constr_of_branch branches.(i)) in
       if arity = 0 then consts.(tag) <- b
       else
         let b =

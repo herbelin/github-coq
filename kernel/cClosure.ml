@@ -603,7 +603,9 @@ let map_predicate f ci lfts env p =
   map_under_context f (List.length ci.ci_pp_info.ind_tags) lfts env p
 
 let map_branch f lfts env tag b =
-  map_under_context f (List.length tag) lfts env b
+  let b = Constr.constr_of_branch b in
+  let b = map_under_context f (List.length tag) lfts env b in
+  Constr.branch_of_constr b
 
 let map_branches f ci lfts env br =
   Array.map2 (map_branch f lfts env) ci.ci_pp_info.cstr_tags br
@@ -1006,7 +1008,8 @@ let rec knr info tab m stk =
         | (depth, args, ZcaseT(ci,_,br,e)::s) when use_match ->
             assert (ci.ci_npar>=0);
             let rargs = drop_parameters depth ci.ci_npar args in
-            let br,e = contract_branch (List.length ci.ci_pp_info.cstr_tags.(c-1)) br.(c-1) rargs e in
+            let br = Constr.constr_of_branch br.(c-1) in
+            let br,e = contract_branch (List.length ci.ci_pp_info.cstr_tags.(c-1)) br rargs e in
             knit info tab e br s
         | (_, cargs, Zfix(fx,par)::s) when use_fix ->
             let rarg = fapp_stack(m,cargs) in
@@ -1062,7 +1065,8 @@ let map_predicate f ci env p =
   map_under_context f (List.length ci.ci_pp_info.ind_tags) env p
 
 let map_branch f env tag b =
-  map_under_context f (List.length tag) env b
+  let b = Constr.constr_of_branch b in
+  Constr.branch_of_constr (map_under_context f (List.length tag) env b)
 
 let map_branches f ci env br =
   Array.map2 (map_branch f env) ci.ci_pp_info.cstr_tags br

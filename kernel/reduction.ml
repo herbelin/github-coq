@@ -102,8 +102,7 @@ let pure_stack lfts stk =
                 let (lfx,pa) = pure_rec l a in
                 (l, Zlfix((lfx,fx),pa)::pstk)
             | (ZcaseT(ci,p,br,e),(l,pstk)) ->
-                (l,Zlcase(ci,l,mk_clos e p,Array.map (mk_clos e) br)::pstk))
-  in
+                (l,Zlcase(ci,l,mk_clos e p,Array.map (fun b -> mk_clos e (Constr.constr_of_branch b)) br)::pstk)) in
   snd (pure_rec lfts stk)
 
 (****************************************************************************)

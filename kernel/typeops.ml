@@ -396,7 +396,7 @@ let rec execute env cstr =
     | Case (ci,p,c,lf) ->
         let ct = execute env c in
         let pt = execute env p in
-        let lft = execute_array env lf in
+        let lft = execute_array env (Array.map Constr.constr_of_branch lf) in
           type_of_case env ci p pt c ct lf lft
 
     | Fix ((vn,i as vni),recdef) ->
@@ -545,7 +545,9 @@ let judge_of_inductive env indu =
 let judge_of_constructor env cu =
   make_judge (mkConstructU cu) (type_of_constructor env cu)
 
+(*
 let judge_of_case env ci pj cj lfj =
   let lf, lft = dest_judgev lfj in
   make_judge (mkCase (ci, (*nf_betaiota*) pj.uj_val, cj.uj_val, lft))
              (type_of_case env ci pj.uj_val pj.uj_type cj.uj_val cj.uj_type lf lft)
+ *)

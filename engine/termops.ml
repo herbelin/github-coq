@@ -84,7 +84,7 @@ let rec pr_constr c = match kind c with
   | Case (ci,p,c,bl) -> v 0
       (hv 0 (str"<"++pr_constr p++str">"++ cut() ++ str"Case " ++
              pr_constr c ++ str"of") ++ cut() ++
-       prlist_with_sep (fun _ -> brk(1,2)) pr_constr (Array.to_list bl) ++
+       prlist_with_sep (fun _ -> brk(1,2)) (fun c -> pr_constr (Constr.constr_of_branch c)) (Array.to_list bl) ++
       cut() ++ str"end")
   | Fix f -> pr_fix pr_constr f
   | CoFix(i,(lna,tl,bl)) ->

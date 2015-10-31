@@ -70,6 +70,9 @@ type types = constr
 (** [branch] is the type of "match" branches *)
 type 'a branch = 'a
 
+val constr_of_branch : 'a branch -> 'a
+val branch_of_constr : 'a -> 'a branch
+
 (** {5 Functions for dealing with constr terms. }
   The following functions are intended to simplify and to uniform the
   manipulation of terms. Some of these functions may be overlapped with
@@ -330,7 +333,7 @@ Ci(...yij...) => ti | ... end] (or [let (..y1i..) := c as x in I args
 return P in t1], or [if c then t1 else t2])
 @return [(info,c,fun args x => P,[|...|fun yij => ti| ...|])]
 where [info] is pretty-printing information *)
-val destCase : constr -> case_info * constr * constr * constr array
+val destCase : constr -> case_info * constr * constr * constr branch array
 
 (** Destructs a projection *)
 val destProj : constr -> Projection.t * constr
@@ -399,7 +402,7 @@ val map_under_context : (constr -> constr) -> int -> constr -> constr
    types and possibly terms occurring in the context of each branch as
    well as the body of each branch *)
 
-val map_branches : (constr -> constr) -> case_info -> constr array -> constr array
+val map_branches : (constr -> constr) -> case_info -> constr branch array -> constr branch array
 
 (** [map_return_predicate f p] maps [f] on the immediate subterms of a
    return predicate of a "match" in canonical eta-let-expanded form;
@@ -429,7 +432,7 @@ val map_under_context_with_binders : ('a -> 'a) -> ('a -> constr -> constr) -> '
    occurring in the context of the branch as well as the body of the
    branch *)
 
-val map_branches_with_binders : ('a -> 'a) -> ('a -> constr -> constr) -> 'a -> case_info -> constr array -> constr array
+val map_branches_with_binders : ('a -> 'a) -> ('a -> constr -> constr) -> 'a -> case_info -> constr branch array -> constr branch array
 
 (** [map_return_predicate_with_binders f p] maps [f] on the immediate
    subterms of a return predicate of a "match" in canonical
@@ -454,7 +457,7 @@ val map_under_context_with_full_binders : ((constr, constr) Context.Rel.Declarat
    [map_branches_with_binders] but using
    [map_under_context_with_full_binders] *)
 
-val map_branches_with_full_binders : ((constr, constr) Context.Rel.Declaration.pt -> 'a -> 'a) -> ('a -> constr -> constr) -> 'a -> case_info -> constr array -> constr array
+val map_branches_with_full_binders : ((constr, constr) Context.Rel.Declaration.pt -> 'a -> 'a) -> ('a -> constr -> constr) -> 'a -> case_info -> constr branch array -> constr branch array
 
 (** [map_return_predicate_with_full_binders g f l p] is equivalent to
    [map_return_predicate_with_binders] but using

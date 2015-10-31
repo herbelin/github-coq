@@ -103,6 +103,8 @@ val prod_applist : types -> constr list -> types
 val prod_appvect_assum : int -> types -> constr array -> types
 val prod_applist_assum : int -> types -> constr list -> types
 
+val make_branch : rel_context -> constr -> constr branch
+
 (** {5 Other term destructors. } *)
 
 (** Transforms a product term {% $ %}(x_1:T_1)..(x_n:T_n)T{% $ %} into the pair

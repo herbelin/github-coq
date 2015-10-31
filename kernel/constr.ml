@@ -115,6 +115,9 @@ type rec_declaration = (constr, types) prec_declaration
 type fixpoint = (constr, types) pfixpoint
 type cofixpoint = (constr, types) pcofixpoint
 
+let constr_of_branch x = x
+let branch_of_constr x = x
+
 (*********************)
 (* Term constructors *)
 (*********************)

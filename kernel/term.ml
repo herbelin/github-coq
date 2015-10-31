@@ -185,6 +185,8 @@ let prod_applist_assum n c l =
 
 let prod_appvect_assum n c v = prod_applist_assum n c (Array.to_list v)
 
+let make_branch ctxt c = Constr.branch_of_constr (it_mkLambda_or_LetIn c ctxt) (* FIXME: should be Constr.ml *)
+
 (*********************************)
 (* Other term destructors        *)
 (*********************************)
