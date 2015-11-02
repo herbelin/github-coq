@@ -9,6 +9,10 @@ Vernacular commands
   declaration of all polymorphic universes appearing in a definition when
   introducing it.
 
+Specification language
+
+- Syntax "$(tactic)$" changed to "ltac: tactic".
+
 Tactics
 
 - New flag "Regular Subst Tactic" which fixes "subst" in situations where
