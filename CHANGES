@@ -28,6 +28,11 @@ Tactics
   a locally free identifier anymore. It must use e.g. the "fresh" primitive
   instead (potential source of incompatibilities).
 - New tactics is_ind, is_const, is_proj, is_constructor for use in Ltac (DOC TODO).
+- For uniformity with "destruct"/"induction", "injection" is now
+  working in place. Moreover, hypotheses are put in the context in the
+  natural left-to-right order and the hypothesis on which injection
+  applies is cleared.  Compatibility can be preserved by issuing
+  "Unset Structural Injection".
 
 Program
 
