@@ -846,7 +846,8 @@ either:
 
 Introduction patterns can be combined into lists. An {\em introduction
   pattern list} is a list of introduction patterns possibly containing
-the filling introduction patterns {\tt *} and {\tt **}.
+the filling introduction patterns {\tt *} and {\tt **} as well as the
+lemma pre-application pattern {\tt /{\term}}.
 
 Assuming a goal of type $Q \to P$ (non-dependent product), or
 of type $\forall x:T,~P$ (dependent product), the behavior of
@@ -923,6 +924,9 @@ introduction pattern~$p$:
   variables appearing in a row; introduction over {\tt **} introduces
   all forthcoming quantified variables or hypotheses until the goal is
   not any more a quantification or an implication.
+\item the pre-application {\tt /{\term}} pattern does not perform
+  introductions: it applies lemma {\term} on the next hypothesis to be
+  introduced leaving it to be introduced.
 \end{itemize}
 
 Then, if $p_1$ ... $p_n$ is a list of introduction patterns possibly

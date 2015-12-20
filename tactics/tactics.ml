@@ -2132,6 +2132,7 @@ let rec prepare_naming loc = function
 
 let rec explicit_intro_names = function
 | (_, IntroForthcoming _) :: l -> explicit_intro_names l
+| (_, IntroApplyOnTop _) :: l -> explicit_intro_names l
 | (_, IntroNaming (IntroIdentifier id)) :: l -> id :: explicit_intro_names l
 | (_, IntroAction (IntroOrAndPattern ll)) :: l' ->
     List.flatten (List.map (fun l -> explicit_intro_names (l@l')) ll)
@@ -2211,6 +2212,15 @@ let rec intro_patterns_core b avoid ids thin destopt bound n tac = function
 	  destopt onlydeps n bound
         (fun ids -> intro_patterns_core b avoid ids thin destopt bound
           (n+List.length ids) tac l)
+  | IntroApplyOnTop f ->
+      let f env sigma = let (sigma,c) = f env sigma in (sigma,(c,NoBindings)) in
+      intro_then_gen (NamingAvoid avoid) MoveLast true false
+        (fun id -> apply_in_delayed_once false true true true
+          (NamingMustBe (loc,id)) id (None,(loc,f))
+          (fun id -> Tacticals.New.tclTHENLIST
+            [revert [id]; 
+             intro_patterns_core b avoid ids thin destopt
+               bound n tac l]))
   | IntroAction pat ->
       intro_then_gen (make_tmp_naming avoid l pat)
 	destopt true false
@@ -2273,7 +2283,7 @@ and prepare_intros_loc loc dft destopt = function
         intro_patterns_core true [] [] thin destopt bound 0
           (fun _ l -> clear_wildcards l) in
       fun id -> intro_pattern_action loc true true ipat [] destopt tac id)
-  | IntroForthcoming _ -> user_err_loc
+  | IntroForthcoming _ | IntroApplyOnTop _ -> user_err_loc
       (loc,"",str "Introduction pattern for one hypothesis expected.")
 
 let intro_patterns_bound_to n destopt =

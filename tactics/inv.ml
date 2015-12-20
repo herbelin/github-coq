@@ -290,6 +290,8 @@ let error_too_many_names pats =
 let rec get_names (allow_conj,issimple) (loc,pat as x) = match pat with
   | IntroNaming IntroAnonymous | IntroForthcoming _ ->
       error "Anonymous pattern not allowed for inversion equations."
+  | IntroApplyOnTop _ ->
+      error "Application on top hypothesis not supported for inversion equations."
   | IntroNaming (IntroFresh _) ->
       error "Fresh pattern not allowed for inversion equations."
   | IntroAction IntroWildcard ->

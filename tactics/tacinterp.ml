@@ -462,7 +462,7 @@ let rec intropattern_ids (loc,pat) = match pat with
   | IntroAction (IntroApplyOn (c,pat)) -> intropattern_ids pat
   | IntroNaming (IntroAnonymous | IntroFresh _)
   | IntroAction (IntroWildcard | IntroRewrite _)
-  | IntroForthcoming _ -> []
+  | IntroForthcoming _ | IntroApplyOnTop _ -> []
 
 let extract_ids ids lfun =
   let fold id v accu =
@@ -852,6 +852,9 @@ let rec interp_intro_pattern ist env sigma = function
   | loc, IntroNaming pat ->
       sigma, (loc, IntroNaming (interp_intro_pattern_naming loc ist env sigma pat))
   | loc, IntroForthcoming _  as x -> sigma, x
+  | loc, IntroApplyOnTop c ->
+      let c = fun env sigma -> interp_open_constr ist env sigma c in
+      sigma, (loc, IntroApplyOnTop c)
 
 and interp_intro_pattern_naming loc ist env sigma = function
   | IntroFresh id -> IntroFresh (interp_ident ist env sigma id)
