@@ -454,12 +454,8 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       match Stack.list_of_app_stack skF with
       | None -> default_fail evd
       | Some lF -> 
-        let tM = Stack.zip apprM in
-	  miller_pfenning l2r
-	    (fun () -> if not_only_app then
-	      switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i)) (Stack.zip apprF) tM
-	    else quick_fail i)
-	  ev lF tM i
+	let tM = Stack.zip apprM in
+        miller_pfenning l2r (fun () -> quick_fail i) ev lF tM i
     and consume (_termF,skF as apprF) (_termM,skM as apprM) i =
       if not (Stack.is_empty skF && Stack.is_empty skM) then
         consume_stack l2r apprF apprM i
