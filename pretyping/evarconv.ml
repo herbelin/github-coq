@@ -286,8 +286,6 @@ let ise_stack2 no_app env evd f sk1 sk2 =
         | Success i' -> ise_stack2 true i' q1 q2
         | UnifFailure _ as x -> fail x
       else fail (UnifFailure (i,NotSameHead))
-    | Stack.Shift _ :: _, _
-    | _, Stack.Shift _ :: _ -> assert false
     | Stack.App _ :: _, Stack.App _ :: _ ->
        (* What is the role of no_app? Why ise_app_rev_stack2 not
           inlined so that deep can be set to true as soon as one
@@ -323,8 +321,6 @@ let exact_ise_stack2 env evd f sk1 sk2 =
        if eq_constant (Projection.constant p1) (Projection.constant p2)
        then ise_stack2 i q1 q2
        else (UnifFailure (i, NotSameHead))
-    | Stack.Shift _ :: _, _
-    | _, Stack.Shift _ :: _ -> assert false
     | Stack.App _ :: _, Stack.App _ :: _ ->
 	 begin match ise_app_rev_stack2 env f i sk1 sk2 with
 	       |_,(UnifFailure _ as x) -> x
@@ -425,7 +421,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     let out1 = whd_betaiota_deltazeta_for_iota_state
       (fst ts) env' evd Cst_stack.empty (c'1, Stack.empty) in
     let out2 = whd_nored_state evd
-      (Stack.zip (term', sk' @ [Stack.Shift 1]), Stack.append_app [|mkRel 1|] Stack.empty), 
+      (lift 1 (Stack.zip (term', sk')), Stack.append_app [|mkRel 1|] Stack.empty),
       Cst_stack.empty in
     if l2r then evar_eqappr_x ts env' evd CONV out1 out2
     else evar_eqappr_x ts env' evd CONV out2 out1
