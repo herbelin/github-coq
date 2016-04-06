@@ -86,9 +86,10 @@ let flex_kind_of_term ts env evd c sk =
       Option.cata (fun x -> MaybeFlexible x) Rigid (eval_flexible_term ts env evd c)
     | Lambda _ when not (Option.is_empty (Stack.decomp sk)) -> MaybeFlexible c
     | Evar ev -> Flexible ev
-    | Lambda _ | Prod _ | Sort _ | Ind _ | Construct _ | CoFix _ -> Rigid
+    | Lambda _ | Prod _ | Sort _ | Ind _ -> Rigid
+    | Construct _ | CoFix _ (* Incorrect: should check only app in sk *) -> Rigid
     | Meta _ -> Rigid
-    | Fix _ -> Rigid (* happens when the fixpoint is partially applied *)
+    | Fix _ -> Rigid (* happens when the fixpoint is partially applied (should check it?) *)
     | Cast _ | App _ | Case _ -> assert false
 
 let apprec_nohdbeta ts env evd c =
@@ -227,26 +228,42 @@ let ise_array2 evd f v1 v2 =
 
 (* Applicative node of stack are read from the outermost to the innermost
    but are unified the other way. *)
-let rec ise_app_stack2 env f evd sk1 sk2 =
-  match sk1,sk2 with
+(* Input: non-applicative-stack u11..u1n1 ... up1..upnp =?
+          non-applicative-stack' v11..v1n1 ... vp1..vpnp
+   (both given in reverse order, i.e. starting with up and vp)
+   Output: (non-applicative-stack,non-applicative-stack'),evd if
+     upn=vpnp .. up1=vp1, ..., u1n1=v1n1 .. u11=v11
+     are unifiable in this order
+     (result is in reverse order too)
+   UnifFailure otherwise *)
+let rec ise_app_rev_stack2 env f evd revsk1 revsk2 =
+  match revsk1,revsk2 with
   | Stack.App node1 :: q1, Stack.App node2 :: q2 ->
      let (t1,l1) = Stack.decomp_node_last node1 q1 in
      let (t2,l2) = Stack.decomp_node_last node2 q2 in
-     begin match ise_app_stack2 env f evd l1 l2 with
-	   |(_,UnifFailure _) as x -> x
-	   |x,Success i' -> x,f env i' CONV t1 t2
+     begin match ise_app_rev_stack2 env f evd l1 l2 with
+           | (_, UnifFailure _) as x -> x
+           | x, Success i' -> x, f env i' CONV t1 t2
      end
-  | _, _ -> (sk1,sk2), Success evd
+  | _, _ -> (revsk1,revsk2), Success evd
 
 (* This function tries to unify 2 stacks element by element. It works
    from the end to the beginning. If it unifies a non empty suffix of
    stacks but not the entire stacks, the first part of the answer is
    Some(the remaining prefixes to tackle)) *)
+(* Input: E1[] =? E2[] where the E1, E2 are concatenations of
+     n-ary-app/case/fix/proj elimination rules
+   Output:
+   - either None if E1 = E2 is solved,
+   - or Some (E1'',E2'') such that there is a decomposition of
+     E1[] = E1'[E1''[]] and E2[] = E2'[E2''[]] s.t.  E1' = E2' and
+     E1'' cannot be unified with E2''
+   - UnifFailure if no such non-empty E1' = E2' exists *)
 let ise_stack2 no_app env evd f sk1 sk2 =
-  let rec ise_stack2 deep i sk1 sk2 =
-    let fail x = if deep then Some (List.rev sk1, List.rev sk2), Success i
+  let rec ise_stack2 deep i revsk1 revsk2 =
+    let fail x = if deep then Some (List.rev revsk1, List.rev revsk2), Success i
       else None, x in
-    match sk1, sk2 with
+    match revsk1, revsk2 with
     | [], [] -> None, Success i
     | Stack.Case (_,t1,c1,_)::q1, Stack.Case (_,t2,c2,_)::q2 ->
       (match f env i CONV t1 t2 with
@@ -272,10 +289,13 @@ let ise_stack2 no_app env evd f sk1 sk2 =
     | Stack.Update _ :: _, _ | Stack.Shift _ :: _, _
     | _, Stack.Update _ :: _ | _, Stack.Shift _ :: _ -> assert false
     | Stack.App _ :: _, Stack.App _ :: _ ->
+       (* What is the role of no_app? Why ise_app_rev_stack2 not
+          inlined so that deep can be set to true as soon as one
+          element of the applicative node is matched? *)
        if no_app && deep then fail ((*dummy*)UnifFailure(i,NotSameHead)) else
-	 begin match ise_app_stack2 env f i sk1 sk2 with
-	       |_,(UnifFailure _ as x) -> fail x
-	       |(l1, l2), Success i' -> ise_stack2 true i' l1 l2
+	 begin match ise_app_rev_stack2 env f i revsk1 revsk2 with
+	       | _, (UnifFailure _ as x) -> fail x
+	       | (l1, l2), Success i' -> ise_stack2 true i' l1 l2
 	 end
     |_, _ -> fail (UnifFailure (i,(* Maybe improve: *) NotSameHead))
   in ise_stack2 false evd (List.rev sk1) (List.rev sk2)
@@ -306,7 +326,7 @@ let exact_ise_stack2 env evd f sk1 sk2 =
     | Stack.Update _ :: _, _ | Stack.Shift _ :: _, _
     | _, Stack.Update _ :: _ | _, Stack.Shift _ :: _ -> assert false
     | Stack.App _ :: _, Stack.App _ :: _ ->
-	 begin match ise_app_stack2 env f i sk1 sk2 with
+	 begin match ise_app_rev_stack2 env f i sk1 sk2 with
 	       |_,(UnifFailure _ as x) -> x
 	       |(l1, l2), Success i' -> ise_stack2 i' l1 l2
 	 end
@@ -373,27 +393,31 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
   let quick_fail i = (* not costly, loses info *)
     UnifFailure (i, NotSameHead)
   in
-  let miller_pfenning on_left fallback ev lF tM evd =
+  let miller_pfenning l2r fallback ev lF tM evd =
     match is_unification_pattern_evar env evd ev lF tM with
       | None -> fallback ()
       | Some l1' -> (* Miller-Pfenning's patterns unification *)
 	let t2 = nf_evar evd tM in
 	let t2 = solve_pattern_eqn env l1' t2 in
 	  solve_simple_eqn (evar_conv_x ts) env evd
-	    (position_problem on_left pbty,ev,t2) 
+	    (position_problem l2r pbty,ev,t2)
   in
-  let consume_stack on_left (termF,skF) (termO,skO) evd =
-    let switch f a b = if on_left then f a b else f b a in
+  let consume_stack l2r (termF,skF) (termO,skO) evd =
+    let switch f a b = if l2r then f a b else f b a in
     let not_only_app = Stack.not_purely_applicative skO in
     match switch (ise_stack2 not_only_app env evd (evar_conv_x ts)) skF skO with
-      |Some (l,r), Success i' when on_left && (not_only_app || List.is_empty l) ->
+    | Some (l,r), Success i' when l2r && (not_only_app || List.is_empty l) ->
+        (* E[?n]=E'[redex] reduces to either l[?n]=r[redex] with
+           case/fix/proj in E' (why?) or ?n=r[redex] *)
 	switch (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
-      |Some (r,l), Success i' when not on_left && (not_only_app || List.is_empty l) ->
+    | Some (r,l), Success i' when not l2r && (not_only_app || List.is_empty l) ->
+        (* E'[redex]=E[?n] reduces to either r[redex]=l[?n] with
+           case/fix/proj in E' (why?) or r[redex]=?n *)
 	switch (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
-      |None, Success i' -> switch (evar_conv_x ts env i' pbty) termF termO
-      |_, (UnifFailure _ as x) -> x
-      |Some _, _ -> UnifFailure (evd,NotSameArgSize) in
-  let eta env evd onleft sk term sk' term' =
+    | None, Success i' -> switch (evar_conv_x ts env i' pbty) termF termO
+    | _, (UnifFailure _ as x) -> x
+    | Some _, _ -> UnifFailure (evd,NotSameArgSize) in
+  let eta env evd l2r sk term sk' term' =
     assert (match sk with [] -> true | _ -> false);
     let (na,c1,c'1) = destLambda term in
     let c = nf_evar evd c1 in
@@ -403,7 +427,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     let out2 = whd_nored_state evd
       (Stack.zip (term', sk' @ [Stack.Shift 1]), Stack.append_app [|mkRel 1|] Stack.empty), 
       Cst_stack.empty in
-    if onleft then evar_eqappr_x ts env' evd CONV out1 out2
+    if l2r then evar_eqappr_x ts env' evd CONV out1 out2
     else evar_eqappr_x ts env' evd CONV out2 out1
   in
   let rigids env evd sk term sk' term' =
@@ -416,22 +440,29 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
                   (fun i -> exact_ise_stack2 env i (evar_conv_x ts) sk sk')]
       else UnifFailure (evd,NotSameHead)
   in
-  let flex_maybeflex on_left ev ((termF,skF as apprF),cstsF) ((termM, skM as apprM),cstsM) vM =
-    let switch f a b = if on_left then f a b else f b a in
+  let flex_maybeflex l2r ev ((_termF,skF as apprF),cstsF) ((termM, skM as apprM),cstsM) vM =
+    (* Problem: E[?n[inst]] = E'[redex]
+       Strategy, as far as I understand:
+       1.  if E[]=[]u1..un and ?n[inst] u1..un = E'[redex] is a Miller pattern: solve it now
+       2a. if E'=E'1[E'2] and E=E'1 unifiable, recursively solve ?n[inst] = E'2[redex]
+       2b. if E'=E'1[E'2] and E=E1[E2] and E=E'1 unifiable and E' contient app/fix/proj,
+           recursively solve E2[?n[inst]] = E'2[redex]
+       3.  reduce the redex into M and recursively solve E[?n[inst]] =? E'[M] *)
+    let switch f a b = if l2r then f a b else f b a in
     let not_only_app = Stack.not_purely_applicative skM in
     let f1 i =
       match Stack.list_of_app_stack skF with
       | None -> default_fail evd
       | Some lF -> 
         let tM = Stack.zip apprM in
-	  miller_pfenning on_left
-	    (fun () -> if not_only_app then (* Postpone the use of an heuristic *)
+	  miller_pfenning l2r
+	    (fun () -> if not_only_app then
 	      switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i)) (Stack.zip apprF) tM
 	    else quick_fail i)
 	  ev lF tM i
-    and consume (termF,skF as apprF) (termM,skM as apprM) i = 
+    and consume (_termF,skF as apprF) (_termM,skM as apprM) i =
       if not (Stack.is_empty skF && Stack.is_empty skM) then
-        consume_stack on_left apprF apprM i
+        consume_stack l2r apprF apprM i
       else quick_fail i
     and delta i =
       switch (evar_eqappr_x ts env i pbty) (apprF,cstsF)
@@ -465,8 +496,19 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	  end
       | _ -> default evd
   in
-  let flex_rigid on_left ev (termF, skF as apprF) (termR, skR as apprR) =
-    let switch f a b = if on_left then f a b else f b a in
+  let flex_rigid l2r ev (termF, skF as apprF) (termR, skR as apprR) =
+    (* Problem: E[?n[inst]] = E'[M] with M blocking computation (in theory)
+       Strategy, as far as I understand:
+       1.  if E[]=[]u1..un and ?n[inst] u1..un = E'[M] is a Miller pattern: solve it now
+       2a. if E'=E'1[E'2] and E=E'1 unifiable and E' contient app/fix/proj,
+           recursively solve ?n[inst] = E'2[M]
+       2b. if E'=E'1[E'2] and E=E1[E2] and E=E'1 unifiable and E' contient app/fix/proj,
+           recursively solve E2[?n[inst]] = E'2[M]
+       3a. if M a lambda or a constructor: eta-expand and recursively solve
+       3b. if M a constructor C ..ui..: eta-expand and recursively solve proji[E[?n[inst]]]=ui
+       4.  fail if E purely applicative and ?n occurs rigidly in E'[M]
+       5.  absorb arguments if purely applicative and postpone *)
+    let switch f a b = if l2r then f a b else f b a in
     let eta evd =
              match kind_of_term termR with
 	     | Lambda _ -> eta env evd false skR termR skF termF
@@ -475,10 +517,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     in
     match Stack.list_of_app_stack skF with
     | None ->
-        ise_try evd [consume_stack on_left apprF apprR; eta]
+        ise_try evd [consume_stack l2r apprF apprR; eta]
     | Some lF ->
         let tR = Stack.zip apprR in
-	  miller_pfenning on_left
+	  miller_pfenning l2r
 	    (fun () ->
 	      ise_try evd 
 	        [eta;(* Postpone the use of an heuristic *)
@@ -506,42 +548,55 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
   match (flex_kind_of_term (fst ts) env evd term1 sk1, 
 	 flex_kind_of_term (fst ts) env evd term2 sk2) with
     | Flexible (sp1,al1 as ev1), Flexible (sp2,al2 as ev2) ->
-        (* sk1[?ev1] =? sk2[?ev2] *)
+      (* Notations:
+         - "sk" is a stack (or, more abstractly, an evaluation context)
+         - "ev" is an evar "?ev"
+         - "al" is an evar instance
+         Problem: E₁[?n₁[inst₁]] = E₂[?n₂[inst₂]]
+         Strategy is first-order unification
+           1a. if E₁=E₂ unifiable, solve ?n₁[inst₁] = ?n₂[inst₂]
+           1b. if E₂=E₂'[E₂''] and E₁=E₂' unifiable, recursively solve ?n₁[inst₁] = E₂''[?n₂[inst₂]]
+           1b'. if E₁=E₁'[E₁''] and E₁'=E₂ unifiable, recursively solve E₁''[?n₁[inst₁]] = ?n₂[inst₂]
+             recursively solve E2[?n[inst]] = E'2[redex]
+           2. fails if neither E₁ nor E₂ is a prefix of the other *)
 	let f1 i =
           (* Try first-order unification *)
 	  match ise_stack2 false env i (evar_conv_x ts) sk1 sk2 with
 	  | None, Success i' ->
-            (* We do have sk1[] = sk2[]: we now unify ?ev1 and ?ev2 *)
+            (* 1a. We do have sk1[] = sk2[]: we now unify ?ev1 and ?ev2 *)
             (* Note that ?ev1 and ?ev2, may have been instantiated in the meantime *)
 	    let ev1' = whd_evar i' (mkEvar ev1) in
 	      if isEvar ev1' then
 		solve_simple_eqn (evar_conv_x ts) env i'
 		  (position_problem true pbty,destEvar ev1',term2)
-	      else 
-		evar_eqappr_x ts env evd pbty 
+	      else
+                (* HH: Why not to drop sk1 and sk2 since they unified *)
+		evar_eqappr_x ts env evd pbty
 		  ((ev1', sk1), csts1) ((term2, sk2), csts2)
 	  | Some (r,[]), Success i' ->
-            (* We have sk1'[] = sk2[] for some sk1' s.t. sk1[]=sk1'[r[]] *)
+            (* 1b. We have sk1'[] = sk2[] for some sk1' s.t. sk1[]=sk1'[r[]] *)
             (* we now unify r[?ev1] and ?ev2 *)
 	    let ev2' = whd_evar i' (mkEvar ev2) in
 	      if isEvar ev2' then
 		solve_simple_eqn (evar_conv_x ts) env i'
 		  (position_problem false pbty,destEvar ev2',Stack.zip(term1,r))
 	      else 
+                (* HH: Why not to drop sk1 and sk2 since they unified *)
 		evar_eqappr_x ts env evd pbty 
 		  ((ev2', sk1), csts1) ((term2, sk2), csts2)
 	  | Some ([],r), Success i' ->
-            (* Symmetrically *)
-            (* We have sk1[] = sk2'[] for some sk2' s.t. sk2[]=sk2'[r[]] *)
+            (* 1b'. We have sk1[] = sk2'[] for some sk2' s.t. sk2[]=sk2'[r[]] *)
             (* we now unify ?ev1 and r[?ev2] *)
 	    let ev1' = whd_evar i' (mkEvar ev1) in
 	      if isEvar ev1' then
 		solve_simple_eqn (evar_conv_x ts) env i'
 	          (position_problem true pbty,destEvar ev1',Stack.zip(term2,r))
-	      else evar_eqappr_x ts env evd pbty 
+	      else
+                (* HH: Why not to drop sk1 and sk2 since they unified *)
+                evar_eqappr_x ts env evd pbty
 		((ev1', sk1), csts1) ((term2, sk2), csts2)
 	  | None, (UnifFailure _ as x) ->
-             (* sk1 and sk2 have no common outer part *)
+             (* 2. sk1 and sk2 have no common outer part *)
              if Stack.not_purely_applicative sk2 then
                (* Ad hoc compatibility with 8.4 which treated non-app as rigid *)
                flex_rigid true ev1 appr1 appr2
@@ -555,7 +610,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
                   [Check fun a b : unit => (eqᵣefl : _ a = _ a b)] *)
                x
 	  | Some _, Success _ ->
-             (* sk1 and sk2 have a common outer part *)
+             (* 2'. sk1 and sk2 have a proper common outer part *)
              if Stack.not_purely_applicative sk2 then
                (* Ad hoc compatibility with 8.4 which treated non-app as rigid *)
                flex_rigid true ev1 appr1 appr2
@@ -572,6 +627,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 
 	and f2 i =
           if Evar.equal sp1 sp2 then
+            (* Already tested *)
 	    match ise_stack2 false env i (evar_conv_x ts) sk1 sk2 with
 	    |None, Success i' ->
               Success (solve_refl (fun env i pbty a1 a2 ->
@@ -897,6 +953,7 @@ and eta_constructor ts env evd sk1 ((ind, i), u) sk2 term2 =
     match mib.Declarations.mind_record with
     | Some (Some (id, projs, pbs)) when mib.Declarations.mind_finite == Decl_kinds.BiFinite -> 
       let pars = mib.Declarations.mind_nparams in
+      (* HH: Shouldn't sk1 be purely applicative; this should be ensured by eval_flexible_term? *)
 	(try 
 	   let l1' = Stack.tail pars sk1 in
 	   let l2' = 

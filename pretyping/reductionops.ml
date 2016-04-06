@@ -253,7 +253,7 @@ sig
 end =
 struct
   type 'a app_node = int * 'a array * int
-  (* first releavnt position, arguments, last relevant position *)
+  (* first relevant position, arguments, last relevant position *)
 
   (*
      Invariant that this module must ensure :
@@ -493,6 +493,7 @@ struct
 	 let (k,(args',s')) = aux s in (k+n,(args', s'))
       | s -> (0,([],s)) in
     let (lft,(out,s')) = aux s in
+    if lft <> 0 then failwith "sfdfdsf";
     let init = match s' with [] when Int.equal lft 0 -> true | _ -> false in
     Option.init init out
 

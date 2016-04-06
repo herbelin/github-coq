@@ -59,7 +59,7 @@ module Stack : sig
   | Case of case_info * 'a * 'a array * Cst_stack.t
   | Proj of int * int * projection * Cst_stack.t
   | Fix of fixpoint * 'a t * Cst_stack.t
-  | Cst of cst_member * int (** current foccussed arg *) * int list (** remaining args *)
+  | Cst of cst_member * int (** current focussed arg *) * int list (** remaining args *)
     * 'a t * Cst_stack.t
   | Shift of int
   | Update of 'a
@@ -72,6 +72,9 @@ module Stack : sig
   val append_app : 'a array -> 'a t -> 'a t
   val decomp : 'a t -> ('a * 'a t) option
 
+  (* [decomp_node_last (u1..un) sk] works on a stack (u1..un)::sk in
+     reverse order (i.e.  (rev(sk)::u1..un) in normal order);
+     it returns un and (u1..un-1)::sk (i.e. rev(sk)::u1..un-1 in normal order) *)
   val decomp_node_last : 'a app_node -> 'a t -> ('a * 'a t)
 
   val compare_shape : 'a t -> 'a t -> bool
@@ -89,6 +92,8 @@ module Stack : sig
   val strip_n_app : int -> 'a t -> ('a t * 'a * 'a t) option
 
   val not_purely_applicative : 'a t -> bool
+
+  (* Turns an applicative stack into a list of arguments, if a purely applicative stack; None otherwise *)
   val list_of_app_stack : constr t -> constr list option
 
   val assign : 'a t -> int -> 'a -> 'a t
