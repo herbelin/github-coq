@@ -62,7 +62,6 @@ module Stack : sig
   | Cst of cst_member * int (** current focussed arg *) * int list (** remaining args *)
     * 'a t * Cst_stack.t
   | Shift of int
-  | Update of 'a
   and 'a t = 'a member list
 
   val pr : ('a -> Pp.std_ppcmds) -> 'a t -> Pp.std_ppcmds

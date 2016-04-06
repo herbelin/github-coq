@@ -224,7 +224,6 @@ sig
   | Fix of fixpoint * 'a t * Cst_stack.t
   | Cst of cst_member * int * int list * 'a t * Cst_stack.t
   | Shift of int
-  | Update of 'a
   and 'a t = 'a member list
   val pr : ('a -> Pp.std_ppcmds) -> 'a t -> Pp.std_ppcmds
   val empty : 'a t
@@ -279,7 +278,6 @@ struct
   | Fix of fixpoint * 'a t * Cst_stack.t
   | Cst of cst_member * int * int list * 'a t * Cst_stack.t
   | Shift of int
-  | Update of 'a
   and 'a t = 'a member list
 
   let rec pr_member pr_c member =
@@ -303,7 +301,6 @@ struct
 	prlist_with_sep pr_semicolon int remains ++
 	pr_comma () ++ pr pr_c params ++ str ")"
     | Shift i -> str "ZShift(" ++ int i ++ str ")"
-    | Update t -> str "ZUpdate(" ++ pr_c t ++ str ")"
   and pr pr_c l =
     let open Pp in
     prlist_with_sep pr_semicolon (fun x -> hov 1 (pr_member pr_c x)) l
@@ -349,7 +346,6 @@ struct
     let rec equal_rec sk1 lft1 sk2 lft2  =
       match sk1,sk2 with
       | [],[] -> Some (lft1,lft2)
-      | (Update _ :: _, _ | _, Update _ :: _) -> assert false
       | Shift k :: s1, _ -> equal_rec  s1  (lft1+k)  sk2 lft2
       | _, Shift k :: s2 -> equal_rec sk1 lft1 s2 (lft2+k)
       | App a1 :: s1, App a2 :: s2 ->
@@ -384,8 +380,8 @@ struct
     let rec compare_rec bal stk1 stk2 =
       match (stk1,stk2) with
 	([],[]) -> Int.equal bal 0
-      | ((Update _|Shift _)::s1, _) -> compare_rec bal s1 stk2
-      | (_, (Update _|Shift _)::s2) -> compare_rec bal stk1 s2
+      | (Shift _::s1, _) -> compare_rec bal s1 stk2
+      | (_, Shift _::s2) -> compare_rec bal stk1 s2
       | (App (i,_,j)::s1, _) -> compare_rec (bal + j + 1 - i) s1 stk2
       | (_, App (i,_,j)::s2) -> compare_rec (bal - j - 1 + i) stk1 s2
       | (Case(c1,_,_,_)::s1, Case(c2,_,_,_)::s2) ->
@@ -427,12 +423,11 @@ struct
 	let (o',lft1',lft2') =
 	  aux o lft1 (List.rev params1) lft2 (List.rev params2)
 	in aux o' lft1' q1 lft2' q2
-      | (((Update _|App _|Case _|Proj _|Fix _| Cst _) :: _|[]), _) ->
+      | (((App _|Case _|Proj _|Fix _| Cst _) :: _|[]), _) ->
 	raise (Invalid_argument "Reductionops.Stack.fold2")
     in aux o 0 (List.rev sk1) 0 (List.rev sk2)
 
   let rec map f x = List.map (function
-			       | Update _ -> assert false
 			       | (Proj (_,_,_,_) | Shift _) as e -> e
 			       | App (i,a,j) ->
 				  let le = j - i + 1 in
@@ -451,7 +446,6 @@ struct
   let rec args_size = function
     | App (i,_,j)::s -> j + 1 - i + args_size s
     | Shift(_)::s -> args_size s
-    | Update(_)::s -> args_size s
     | (Case _|Fix _|Proj _|Cst _)::_ | [] -> 0
 
   let strip_app s =
@@ -565,7 +559,6 @@ struct
   | f, (Proj (n,m,p,cst_l)::s) when refold ->
     zip ~refold (best_state (mkProj (p,f),s) cst_l)
   | f, (Proj (n,m,p,_)::s) -> zip ~refold (mkProj (p,f),s)
-  | _, (Update _::_) -> assert false
 end
 
 (** The type of (machine) states (= lambda-bar-calculus' cuts) *)
@@ -988,7 +981,7 @@ let rec whd_state_gen ?csts tactic_mode flags env sigma =
 		(arg,
 		 Stack.Cst (const,next,remains',s' @ (Stack.append_app [|x'|] bef),cst_l) :: s''')
 	  end
-	|_, (Stack.App _|Stack.Update _|Stack.Shift _)::_ -> assert false
+	|_, (Stack.App _|Stack.Shift _)::_ -> assert false
 	|_, [] -> fold ()
       else fold ()
 
@@ -1069,7 +1062,7 @@ let local_whd_state_gen flags sigma =
 	|args, (Stack.Fix (f,s',cst)::s'') ->
 	  let x' = Stack.zip(x,args) in
 	  whrec (contract_fix f, s' @ (Stack.append_app [|x'|] s''))
-	|_, (Stack.App _|Stack.Update _|Stack.Shift _|Stack.Cst _)::_ -> assert false
+	|_, (Stack.App _|Stack.Shift _|Stack.Cst _)::_ -> assert false
 	|_, [] -> s
       else s
 
@@ -1513,7 +1506,7 @@ let whd_betaiota_deltazeta_for_iota_state ts env sigma csts s =
 	if isConstruct t_o then
 	  whrec Cst_stack.empty (Stack.nth stack_o (n+m), stack'')
 	else s,csts'
-      |_, ((Stack.App _| Stack.Shift _|Stack.Update _|Stack.Cst _) :: _|[]) -> s,csts'
+      |_, ((Stack.App _| Stack.Shift _|Stack.Cst _) :: _|[]) -> s,csts'
   in whrec csts s
 
 let find_conclusion env sigma =
