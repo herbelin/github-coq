@@ -143,7 +143,7 @@ Qed.
 
 Ltac check_binding y := cut ((fun y => y) = S).
 Goal True.
-check_binding ipattern:(H).
+check_binding ipattern:H.
 Abort.
 
 (* Check that variables explicitly parsed as ltac variables are not
@@ -302,7 +302,7 @@ Abort.
 (* Check instantiation of binders using ltac names *)
 
 Goal True.
-let x := ipattern:(y) in assert (forall x y, x = y + 0).
+let x := ipattern:y in assert (forall x y, x = y + 0).
 intro.
 destruct y. (* Check that the name is y here *)
 Abort.

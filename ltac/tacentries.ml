@@ -396,14 +396,12 @@ let create_ltac_quotation name cast (e, l) =
   let level = None in
   let assoc = None in
   let rule =
-    Next (Next (Next (Next (Next (Stop,
+    Next (Next (Next (Stop,
       Atoken (CLexer.terminal name)),
       Atoken (CLexer.terminal ":")),
-      Atoken (CLexer.terminal "(")),
-      entry),
-      Atoken (CLexer.terminal ")"))
+      entry)
   in
-  let action _ v _ _ _ loc = cast (loc, v) in
+  let action v _ _ loc = cast (loc, v) in
   let gram = (level, assoc, [Rule (rule, action)]) in
   Pcoq.grammar_extend Tactic.tactic_arg None (None, [gram])
 
