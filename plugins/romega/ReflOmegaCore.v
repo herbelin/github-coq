@@ -1495,7 +1495,7 @@ with Simplify := match goal with
   end.
 
 Ltac prove_stable x th :=
-  match constr:(x) with
+  match constr:x with
   | ?X1 =>
       unfold term_stable, X1; intros; Simplify; simpl;
        apply th
