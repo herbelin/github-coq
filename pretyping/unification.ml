@@ -1057,26 +1057,9 @@ let rec unify_0_with_initial_metas (sigma,ms,es as subst) conv_at_top env cv_pb 
   if !debug_unification then Feedback.msg_debug (str "Starting unification");
   let opt = { at_top = conv_at_top; with_types = false; with_cs = true } in
   try
-  let res = 
-    if occur_meta_or_undefined_evar sigma m || occur_meta_or_undefined_evar sigma n
-      || subterm_restriction opt flags then None
-    else 
-      let sigma, b = match flags.modulo_conv_on_closed_terms with
-	| Some convflags -> infer_conv ~pb:cv_pb ~ts:convflags env sigma m n
-	| _ -> constr_cmp cv_pb sigma flags m n in
-	if b then Some sigma
-	else if (match flags.modulo_conv_on_closed_terms, flags.modulo_delta with
-        | Some (cv_id, cv_k), (dl_id, dl_k) ->
-          Id.Pred.subset dl_id cv_id && Cpred.subset dl_k cv_k
-        | None,(dl_id, dl_k) ->
-          Id.Pred.is_empty dl_id && Cpred.is_empty dl_k)
-	then error_cannot_unify env sigma (m, n) else None
-  in 
-    let a = match res with 
-    | Some sigma -> sigma, ms, es
-    | None -> unirec_rec (env,0) cv_pb opt subst m n in
+    let res = unirec_rec (env,0) cv_pb opt subst m n in
     if !debug_unification then Feedback.msg_debug (str "Leaving unification with success");
-    a
+    res
   with e ->
     if !debug_unification then Feedback.msg_debug (str "Leaving unification with failure");
     raise e
