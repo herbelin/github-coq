@@ -412,7 +412,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     | None, Success i' -> switch (evar_conv_x ts env i' pbty) termF termO
     | _, (UnifFailure _ as x) -> x
     | Some _, _ -> UnifFailure (evd,NotSameArgSize) in
-  let eta env evd l2r sk term sk' term' =
+  let eta_lambda env evd l2r sk term sk' term' =
     assert (match sk with [] -> true | _ -> false);
     let (na,c1,c'1) = destLambda term in
     let c = nf_evar evd c1 in
@@ -502,7 +502,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     let switch f a b = if l2r then f a b else f b a in
     let eta evd =
       match kind_of_term termR with
-      | Lambda _ -> eta env evd false skR termR skF termF
+      | Lambda _ -> eta_lambda env evd false skR termR skF termF
       | Construct u -> eta_constructor ts env evd skR u skF termF
       | _ -> UnifFailure (evd,NotSameHead)
     in
@@ -792,10 +792,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 
     (* Eta-expansion *)
     | Rigid, _ when isLambda term1 ->
-        eta env evd true sk1 term1 sk2 term2
+        eta_lambda env evd true sk1 term1 sk2 term2
 
     | _, Rigid when isLambda term2 ->
-        eta env evd false sk2 term2 sk1 term1
+        eta_lambda env evd false sk2 term2 sk1 term1
 
     | Rigid, Rigid -> begin
         match kind_of_term term1, kind_of_term term2 with
