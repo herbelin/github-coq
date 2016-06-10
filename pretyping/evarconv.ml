@@ -516,7 +516,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        5.  absorb arguments if purely applicative and postpone *)
     let eta evd =
       match kind_of_term termR with
-      | Lambda _ -> eta_lambda env evd false skR termR skF termF
+      | Lambda _ -> eta_lambda env evd l2r skR termR skF termF
       | Construct u -> eta_constructor env evd skR u skF termF
       | _ -> UnifFailure (evd,NotSameHead)
     in
