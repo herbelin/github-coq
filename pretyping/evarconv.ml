@@ -425,7 +425,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       Cst_stack.empty in
     switch l2r (evar_eqappr_x ts env' evd CONV) out1 out2
   in
-  let eta_constructor env evd sk1 ((ind, i), u) sk2 term2 =
+  let eta_constructor env evd l2r sk1 ((ind, i), u) sk2 term2 =
     let mib = lookup_mind (fst ind) env in
     match mib.Declarations.mind_record with
     | Some (Some (id, projs, pbs)) when mib.Declarations.mind_finite == Decl_kinds.BiFinite -> 
@@ -437,7 +437,9 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	     let term = Stack.zip (term2,sk2) in 
 	       List.map (fun p -> mkProj (Projection.make p false, term)) (Array.to_list projs)
 	   in
-	     exact_ise_stack2 env evd (evar_conv_x (fst ts, false)) l1' 
+	     exact_ise_stack2 env evd
+               (fun env evd pbty -> switch l2r (evar_conv_x (fst ts, false) env evd pbty))
+               l1' 
 	       (Stack.append_app_list l2' Stack.empty)
 	 with 
 	 | Invalid_argument _ ->
@@ -517,7 +519,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     let eta evd =
       match kind_of_term termR with
       | Lambda _ -> eta_lambda env evd l2r skR termR skF termF
-      | Construct u -> eta_constructor env evd skR u skF termF
+      | Construct u -> eta_constructor env evd l2r skR u skF termF
       | _ -> UnifFailure (evd,NotSameHead)
     in
     let postpone lF tR evd =
@@ -849,10 +851,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	  rigids env evd sk1 term1 sk2 term2
 
 	| Construct u, _ ->
-	  eta_constructor env evd sk1 u sk2 term2
+	  eta_constructor env evd true sk1 u sk2 term2
 	    
 	| _, Construct u ->
-	  eta_constructor env evd sk2 u sk1 term1
+	  eta_constructor env evd false sk2 u sk1 term1
 
 	| Fix ((li1, i1),(_,tys1,bds1 as recdef1)), Fix ((li2, i2),(_,tys2,bds2)) -> (* Partially applied fixs *)
 	  if Int.equal i1 i2 && Array.equal Int.equal li1 li2 then
