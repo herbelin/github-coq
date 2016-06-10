@@ -293,6 +293,11 @@ val betazetaevar_applist : evar_map -> int -> constr -> constr list -> constr
 
 (** {6 Heuristic for Conversion with Evar } *)
 
+(* This is head-reduction using unconstrained head beta-iota, and
+   using delta-zeta only when it allows to go from (v,stk) ->
+   (applied constructor,case/fix/proj), then able to continue with
+   iota *)
+
 val whd_betaiota_deltazeta_for_iota_state :
   transparent_state -> Environ.env -> Evd.evar_map -> Cst_stack.t -> state ->
   state * Cst_stack.t

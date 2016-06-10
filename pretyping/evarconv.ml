@@ -384,11 +384,13 @@ let rec evar_conv_x ts env evd pbty term1 term2 =
 
 and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     ((term1,sk1 as appr1),csts1) ((term2,sk2 as appr2),csts2) =
-  let default_fail i = (* costly *)
-    UnifFailure (i,ConversionFailed (env, Stack.zip appr1, Stack.zip appr2)) in
-  let quick_fail i = (* not costly, loses info *)
-    UnifFailure (i, DontKnowHowToUnify)
+  let default_fail evd = (* more costly *)
+    UnifFailure (evd,ConversionFailed (env, Stack.zip appr1, Stack.zip appr2))
   in
+  let quick_fail evd = (* not costly, loses info *)
+    UnifFailure (evd, DontKnowHowToUnify)
+  in
+  let switch l2r f a b = if l2r then f a b else f b a in
   let miller_pfenning_app l2r ev lF tM evd =
     match is_unification_pattern_evar env evd ev lF tM with
     | None -> UnifFailure (evd, DontKnowHowToUnify)
@@ -398,18 +400,17 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       solve_simple_eqn (evar_conv_x ts) env evd (position_problem l2r pbty,ev,t2)
   in
   let consume_stack l2r (termF,skF) (termO,skO) evd =
-    let switch f a b = if l2r then f a b else f b a in
     let not_only_app = Stack.not_purely_applicative skO in
-    match switch (ise_stack2 not_only_app env evd (evar_conv_x ts)) skF skO with
+    match switch l2r (ise_stack2 not_only_app env evd (evar_conv_x ts)) skF skO with
     | Some (l,r), Success i' when l2r && (not_only_app || List.is_empty l) ->
         (* E[?n]=E'[redex] reduces to either l[?n]=r[redex] with
            case/fix/proj in E' (why?) or ?n=r[redex] *)
-	switch (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
+	switch l2r (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
     | Some (r,l), Success i' when not l2r && (not_only_app || List.is_empty l) ->
         (* E'[redex]=E[?n] reduces to either r[redex]=l[?n] with
            case/fix/proj in E' (why?) or r[redex]=?n *)
-	switch (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
-    | None, Success i' -> switch (evar_conv_x ts env i' pbty) termF termO
+	switch l2r (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
+    | None, Success i' -> switch l2r (evar_conv_x ts env i' pbty) termF termO
     | _, (UnifFailure _ as x) -> x
     | Some _, _ -> UnifFailure (evd,NotSameArgSize) in
   let eta_lambda env evd l2r sk term sk' term' =
@@ -422,17 +423,36 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     let out2 = whd_nored_state evd
       (lift 1 (Stack.zip (term', sk')), Stack.append_app [|mkRel 1|] Stack.empty),
       Cst_stack.empty in
-    if l2r then evar_eqappr_x ts env' evd CONV out1 out2
-    else evar_eqappr_x ts env' evd CONV out2 out1
+    switch l2r (evar_eqappr_x ts env' evd CONV) out1 out2
+  in
+  let eta_constructor env evd sk1 ((ind, i), u) sk2 term2 =
+    let mib = lookup_mind (fst ind) env in
+    match mib.Declarations.mind_record with
+    | Some (Some (id, projs, pbs)) when mib.Declarations.mind_finite == Decl_kinds.BiFinite -> 
+      let pars = mib.Declarations.mind_nparams in
+      (* HH: Shouldn't sk1 be purely applicative; this should be ensured by eval_flexible_term? *)
+	(try 
+	   let l1' = Stack.tail pars sk1 in
+	   let l2' = 
+	     let term = Stack.zip (term2,sk2) in 
+	       List.map (fun p -> mkProj (Projection.make p false, term)) (Array.to_list projs)
+	   in
+	     exact_ise_stack2 env evd (evar_conv_x (fst ts, false)) l1' 
+	       (Stack.append_app_list l2' Stack.empty)
+	 with 
+	 | Invalid_argument _ ->
+	   (* Stack.tail: partially applied constructor *)
+	   UnifFailure(evd,NotSameHead))
+    | _ -> UnifFailure (evd,NotSameHead)
   in
   let rigids env evd sk term sk' term' =
     let b,univs = Universes.eq_constr_universes term term' in
       if b then
-       ise_and evd [(fun i ->
-         let cstrs = Universes.to_constraints (Evd.universes i) univs in
-           try Success (Evd.add_constraints i cstrs)
-           with Univ.UniverseInconsistency p -> UnifFailure (i, UnifUnivInconsistency p));
-                  (fun i -> exact_ise_stack2 env i (evar_conv_x ts) sk sk')]
+       ise_and evd [(fun evd ->
+         let cstrs = Universes.to_constraints (Evd.universes evd) univs in
+           try Success (Evd.add_constraints evd cstrs)
+           with Univ.UniverseInconsistency p -> UnifFailure (evd, UnifUnivInconsistency p));
+                  (fun evd -> exact_ise_stack2 env evd (evar_conv_x ts) sk sk')]
       else UnifFailure (evd,NotSameHead)
   in
   let flex_maybeflex l2r ev ((_termF,skF as apprF),cstsF) ((termM, skM as apprM),cstsM) vM =
@@ -443,23 +463,21 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        2b. if E'=E'1[E'2] and E=E1[E2] and E=E'1 unifiable and E' contient app/fix/proj,
            recursively solve E2[?n[inst]] = E'2[redex]
        3.  reduce the redex into M and recursively solve E[?n[inst]] =? E'[M] *)
-    let switch f a b = if l2r then f a b else f b a in
-    let not_only_app = Stack.not_purely_applicative skM in
     let miller_pfenning evd =
       match Stack.list_of_app_stack skF with
       | None -> default_fail evd
       | Some lF -> 
 	let tM = Stack.zip apprM in
         miller_pfenning_app l2r ev lF tM evd
-    and consume (_termF,skF as apprF) (_termM,skM as apprM) i =
+    and consume (_termF,skF as apprF) (_termM,skM as apprM) evd =
       if not (Stack.is_empty skF && Stack.is_empty skM) then
-        consume_stack l2r apprF apprM i
-      else quick_fail i
-    and delta i =
-      switch (evar_eqappr_x ts env i pbty) (apprF,cstsF)
-	(whd_betaiota_deltazeta_for_iota_state (fst ts) env i cstsM (vM,skM))
-    in    
-    let default i = ise_try i [miller_pfenning; consume apprF apprM; delta]
+        consume_stack l2r apprF apprM evd
+      else quick_fail evd
+    and delta c evd =
+      switch l2r (evar_eqappr_x ts env evd pbty) (apprF,cstsF)
+	(whd_betaiota_deltazeta_for_iota_state (fst ts) env evd cstsM (c,skM))
+    in
+    let default evd = ise_try evd [miller_pfenning; consume apprF apprM; delta vM]
     in
       match kind_of_term termM with
       | Proj (p, c) when not (Stack.is_empty skF) ->
@@ -476,10 +494,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 		  let apprM', cstsM' = 
 		    whd_betaiota_deltazeta_for_iota_state (fst ts) env evd cstsM (termM',skM)
 		  in
-		  let delta' i = 
-		    switch (evar_eqappr_x ts env i pbty) (apprF,cstsF) (apprM',cstsM') 
-		  in
-		    fun i -> ise_try i [miller_pfenning; consume apprF apprM'; delta']
+	          fun evd -> ise_try evd [miller_pfenning; consume apprF apprM'; delta termM']
 		with Retyping.RetypeError _ ->
 		(* Happens thanks to w_unify building ill-typed terms *) 
 		  default
@@ -499,11 +514,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        3b. if M a constructor C ..ui..: eta-expand and recursively solve proji[E[?n[inst]]]=ui
        4.  fail if E purely applicative and ?n occurs rigidly in E'[M]
        5.  absorb arguments if purely applicative and postpone *)
-    let switch f a b = if l2r then f a b else f b a in
     let eta evd =
       match kind_of_term termR with
       | Lambda _ -> eta_lambda env evd false skR termR skF termF
-      | Construct u -> eta_constructor ts env evd skR u skF termF
+      | Construct u -> eta_constructor env evd skR u skF termF
       | _ -> UnifFailure (evd,NotSameHead)
     in
     let postpone lF tR evd =
@@ -515,7 +529,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
             evd, mkEvar ev
           else
             evd, Stack.zip apprF in
-	switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF tR
+	switch l2r (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF tR
       else
         UnifFailure (evd,OccurCheck (fst ev,tR)) in
 
@@ -835,10 +849,10 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	  rigids env evd sk1 term1 sk2 term2
 
 	| Construct u, _ ->
-	  eta_constructor ts env evd sk1 u sk2 term2
+	  eta_constructor env evd sk1 u sk2 term2
 	    
 	| _, Construct u ->
-	  eta_constructor ts env evd sk2 u sk1 term1
+	  eta_constructor env evd sk2 u sk1 term1
 
 	| Fix ((li1, i1),(_,tys1,bds1 as recdef1)), Fix ((li2, i2),(_,tys2,bds2)) -> (* Partially applied fixs *)
 	  if Int.equal i1 i2 && Array.equal Int.equal li1 li2 then
@@ -935,26 +949,6 @@ and conv_record trs env evd (ctx,(h,h2),c,bs,(params,params1),(us,us2),(sk1,sk2)
        (fun i -> evar_conv_x trs env i CONV h2
 	 (fst (decompose_app_vect (substl ks h))))]
   else UnifFailure(evd,(*dummy*)NotSameHead)
-
-and eta_constructor ts env evd sk1 ((ind, i), u) sk2 term2 =
-  let mib = lookup_mind (fst ind) env in
-    match mib.Declarations.mind_record with
-    | Some (Some (id, projs, pbs)) when mib.Declarations.mind_finite == Decl_kinds.BiFinite -> 
-      let pars = mib.Declarations.mind_nparams in
-      (* HH: Shouldn't sk1 be purely applicative; this should be ensured by eval_flexible_term? *)
-	(try 
-	   let l1' = Stack.tail pars sk1 in
-	   let l2' = 
-	     let term = Stack.zip (term2,sk2) in 
-	       List.map (fun p -> mkProj (Projection.make p false, term)) (Array.to_list projs)
-	   in
-	     exact_ise_stack2 env evd (evar_conv_x (fst ts, false)) l1' 
-	       (Stack.append_app_list l2' Stack.empty)
-	 with 
-	 | Invalid_argument _ ->
-	   (* Stack.tail: partially applied constructor *)
-	   UnifFailure(evd,NotSameHead))
-    | _ -> UnifFailure (evd,NotSameHead)
 
 let evar_conv_x ts = evar_conv_x (ts, true)
 
