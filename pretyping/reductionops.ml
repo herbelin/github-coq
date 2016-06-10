@@ -469,14 +469,12 @@ struct
   let list_of_app_stack s =
     let rec aux = function
       | App (i,a,j) :: s ->
-	 let (k,(args',s')) = aux s in
-	 let a' = Array.map (Vars.lift k) (Array.sub a i (j - i + 1)) in
-	 k,(Array.fold_right (fun x y -> x::y) a' args', s')
-      | s -> (0,([],s)) in
-    let (lft,(out,s')) = aux s in
-    if lft <> 0 then failwith "sfdfdsf";
-    let init = match s' with [] when Int.equal lft 0 -> true | _ -> false in
-    Option.init init out
+	 let (args',s') = aux s in
+	 let a' = Array.sub a i (j - i + 1) in
+	 (Array.fold_right (fun x y -> x::y) a' args', s')
+      | s -> ([],s) in
+    let (out,s') = aux s in
+    match s' with [] -> Some out | _ -> None
 
   let assign s p c =
     match strip_n_app p s with
