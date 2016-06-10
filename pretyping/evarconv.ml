@@ -387,16 +387,15 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
   let default_fail i = (* costly *)
     UnifFailure (i,ConversionFailed (env, Stack.zip appr1, Stack.zip appr2)) in
   let quick_fail i = (* not costly, loses info *)
-    UnifFailure (i, NotSameHead)
+    UnifFailure (i, DontKnowHowToUnify)
   in
-  let miller_pfenning l2r fallback ev lF tM evd =
+  let miller_pfenning_app l2r ev lF tM evd =
     match is_unification_pattern_evar env evd ev lF tM with
-      | None -> fallback ()
-      | Some l1' -> (* Miller-Pfenning's patterns unification *)
-	let t2 = nf_evar evd tM in
-	let t2 = solve_pattern_eqn env l1' t2 in
-	  solve_simple_eqn (evar_conv_x ts) env evd
-	    (position_problem l2r pbty,ev,t2)
+    | None -> UnifFailure (evd, DontKnowHowToUnify)
+    | Some l1' -> (* Miller-Pfenning's patterns unification *)
+      let t2 = nf_evar evd tM in
+      let t2 = solve_pattern_eqn env l1' t2 in
+      solve_simple_eqn (evar_conv_x ts) env evd (position_problem l2r pbty,ev,t2)
   in
   let consume_stack l2r (termF,skF) (termO,skO) evd =
     let switch f a b = if l2r then f a b else f b a in
@@ -446,12 +445,12 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        3.  reduce the redex into M and recursively solve E[?n[inst]] =? E'[M] *)
     let switch f a b = if l2r then f a b else f b a in
     let not_only_app = Stack.not_purely_applicative skM in
-    let f1 i =
+    let miller_pfenning evd =
       match Stack.list_of_app_stack skF with
       | None -> default_fail evd
       | Some lF -> 
 	let tM = Stack.zip apprM in
-        miller_pfenning l2r (fun () -> quick_fail i) ev lF tM i
+        miller_pfenning_app l2r ev lF tM evd
     and consume (_termF,skF as apprF) (_termM,skM as apprM) i =
       if not (Stack.is_empty skF && Stack.is_empty skM) then
         consume_stack l2r apprF apprM i
@@ -460,7 +459,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       switch (evar_eqappr_x ts env i pbty) (apprF,cstsF)
 	(whd_betaiota_deltazeta_for_iota_state (fst ts) env i cstsM (vM,skM))
     in    
-    let default i = ise_try i [f1; consume apprF apprM; delta]
+    let default i = ise_try i [miller_pfenning; consume apprF apprM; delta]
     in
       match kind_of_term termM with
       | Proj (p, c) when not (Stack.is_empty skF) ->
@@ -480,7 +479,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 		  let delta' i = 
 		    switch (evar_eqappr_x ts env i pbty) (apprF,cstsF) (apprM',cstsM') 
 		  in
-		    fun i -> ise_try i [f1; consume apprF apprM'; delta']
+		    fun i -> ise_try i [miller_pfenning; consume apprF apprM'; delta']
 		with Retyping.RetypeError _ ->
 		(* Happens thanks to w_unify building ill-typed terms *) 
 		  default
@@ -502,34 +501,31 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        5.  absorb arguments if purely applicative and postpone *)
     let switch f a b = if l2r then f a b else f b a in
     let eta evd =
-             match kind_of_term termR with
-	     | Lambda _ -> eta env evd false skR termR skF termF
-	     | Construct u -> eta_constructor ts env evd skR u skF termF
-	     | _ -> UnifFailure (evd,NotSameHead)
+      match kind_of_term termR with
+      | Lambda _ -> eta env evd false skR termR skF termF
+      | Construct u -> eta_constructor ts env evd skR u skF termF
+      | _ -> UnifFailure (evd,NotSameHead)
     in
+    let postpone lF tR evd =
+      if not (occur_rigidly (fst ev) evd tR) then
+        let evd,tF =
+          if isRel tR || isVar tR then
+            (* Optimization so as to generate candidates *)
+            let evd,ev = evar_absorb_arguments env evd ev lF in
+            evd, mkEvar ev
+          else
+            evd, Stack.zip apprF in
+	switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF tR
+      else
+        UnifFailure (evd,OccurCheck (fst ev,tR)) in
+
     match Stack.list_of_app_stack skF with
     | None ->
-        ise_try evd [consume_stack l2r apprF apprR; eta]
+       ise_try evd [consume_stack l2r apprF apprR; eta]
     | Some lF ->
-        let tR = Stack.zip apprR in
-	  miller_pfenning l2r
-	    (fun () ->
-	      ise_try evd 
-	        [eta;(* Postpone the use of an heuristic *)
-		 (fun i -> 
-		   if not (occur_rigidly (fst ev) i tR) then
-                     let i,tF =
-                       if isRel tR || isVar tR then
-                         (* Optimization so as to generate candidates *)
-                         let i,ev = evar_absorb_arguments env i ev lF in
-                         i,mkEvar ev
-                       else
-                         i,Stack.zip apprF in
-		     switch (fun x y -> Success (add_conv_pb (pbty,env,x,y) i))
-	               tF tR
-		   else
-                     UnifFailure (evd,OccurCheck (fst ev,tR)))])
-	    ev lF tR evd
+       let tR = Stack.zip apprR in
+       ise_try evd [miller_pfenning_app l2r ev lF tR; eta; postpone lF tR]
+
   in
   let app_empty = match sk1, sk2 with [], [] -> true | _ -> false in
   (* Evar must be undefined since we have flushed evars *)
