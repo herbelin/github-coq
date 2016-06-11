@@ -413,41 +413,52 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
     | None, Success i' -> switch l2r (evar_conv_x ts env i' pbty) termF termO
     | _, (UnifFailure _ as x) -> x
     | Some _, _ -> UnifFailure (evd,NotSameArgSize) in
-  let eta_lambda env evd l2r sk term sk' term' =
-    assert (match sk with [] -> true | _ -> false);
-    let (na,c1,c'1) = destLambda term in
-    let c = nf_evar evd c1 in
-    let env' = push_rel (LocalAssum (na,c)) env in
-    let out1 = whd_betaiota_deltazeta_for_iota_state
-      (fst ts) env' evd Cst_stack.empty (c'1, Stack.empty) in
-    let out2 = whd_nored_state evd
-      (lift 1 (Stack.zip (term', sk')), Stack.append_app [|mkRel 1|] Stack.empty),
+  (* Eta-expand [appr1] under the assumption that [term2] is a lambda *)
+  let eta_lambda env evd l2r appr1 (term2,sk2) =
+    assert (match sk2 with [] -> true | _ -> false);
+    let (na,t2,c2) = destLambda term2 in
+    let t = nf_evar evd t2 in
+    let env' = push_rel (LocalAssum (na,t)) env in
+    let out2 = whd_betaiota_deltazeta_for_iota_state
+      (fst ts) env' evd Cst_stack.empty (c2, Stack.empty) in
+    let out1 = whd_nored_state evd
+      (lift 1 (Stack.zip appr1), Stack.append_app [|mkRel 1|] Stack.empty),
       Cst_stack.empty in
     switch l2r (evar_eqappr_x ts env' evd CONV) out1 out2
   in
-  let eta_constructor env evd l2r sk1 ((ind, i), u) sk2 term2 =
+  (* Eta-expand [appr1] under the assumption that [term2] is a constructor *)
+  let eta_constructor env evd l2r appr1 (term2,sk2) =
+    let ((ind,i),u) = destConstruct term2 in
     let mib = lookup_mind (fst ind) env in
     match mib.Declarations.mind_record with
     | Some (Some (id, projs, pbs)) when mib.Declarations.mind_finite == Decl_kinds.BiFinite -> 
       let pars = mib.Declarations.mind_nparams in
       (* HH: Shouldn't sk1 be purely applicative; this should be ensured by eval_flexible_term? *)
 	(try 
-	   let l1' = Stack.tail pars sk1 in
-	   let l2' = 
-	     let term = Stack.zip (term2,sk2) in 
+	   let l2' = Stack.tail pars sk2 in
+	   let l1' =
+	     let term = Stack.zip appr1 in
 	       List.map (fun p -> mkProj (Projection.make p false, term)) (Array.to_list projs)
 	   in
 	     exact_ise_stack2 env evd
                (fun env evd pbty -> switch l2r (evar_conv_x (fst ts, false) env evd pbty))
-               l1' 
-	       (Stack.append_app_list l2' Stack.empty)
+	       (Stack.append_app_list l1' Stack.empty)
+               l2'
 	 with 
 	 | Invalid_argument _ ->
 	   (* Stack.tail: partially applied constructor *)
 	   UnifFailure(evd,NotSameHead))
     | _ -> UnifFailure (evd,NotSameHead)
   in
-  let rigids env evd sk term sk' term' =
+  (* Try to eta-expand [appr1] when [term2] is a lambda or constructor *)
+  let eta l2r appr1 (term2, sk2 as appr2) evd =
+    match kind_of_term term2 with
+    | Lambda _ -> eta_lambda env evd l2r appr1 appr2
+    | Construct _ -> eta_constructor env evd l2r appr1 appr2
+    | _ -> UnifFailure (evd,NotSameHead)
+  in
+  (* Unify applied non-evaluable references (axioms, inductive, constructors) *)
+  let rigids env evd (term,sk) (term',sk') =
     let b,univs = Universes.eq_constr_universes term term' in
       if b then
        ise_and evd [(fun evd ->
@@ -456,6 +467,19 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
            with Univ.UniverseInconsistency p -> UnifFailure (evd, UnifUnivInconsistency p));
                   (fun evd -> exact_ise_stack2 env evd (evar_conv_x ts) sk sk')]
       else UnifFailure (evd,NotSameHead)
+  in
+  let postpone_applicative l2r ev lF apprF tR evd =
+    if not (occur_rigidly (fst ev) evd tR) then
+      let evd,tF =
+        if isRel tR || isVar tR then
+          (* Optimization so as to generate candidates *)
+          let evd,ev = evar_absorb_arguments env evd ev lF in
+          evd, mkEvar ev
+        else
+          evd, Stack.zip apprF in
+      switch l2r (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF tR
+    else
+      UnifFailure (evd,OccurCheck (fst ev,tR))
   in
   let flex_maybeflex l2r ev ((_termF,skF as apprF),cstsF) ((termM, skM as apprM),cstsM) vM =
     (* Problem: E[?n[inst]] = E'[redex]
@@ -516,31 +540,15 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        3b. if M a constructor C ..ui..: eta-expand and recursively solve proji[E[?n[inst]]]=ui
        4.  fail if E purely applicative and ?n occurs rigidly in E'[M]
        5.  absorb arguments if purely applicative and postpone *)
-    let eta evd =
-      match kind_of_term termR with
-      | Lambda _ -> eta_lambda env evd l2r skR termR skF termF
-      | Construct u -> eta_constructor env evd l2r skR u skF termF
-      | _ -> UnifFailure (evd,NotSameHead)
-    in
-    let postpone lF tR evd =
-      if not (occur_rigidly (fst ev) evd tR) then
-        let evd,tF =
-          if isRel tR || isVar tR then
-            (* Optimization so as to generate candidates *)
-            let evd,ev = evar_absorb_arguments env evd ev lF in
-            evd, mkEvar ev
-          else
-            evd, Stack.zip apprF in
-	switch l2r (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF tR
-      else
-        UnifFailure (evd,OccurCheck (fst ev,tR)) in
 
     match Stack.list_of_app_stack skF with
     | None ->
-       ise_try evd [consume_stack l2r apprF apprR; eta]
+       ise_try evd [consume_stack l2r apprF apprR; eta l2r apprF apprR]
     | Some lF ->
        let tR = Stack.zip apprR in
-       ise_try evd [miller_pfenning_app l2r ev lF tR; eta; postpone lF tR]
+       ise_try evd [miller_pfenning_app l2r ev lF tR;
+                    eta l2r apprF apprR;
+                    postpone_applicative l2r ev lF apprF tR]
 
   in
   let app_empty = match sk1, sk2 with [], [] -> true | _ -> false in
@@ -765,17 +773,6 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	ise_try evd [f1; f2; f3]
     end
 
-    | Rigid, Rigid when isLambda term1 && isLambda term2 ->
-        let (na1,c1,c'1) = destLambda term1 in
-        let (na2,c2,c'2) = destLambda term2 in
-        assert app_empty;
-        ise_and evd
-          [(fun i -> evar_conv_x ts env i CONV c1 c2);
-           (fun i ->
-	     let c = nf_evar i c1 in
-             let na = Nameops.name_max na1 na2 in
-	     evar_conv_x ts (push_rel (LocalAssum (na,c)) env) i CONV c'1 c'2)]
-
     | Flexible ev1, Rigid -> flex_rigid true ev1 appr1 appr2
     | Rigid, Flexible ev2 -> flex_rigid false ev2 appr2 appr1
 
@@ -806,12 +803,23 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	in
 	  ise_try evd [f3; f4]
 
-    (* Eta-expansion *)
-    | Rigid, _ when isLambda term1 ->
-        eta_lambda env evd true sk1 term1 sk2 term2
+    | Rigid, Rigid when isLambda term1 && isLambda term2 ->
+        let (na1,c1,c'1) = destLambda term1 in
+        let (na2,c2,c'2) = destLambda term2 in
+        assert app_empty;
+        ise_and evd
+          [(fun i -> evar_conv_x ts env i CONV c1 c2);
+           (fun i ->
+	     let c = nf_evar i c1 in
+             let na = Nameops.name_max na1 na2 in
+	     evar_conv_x ts (push_rel (LocalAssum (na,c)) env) i CONV c'1 c'2)]
 
+    (* Eta-expansion *)
     | _, Rigid when isLambda term2 ->
-        eta_lambda env evd false sk2 term2 sk1 term1
+        eta_lambda env evd true appr1 appr2
+
+    | Rigid, _ when isLambda term1 ->
+        eta_lambda env evd false appr2 appr1
 
     | Rigid, Rigid -> begin
         match kind_of_term term1, kind_of_term term2 with
@@ -848,14 +856,14 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
 	| Const _, Const _
 	| Ind _, Ind _ 
 	| Construct _, Construct _ ->
-	  rigids env evd sk1 term1 sk2 term2
+	  rigids env evd appr1 appr2
 
-	| Construct u, _ ->
-	  eta_constructor env evd true sk1 u sk2 term2
+	| _, Construct _ ->
+	  eta_constructor env evd true appr1 appr2
+
+	| Construct _, _ ->
+	  eta_constructor env evd false appr2 appr1
 	    
-	| _, Construct u ->
-	  eta_constructor env evd false sk2 u sk1 term1
-
 	| Fix ((li1, i1),(_,tys1,bds1 as recdef1)), Fix ((li2, i2),(_,tys2,bds2)) -> (* Partially applied fixs *)
 	  if Int.equal i1 i2 && Array.equal Int.equal li1 li2 then
             ise_and evd [
