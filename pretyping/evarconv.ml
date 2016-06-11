@@ -468,18 +468,20 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
                   (fun evd -> exact_ise_stack2 env evd (evar_conv_x ts) sk sk')]
       else UnifFailure (evd,NotSameHead)
   in
-  let postpone_applicative l2r ev lF apprF tR evd =
-    if not (occur_rigidly (fst ev) evd tR) then
+  (* Postpone an equation <?ev|lF> =? t when lF is purely applicative and no
+     occur-check fails; optmize by using candidates when tR is a variable *)
+  let postpone_applicative l2r ev lF apprF t evd =
+    if not (occur_rigidly (fst ev) evd t) then
       let evd,tF =
-        if isRel tR || isVar tR then
+        if isRel t || isVar t then
           (* Optimization so as to generate candidates *)
           let evd,ev = evar_absorb_arguments env evd ev lF in
           evd, mkEvar ev
         else
           evd, Stack.zip apprF in
-      switch l2r (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF tR
+      switch l2r (fun x y -> Success (add_conv_pb (pbty,env,x,y) evd)) tF t
     else
-      UnifFailure (evd,OccurCheck (fst ev,tR))
+      UnifFailure (evd,OccurCheck (fst ev,t))
   in
   let flex_maybeflex l2r ev ((_termF,skF as apprF),cstsF) ((termM, skM as apprM),cstsM) vM =
     (* Problem: E[?n[inst]] = E'[redex]
@@ -529,7 +531,7 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
       | _ -> default evd
   in
   let flex_rigid l2r ev (termF, skF as apprF) (termR, skR as apprR) =
-    (* Problem: E[?n[inst]] = E'[M] with M blocking computation (in theory)
+    (* Problem: E[?n[inst]] = E2[M] with M blocking computation so that E2[M] is a whd nf
        Strategy, as far as I understand:
        1.  if E[]=[]u1..un and ?n[inst] u1..un = E'[M] is a Miller pattern: solve it now
        2a. if E'=E'1[E'2] and E=E'1 unifiable and E' contient app/fix/proj,
@@ -537,14 +539,13 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
        2b. if E'=E'1[E'2] and E=E1[E2] and E=E'1 unifiable and E' contient app/fix/proj,
            recursively solve E2[?n[inst]] = E'2[M]
        3a. if M a lambda or a constructor: eta-expand and recursively solve
-       3b. if M a constructor C ..ui..: eta-expand and recursively solve proji[E[?n[inst]]]=ui
-       4.  fail if E purely applicative and ?n occurs rigidly in E'[M]
-       5.  absorb arguments if purely applicative and postpone *)
-
+       3b. if M a constructor C ..ui..: eta-expand and recursively solve proji[E[?n[inst]]]=ui *)
     match Stack.list_of_app_stack skF with
     | None ->
+       (* Non purely applicative context *)
        ise_try evd [consume_stack l2r apprF apprR; eta l2r apprF apprR]
     | Some lF ->
+       (* Purely applicative context *)
        let tR = Stack.zip apprR in
        ise_try evd [miller_pfenning_app l2r ev lF tR;
                     eta l2r apprF apprR;
