@@ -401,14 +401,11 @@ and evar_eqappr_x ?(rhs_is_already_stuck = false) ts env evd pbty
   in
   let consume_stack l2r (termF,skF) (termO,skO) evd =
     let not_only_app = Stack.not_purely_applicative skO in
-    match switch l2r (ise_stack2 not_only_app env evd (evar_conv_x ts)) skF skO with
-    | Some (l,r), Success i' when l2r && (not_only_app || List.is_empty l) ->
+    let f env evd pbty = switch l2r (evar_conv_x ts env evd pbty) in
+    match ise_stack2 not_only_app env evd f skF skO with
+    | Some (l,r), Success i' when not_only_app || List.is_empty l ->
         (* E[?n]=E'[redex] reduces to either l[?n]=r[redex] with
            case/fix/proj in E' (why?) or ?n=r[redex] *)
-	switch l2r (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
-    | Some (r,l), Success i' when not l2r && (not_only_app || List.is_empty l) ->
-        (* E'[redex]=E[?n] reduces to either r[redex]=l[?n] with
-           case/fix/proj in E' (why?) or r[redex]=?n *)
 	switch l2r (evar_conv_x ts env i' pbty) (Stack.zip(termF,l)) (Stack.zip(termO,r))
     | None, Success i' -> switch l2r (evar_conv_x ts env i' pbty) termF termO
     | _, (UnifFailure _ as x) -> x
