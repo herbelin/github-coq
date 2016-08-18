@@ -1945,7 +1945,7 @@ let prepare_predicate loc typing_fun env sigma tomatchs arsign tycon pred =
 	(* Second strategy: we build an "inversion" predicate *)
 	let sigma2,pred2 = build_inversion_problem loc env sigma tomatchs t in
 	(match p1 with
-	 | Some (sigma1,pred1) -> [sigma1, pred1; sigma2, pred2]
+	 | Some (sigma1,pred1) -> [sigma2, pred2; sigma1, pred1]
 	 | None -> [sigma2, pred2])
     | None, _ ->
 	(* No dependent type constraint, or no constraints at all: *)
