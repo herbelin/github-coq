@@ -1061,7 +1061,7 @@ module Search = struct
            Feedback.msg_debug
              (pr_depth (i :: info.search_depth) ++ str": " ++ Lazy.force pp
               ++ str" on" ++ spc () ++ pr_ev s (Proofview.Goal.goal gl)
-              ++ str", " ++ int j ++ str" subgoal(s)" ++
+              ++ str", " ++ int j ++ str (String.plural j " subgoal") ++
                 (Option.cata (fun k -> str " in addition to the first " ++ int k)
                              (mt()) k)));
         let res =
@@ -1121,7 +1121,7 @@ module Search = struct
            Feedback.msg_debug
              (pr_depth info.search_depth ++ str": no match for " ++
                 Printer.pr_constr_env (Goal.env gl) s concl ++
-                spc () ++ str ", " ++ int (List.length poss) ++
+                str ", " ++ int (List.length poss) ++
                 str" possibilities");
          match e with
          | (ReachedLimitEx,ie) -> Proofview.tclZERO ~info:ie ReachedLimitEx
