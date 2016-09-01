@@ -773,7 +773,7 @@ let detype_closed_glob ?lax isgoal avoid env sigma t =
         GLetTuple (loc,ids,(n,r),detype_closed_glob cl b, detype_closed_glob cl e)
     | GCases (loc,sty,po,tml,eqns) ->
         let (tml,eqns) =
-          Glob_ops.map_pattern_binders (fun na -> convert_name cl na) tml eqns
+          Glob_ops.map_pattern_binders (fun na -> convert_name cl na) (detype_closed_glob cl) tml eqns
         in
         let (tml,eqns) =
           Glob_ops.map_pattern (fun c -> detype_closed_glob cl c) tml eqns
@@ -786,15 +786,6 @@ let detype_closed_glob ?lax isgoal avoid env sigma t =
 
 (**********************************************************************)
 (* Module substitution: relies on detyping                            *)
-
-let rec subst_cases_pattern subst pat =
-  match pat with
-  | PatVar _ -> pat
-  | PatCstr (loc,((kn,i),j),cpl,n) ->
-      let kn' = subst_mind subst kn
-      and cpl' = List.smartmap (subst_cases_pattern subst) cpl in
-	if kn' == kn && cpl' == cpl then pat else
-	  PatCstr (loc,((kn',i),j),cpl',n)
 
 let (f_subst_genarg, subst_genarg_hook) = Hook.make ()
 
@@ -896,6 +887,20 @@ let rec subst_glob_constr subst raw =
       let r1' = subst_glob_constr subst r1 in
       let k' = Miscops.smartmap_cast_type (subst_glob_constr subst) k in
       if r1' == r1 && k' == k then raw else GCast (loc,r1',k')
+
+  and subst_cases_pattern subst pat =
+  match pat with
+  | PatVar _ -> pat
+  | PatCstr (loc,((kn,i),j),cpl,n) ->
+      let kn' = subst_mind subst kn
+      and cpl' = List.smartmap (subst_cases_pattern subst) cpl in
+	if kn' == kn && cpl' == cpl then pat else
+	  PatCstr (loc,((kn',i),j),cpl',n)
+  | PatCast (loc,p,c) ->
+      let p' = subst_cases_pattern subst p
+      and c' = subst_glob_constr subst c in
+	if p' == p && c' == c then pat else
+	  PatCast (loc,p',c')
 
 (* Utilities to transform kernel cases to simple pattern-matching problem *)
 

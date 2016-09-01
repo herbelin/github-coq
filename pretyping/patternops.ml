@@ -405,7 +405,7 @@ let rec pat_of_raw metas vars = function
 and pats_of_glob_branches loc metas vars ind brs =
   let get_arg = function
     | PatVar(_,na) -> na
-    | PatCstr(loc,_,_,_) -> err loc (Pp.str "Non supported pattern.")
+    | PatCstr(loc,_,_,_) | PatCast(loc,_,_) -> err loc (Pp.str "Non supported pattern.")
   in
   let rec get_pat indexes = function
     | [] -> false, []

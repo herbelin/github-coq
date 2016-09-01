@@ -59,7 +59,7 @@ val rename_glob_vars : (Id.t * Id.t) list -> glob_constr -> glob_constr
     here by its relevant components [m] and [c]. It is used to
     interpret Ltac-bound names both in pretyping and printing of
     terms. *)
-val map_pattern_binders : (name -> name) ->
+val map_pattern_binders : (name -> name) -> (glob_constr -> glob_constr) ->
   tomatch_tuples -> cases_clauses -> (tomatch_tuples*cases_clauses)
 
 (** [map_pattern f m c] applies [f] to the return predicate and the

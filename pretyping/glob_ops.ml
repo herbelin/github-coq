@@ -18,6 +18,7 @@ open Glob_term
 let cases_pattern_loc = function
     PatVar(loc,_) -> loc
   | PatCstr(loc,_,_,_) -> loc
+  | PatCast(loc,_,_) -> loc
 
 let cases_predicate_names tml =
   List.flatten (List.map (function
@@ -415,7 +416,7 @@ let map_tomatch_binders f ((c,(na,inp)) as x) : tomatch_tuple =
   if r == inp then x
   else c,(f na, r)
 
-let rec map_case_pattern_binders f = function
+let rec map_case_pattern_binders f g = function
   | PatVar (loc,na) as x ->
       let r = f na in
       if r == na then x
@@ -423,23 +424,28 @@ let rec map_case_pattern_binders f = function
   | PatCstr (loc,c,ps,na) as x ->
       let rna = f na in
       let rps =
-        CList.smartmap (fun p -> map_case_pattern_binders f p) ps
+        CList.smartmap (fun p -> map_case_pattern_binders f g p) ps
       in
       if rna == na && rps == ps then x
       else PatCstr(loc,c,rps,rna)
+  | PatCast (loc,p,c) as x ->
+      let rp = map_case_pattern_binders f g p in
+      let rc = g c in
+      if rp == p && rc == c then x
+      else PatCast (loc,rp,rc)
 
-let map_cases_branch_binders f ((loc,il,cll,rhs) as x) : cases_clause =
+let map_cases_branch_binders f g ((loc,il,cll,rhs) as x) : cases_clause =
   (* spiwack: not sure if I must do something with the list of idents.
      It is intended to be a superset of the free variable of the
      right-hand side, if I understand correctly. But I'm not sure when
      or how they are used. *)
-  let r = List.smartmap (fun cl -> map_case_pattern_binders f cl) cll in
+  let r = List.smartmap (fun cl -> map_case_pattern_binders f g cl) cll in
   if r == cll then x
   else loc,il,r,rhs
 
-let map_pattern_binders f tomatch branches =
+let map_pattern_binders f g tomatch branches =
   CList.smartmap (fun tm -> map_tomatch_binders f tm) tomatch,
-  CList.smartmap (fun br -> map_cases_branch_binders f br) branches
+  CList.smartmap (fun br -> map_cases_branch_binders f g br) branches
 
 (** /mapping of names in binders *)
 

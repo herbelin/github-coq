@@ -21,14 +21,6 @@ open Misctypes
 
 type existential_name = Id.t
 
-(**  The kind of patterns that occurs in "match ... with ... end"
-
-     locs here refers to the ident's location, not whole pat *)
-type cases_pattern =
-  | PatVar of Loc.t * Name.t
-  | PatCstr of Loc.t * constructor * cases_pattern list * Name.t
-      (** [PatCstr(p,C,l,x)] = "|'C' 'l' as 'x'" *)
-
 (** Representation of an internalized (or in other words globalized) term. *)
 type glob_constr =
   | GRef of (Loc.t * global_reference * glob_level list option)
@@ -77,6 +69,14 @@ and cases_clause = (Loc.t * Id.t list * cases_pattern list * glob_constr)
 (** [(p,il,cl,t)] = "|'cl' => 't'". Precondition: the free variables
     of [t] are members of [il]. *)
 and cases_clauses = cases_clause list
+
+(**  The kind of patterns that occurs in "match ... with ... end";
+     locs here refers to the ident's location, not whole pat *)
+and cases_pattern =
+  | PatVar of Loc.t * Name.t
+  | PatCstr of Loc.t * constructor * cases_pattern list * Name.t
+      (** [PatCstr(p,C,l,x)] = "|'C' 'l' as 'x'" *)
+  | PatCast of Loc.t * cases_pattern * glob_constr
 
 (** A globalised term together with a closure representing the value
     of its free variables. Intended for use when these variables are taken
