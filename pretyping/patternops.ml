@@ -511,7 +511,7 @@ and pats_of_glob_branches loc metas vars ind brs =
     | PatVar na ->
       Name.iter (fun n -> metas := n::!metas) na;
       na
-    | PatCstr(_,_,_) -> err ?loc:p.CAst.loc (Pp.str "Non supported pattern.")
+    | PatCstr(_,_,_) | PatCast(_,_) -> err ?loc:p.CAst.loc (Pp.str "Non supported pattern.")
   in
   let rec get_pat indexes = function
     | [] -> false, []

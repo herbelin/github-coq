@@ -33,7 +33,7 @@ type notation_constr =
   | NLetIn of Name.t * notation_constr * notation_constr option * notation_constr
   | NCases of Constr.case_style * notation_constr option *
       (notation_constr * (Name.t * (inductive * Name.t list) option)) list *
-      (cases_pattern list * notation_constr) list
+      (([`any],notation_constr) cases_pattern_g list * notation_constr) list
   | NLetTuple of Name.t list * (Name.t * notation_constr option) *
       notation_constr * notation_constr
   | NIf of notation_constr * (Name.t * notation_constr option) *

@@ -47,6 +47,14 @@ and glob_fix_kind =
   | GFix of (glob_recarg array * int)
   | GCoFix of int
 
+type ('a,'b) cases_pattern_r =
+  | PatVar  of Name.t
+  | PatCstr of constructor * ('a,'b) cases_pattern_g list * Name.t
+      (** [PatCstr(p,C,l,x)] = "|'C' 'l' as 'x'" *)
+  | PatCast of ('a,'b) cases_pattern_g * 'b
+
+and ('a,'b) cases_pattern_g = (('a,'b) cases_pattern_r, 'a) DAst.t
+
 (** Casts *)
 
 type 'a cast_type =
@@ -54,17 +62,6 @@ type 'a cast_type =
   | CastVM of 'a
   | CastCoerce (** Cast to a base type (eg, an underlying inductive type) *)
   | CastNative of 'a
-
-(**  The kind of patterns that occurs in "match ... with ... end"
-
-     locs here refers to the ident's location, not whole pat *)
-type 'a cases_pattern_r =
-  | PatVar  of Name.t
-  | PatCstr of constructor * 'a cases_pattern_g list * Name.t
-      (** [PatCstr(p,C,l,x)] = "|'C' 'l' as 'x'" *)
-and 'a cases_pattern_g = ('a cases_pattern_r, 'a) DAst.t
-
-type cases_pattern = [ `any ] cases_pattern_g
 
 (** Representation of an internalized (or in other words globalized) term. *)
 type 'a glob_constr_r =
@@ -102,12 +99,13 @@ and 'a tomatch_tuple_g = ('a glob_constr_g * 'a predicate_pattern_g)
 
 and 'a tomatch_tuples_g = 'a tomatch_tuple_g list
 
-and 'a cases_clause_g = (Id.t list * 'a cases_pattern_g list * 'a glob_constr_g) CAst.t
+and 'a cases_clause_g = (Id.t list * ('a,'a glob_constr_g) cases_pattern_g list * 'a glob_constr_g) CAst.t
 (** [(p,il,cl,t)] = "|'cl' => 't'". Precondition: the free variables
     of [t] are members of [il]. *)
 
 and 'a cases_clauses_g = 'a cases_clause_g list
 
+type cases_pattern = ([ `any ],[ `any ] glob_constr_g) cases_pattern_g
 type glob_constr = [ `any ] glob_constr_g
 type tomatch_tuple = [ `any ] tomatch_tuple_g
 type tomatch_tuples = [ `any ] tomatch_tuples_g
@@ -118,9 +116,9 @@ type predicate_pattern = [ `any ] predicate_pattern_g
 
 type any_glob_constr = AnyGlobConstr : 'r glob_constr_g -> any_glob_constr
 
-type 'a disjunctive_cases_clause_g = (Id.t list * 'a cases_pattern_g list list * 'a glob_constr_g) CAst.t
+type 'a disjunctive_cases_clause_g = (Id.t list * ('a, 'a glob_constr_g) cases_pattern_g list list * 'a glob_constr_g) CAst.t
 type 'a disjunctive_cases_clauses_g = 'a disjunctive_cases_clause_g list
-type 'a cases_pattern_disjunction_g = 'a cases_pattern_g list
+type 'a cases_pattern_disjunction_g = ('a, 'a glob_constr_g) cases_pattern_g list
 
 type disjunctive_cases_clause = [ `any ] disjunctive_cases_clause_g
 type disjunctive_cases_clauses = [ `any ] disjunctive_cases_clauses_g

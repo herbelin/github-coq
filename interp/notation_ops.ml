@@ -53,7 +53,7 @@ let rec eq_notation_constr (vars1,vars2 as vars) t1 t2 = match t1, t2 with
   Option.equal (eq_notation_constr vars) t1 t2 && (eq_notation_constr vars) u1 u2
 | NCases (_, o1, r1, p1), NCases (_, o2, r2, p2) -> (* FIXME? *)
   let eqpat (p1, t1) (p2, t2) =
-    List.equal cases_pattern_eq p1 p2 &&
+    List.equal (cases_pattern_eq (eq_notation_constr vars)) p1 p2 &&
     (eq_notation_constr vars) t1 t2
   in
   let eqf (t1, (na1, o1)) (t2, (na2, o2)) =
@@ -414,7 +414,7 @@ let notation_constr_and_vars_of_glob_constr recvars a =
   | GProd (na,bk,ty,c) -> add_name found na; NProd (na,aux ty,aux c)
   | GLetIn (na,b,t,c) -> add_name found na; NLetIn (na,aux b,Option.map aux t, aux c)
   | GCases (sty,rtntypopt,tml,eqnl) ->
-      let f {CAst.v=(idl,pat,rhs)} = List.iter (add_id found) idl; (pat,aux rhs) in
+      let f {CAst.v=(idl,pat,rhs)} = List.iter (add_id found) idl; (List.map aux'' pat,aux rhs) in
       NCases (sty,Option.map aux rtntypopt,
         List.map (fun (tm,(na,x)) ->
 	  add_name found na;
@@ -445,6 +445,11 @@ let notation_constr_and_vars_of_glob_constr recvars a =
   | GRef (r,_) -> NRef r
   | GEvar _ | GPatVar _ ->
       user_err Pp.(str "Existential variables not allowed in notations.")
+  ) x
+  and aux'' x = DAst.map (function
+  | PatVar na -> (PatVar na: ('a,'b) cases_pattern_r)
+  | PatCstr (cstr,pl,na) -> PatCstr (cstr,List.map aux'' pl,na)
+  | PatCast (pat,t) -> PatCast (aux'' pat,aux' t)
   ) x
   in
   let t = aux a in

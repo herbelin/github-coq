@@ -987,7 +987,7 @@ let detype_closed_glob ?lax isgoal avoid env sigma t =
         GLetTuple (ids,(n,r),detype_closed_glob cl b, detype_closed_glob cl e)
     | GCases (sty,po,tml,eqns) ->
         let (tml,eqns) =
-          Glob_ops.map_pattern_binders (fun na -> convert_name cl na) tml eqns
+          Glob_ops.map_pattern_binders (fun na -> convert_name cl na) (detype_closed_glob cl) tml eqns
         in
         let (tml,eqns) =
           Glob_ops.map_pattern (fun c -> detype_closed_glob cl c) tml eqns
@@ -1001,15 +1001,6 @@ let detype_closed_glob ?lax isgoal avoid env sigma t =
 
 (**********************************************************************)
 (* Module substitution: relies on detyping                            *)
-
-let rec subst_cases_pattern subst = DAst.map (function
-  | PatVar _ as pat -> pat
-  | PatCstr (((kn,i),j),cpl,n) as pat ->
-      let kn' = subst_mind subst kn
-      and cpl' = List.Smart.map (subst_cases_pattern subst) cpl in
-	if kn' == kn && cpl' == cpl then pat else
-	  PatCstr (((kn',i),j),cpl',n)
-  )
 
 let (f_subst_genarg, subst_genarg_hook) = Hook.make ()
 
@@ -1066,7 +1057,7 @@ let rec subst_glob_constr env subst = DAst.map (function
       and branches' = List.Smart.map
                         (fun ({loc;v=(idl,cpl,r)} as branch) ->
 			   let cpl' =
-                             List.Smart.map (subst_cases_pattern subst) cpl
+                             List.Smart.map (subst_cases_pattern env subst) cpl
                            and r' = subst_glob_constr env subst r in
 			     if cpl' == cpl && r' == r then branch else
                                CAst.(make ?loc (idl,cpl',r')))
@@ -1118,6 +1109,20 @@ let rec subst_glob_constr env subst = DAst.map (function
       let k' = smartmap_cast_type (subst_glob_constr env subst) k in
       if r1' == r1 && k' == k then raw else GCast (r1',k')
 
+  )
+
+  and subst_cases_pattern env subst = DAst.map (function
+  | PatVar _ as pat -> pat
+  | PatCstr (((kn,i),j),cpl,n) as pat ->
+      let kn' = subst_mind subst kn
+      and cpl' = List.Smart.map (subst_cases_pattern env subst) cpl in
+	if kn' == kn && cpl' == cpl then pat else
+	  PatCstr (((kn',i),j),cpl',n)
+  | PatCast (p,c) as pat ->
+      let p' = subst_cases_pattern env subst p
+      and c' = subst_glob_constr env subst c in
+	if p' == p && c' == c then pat else
+	  PatCast (p',c')
   )
 
 (* Utilities to transform kernel cases to simple pattern-matching problem *)

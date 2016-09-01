@@ -20,14 +20,16 @@ open Evar_kinds
 
 let cases_pattern_loc c = c.CAst.loc
 
-let alias_of_pat pat = DAst.with_val (function
+let rec alias_of_pat pat = DAst.with_val (function
   | PatVar name -> name
   | PatCstr(_,_,name) -> name
+  | PatCast(pat,_) -> alias_of_pat pat
   ) pat
 
-let set_pat_alias id = DAst.map (function
+let rec set_pat_alias id = DAst.map (function
   | PatVar Anonymous -> PatVar (Name id)
   | PatCstr (cstr,patl,Anonymous) -> PatCstr (cstr,patl,Name id)
+  | PatCast (pat,t) -> PatCast (set_pat_alias id pat,t)
   | pat -> assert false)
 
 let cases_predicate_names tml =
@@ -73,12 +75,13 @@ let case_style_eq s1 s2 = let open Constr in match s1, s2 with
   | RegularStyle, RegularStyle -> true
   | (LetStyle | IfStyle | LetPatternStyle | MatchStyle | RegularStyle), _ -> false
 
-let rec cases_pattern_eq p1 p2 = match DAst.get p1, DAst.get p2 with
+let rec cases_pattern_eq eq_fun p1 p2 = match DAst.get p1, DAst.get p2 with
   | PatVar na1, PatVar na2 -> Name.equal na1 na2
   | PatCstr (c1, pl1, na1), PatCstr (c2, pl2, na2) ->
-    eq_constructor c1 c2 && List.equal cases_pattern_eq pl1 pl2 &&
+    eq_constructor c1 c2 && List.equal (cases_pattern_eq eq_fun) pl1 pl2 &&
       Name.equal na1 na2
-  | (PatVar _ | PatCstr _), _ -> false
+  | PatCast (p1,t1), PatCast (p2,t2) -> cases_pattern_eq eq_fun p1 p2 && eq_fun t1 t2
+  | (PatVar _ | PatCstr _ | PatCast _), _ -> false
 
 let cast_type_eq eq t1 t2 = match t1, t2 with
   | CastConv t1, CastConv t2 -> eq t1 t2
@@ -100,7 +103,7 @@ let tomatch_tuple_eq f (c1, p1) (c2, p2) =
   f c1 c2 && eq_pred p1 p2
 
 and cases_clause_eq f {CAst.v=(id1, p1, c1)} {CAst.v=(id2, p2, c2)} =
-  List.equal Id.equal id1 id2 && List.equal cases_pattern_eq p1 p2 && f c1 c2
+  List.equal Id.equal id1 id2 && List.equal (cases_pattern_eq f) p1 p2 && f c1 c2
 
 let glob_decl_eq f (na1, bk1, c1, t1) (na2, bk2, c2, t2) =
   Name.equal na1 na2 && binding_kind_eq bk1 bk2 &&
@@ -360,7 +363,7 @@ let map_tomatch_binders f ((c,(na,inp)) as x) : tomatch_tuple =
   if r == inp then x
   else c,(f na, r)
 
-let rec map_case_pattern_binders f = DAst.map (function
+let rec map_case_pattern_binders f g = DAst.map (function
   | PatVar na as x ->
       let r = f na in
       if r == na then x
@@ -368,24 +371,29 @@ let rec map_case_pattern_binders f = DAst.map (function
   | PatCstr (c,ps,na) as x ->
       let rna = f na in
       let rps =
-        CList.Smart.map (fun p -> map_case_pattern_binders f p) ps
+        CList.Smart.map (fun p -> map_case_pattern_binders f g p) ps
       in
       if rna == na && rps == ps then x
       else PatCstr(c,rps,rna)
+  | PatCast (p,c) as x ->
+      let rp = map_case_pattern_binders f g p in
+      let rc = g c in
+      if rp == p && rc == c then x
+      else PatCast (rp,rc)
   )
 
-let map_cases_branch_binders f ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
+let map_cases_branch_binders f g ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
   (* spiwack: not sure if I must do something with the list of idents.
      It is intended to be a superset of the free variable of the
      right-hand side, if I understand correctly. But I'm not sure when
      or how they are used. *)
-  let r = List.Smart.map (fun cl -> map_case_pattern_binders f cl) cll in
+  let r = List.Smart.map (fun cl -> map_case_pattern_binders f g cl) cll in
   if r == cll then x
   else CAst.make ?loc (il,r,rhs)
 
-let map_pattern_binders f tomatch branches =
+let map_pattern_binders f g tomatch branches =
   CList.Smart.map (fun tm -> map_tomatch_binders f tm) tomatch,
-  CList.Smart.map (fun br -> map_cases_branch_binders f br) branches
+  CList.Smart.map (fun br -> map_cases_branch_binders f g br) branches
 
 (** /mapping of names in binders *)
 

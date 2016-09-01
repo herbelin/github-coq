@@ -17,11 +17,12 @@ val glob_sort_eq : Glob_term.glob_sort -> Glob_term.glob_sort -> bool
 
 val glob_sort_family : 'a glob_sort_gen -> Sorts.family
 
-val cases_pattern_eq : 'a cases_pattern_g -> 'a cases_pattern_g -> bool
+val cases_pattern_eq : ('b -> 'b -> bool) ->
+  ('a,'b) cases_pattern_g -> ('a,'b) cases_pattern_g -> bool
 
-val alias_of_pat : 'a cases_pattern_g -> Name.t
+val alias_of_pat : ('a,'b) cases_pattern_g -> Name.t
 
-val set_pat_alias : Id.t -> 'a cases_pattern_g -> 'a cases_pattern_g
+val set_pat_alias : Id.t -> ('a,'b) cases_pattern_g -> ('a,'b) cases_pattern_g
 
 val cast_type_eq : ('a -> 'a -> bool) ->
   'a cast_type -> 'a cast_type -> bool
@@ -35,7 +36,7 @@ val smartmap_cast_type : ('a -> 'a) -> 'a cast_type -> 'a cast_type
 
 (** Operations on [glob_constr] *)
 
-val cases_pattern_loc : 'a cases_pattern_g -> Loc.t option
+val cases_pattern_loc : ('a,'b) cases_pattern_g -> Loc.t option
 
 val cases_predicate_names : 'a tomatch_tuples_g -> Name.t list
 
@@ -79,7 +80,7 @@ val rename_glob_vars : (Id.t * Id.t) list -> 'a glob_constr_g -> 'a glob_constr_
     here by its relevant components [m] and [c]. It is used to
     interpret Ltac-bound names both in pretyping and printing of
     terms. *)
-val map_pattern_binders : (Name.t -> Name.t) ->
+val map_pattern_binders : (Name.t -> Name.t) -> (glob_constr -> glob_constr) ->
   tomatch_tuples -> cases_clauses -> (tomatch_tuples*cases_clauses)
 
 (** [map_pattern f m c] applies [f] to the return predicate and the
@@ -94,15 +95,15 @@ val map_pattern : (glob_constr -> glob_constr) ->
     Evaluation is forced.
     Take the current alias as parameter,
     @raise Not_found if translation is impossible *)
-val cases_pattern_of_glob_constr : Environ.env -> Name.t -> 'a glob_constr_g -> 'a cases_pattern_g
+val cases_pattern_of_glob_constr : Environ.env -> Name.t -> 'a glob_constr_g -> ('a,'b) cases_pattern_g
 
-val glob_constr_of_closed_cases_pattern : Environ.env -> 'a cases_pattern_g -> Name.t * 'a glob_constr_g
+val glob_constr_of_closed_cases_pattern : Environ.env -> ('a,'b) cases_pattern_g -> Name.t * 'a glob_constr_g
 
 (** A canonical encoding of cases pattern into constr such that
     composed with [cases_pattern_of_glob_constr Anonymous] gives identity *)
-val glob_constr_of_cases_pattern : Environ.env -> 'a cases_pattern_g -> 'a glob_constr_g
+val glob_constr_of_cases_pattern : Environ.env -> ('a,'b) cases_pattern_g -> 'a glob_constr_g
 
 val add_patterns_for_params_remove_local_defs : Environ.env -> constructor ->
-  'a cases_pattern_g list -> 'a cases_pattern_g list
+  ('a,'b) cases_pattern_g list -> ('a,'b) cases_pattern_g list
 
 val empty_lvar : Ltac_pretype.ltac_var_map

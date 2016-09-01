@@ -23,7 +23,7 @@ open Ltac_pretype
 (** Translation of pattern, cases pattern, glob_constr and term into syntax
    trees for printing *)
 
-val extern_cases_pattern : Id.Set.t -> 'a cases_pattern_g -> cases_pattern_expr
+val extern_cases_pattern : Id.Set.t -> ('a,'b) cases_pattern_g -> cases_pattern_expr
 val extern_glob_constr : Id.Set.t -> 'a glob_constr_g -> constr_expr
 val extern_glob_type : Id.Set.t -> 'a glob_constr_g -> constr_expr
 val extern_constr_pattern : names_context -> Evd.evar_map ->

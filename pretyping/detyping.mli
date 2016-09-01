@@ -35,7 +35,7 @@ val print_factorize_match_patterns : bool ref
     variable-free disjunctive pattern, turn it into a catch-call case *)
 val print_allow_match_default_clause : bool ref
 
-val subst_cases_pattern : substitution -> cases_pattern -> cases_pattern
+val subst_cases_pattern : env -> substitution -> cases_pattern -> cases_pattern
 
 val subst_glob_constr : env -> substitution -> glob_constr -> glob_constr
 

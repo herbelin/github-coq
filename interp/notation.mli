@@ -204,7 +204,7 @@ val interp_prim_token_cases_pattern_expr : ?loc:Loc.t -> (GlobRef.t -> unit) -> 
 val uninterp_prim_token :
   'a glob_constr_g -> scope_name * prim_token
 val uninterp_prim_token_cases_pattern :
-  'a cases_pattern_g -> Name.t * scope_name * prim_token
+  ('a,'b) cases_pattern_g -> Name.t * scope_name * prim_token
 
 val availability_of_prim_token :
   prim_token -> scope_name -> subscopes -> delimiters option option
@@ -229,7 +229,7 @@ type notation_rule = interp_rule * interpretation * int option
 
 (** Return the possible notations for a given term *)
 val uninterp_notations : 'a glob_constr_g -> notation_rule list
-val uninterp_cases_pattern_notations : 'a cases_pattern_g -> notation_rule list
+val uninterp_cases_pattern_notations : ('a,'b) cases_pattern_g -> notation_rule list
 val uninterp_ind_pattern_notations : inductive -> notation_rule list
 
 (** Test if a notation is available in the scopes 
