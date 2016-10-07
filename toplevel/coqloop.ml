@@ -23,7 +23,7 @@ type input_buffer = {
   mutable str : string; (* buffer of already read characters *)
   mutable len : int;    (* number of chars in the buffer *)
   mutable bols : int list; (* offsets in str of beginning of lines *)
-  mutable tokens : Gram.parsable; (* stream of tokens *)
+  mutable tokens : Gram.coq_parsable; (* stream of tokens *)
   mutable start : int } (* stream count of the first char of the buffer *)
 
 (* Double the size of the buffer. *)

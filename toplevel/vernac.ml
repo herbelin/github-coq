@@ -141,17 +141,13 @@ let pr_new_syntax loc ocom =
 let save_translator_coqdoc () =
   (* translator state *)
   let ch = !chan_beautify in
-  let cl = !Pp.comments in
-  let cs = CLexer.com_state() in
   (* end translator state *)
   let coqdocstate = CLexer.location_table () in
-  ch,cl,cs,coqdocstate
+  ch,coqdocstate
 
-let restore_translator_coqdoc (ch,cl,cs,coqdocstate) =
+let restore_translator_coqdoc (ch,coqdocstate) =
   if !Flags.beautify_file then close_out !chan_beautify;
   chan_beautify := ch;
-  Pp.comments := cl;
-  CLexer.restore_com_state cs;
   CLexer.restore_location_table coqdocstate
 
 (* For coqtop -time, we display the position in the file,
@@ -218,9 +214,7 @@ let rec vernac_com checknav (loc,com) =
       (* XXX: This is not 100% correct if called from an IDE context *)
       if !Flags.time then print_cmd_header loc com;
       let com = if !Flags.time then VernacTime (loc,com) else com in
-      let a = CLexer.com_state () in
-      interp com;
-      CLexer.restore_com_state a
+      interp com
     with reraise ->
       let (reraise, info) = CErrors.push reraise in
       Format.set_formatter_out_channel stdout;

@@ -11,7 +11,7 @@
 (** Read a vernac command on the specified input (parse only).
    Raises [End_of_file] if EOF (or Ctrl-D) is reached. *)
 
-val parse_sentence : Pcoq.Gram.parsable * in_channel option ->
+val parse_sentence : Pcoq.Gram.coq_parsable * in_channel option ->
  Loc.t * Vernacexpr.vernac_expr
 
 (** Reads and executes vernac commands from a stream.
