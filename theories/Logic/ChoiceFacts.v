@@ -284,7 +284,7 @@ Definition SmallDrinker'sParadox :=
    relational formulation) without known inconsistency with classical logic,
    though functional relation reification conflicts with classical logic *)
 
-Lemma description_rel_choice_imp_funct_choice :
+Lemma functional_rel_reification_imp_fun_choice :
   forall A B : Type,
     FunctionalRelReification_on A B -> RelationalChoice_on A B -> FunctionalChoice_on A B.
 Proof.
@@ -298,7 +298,9 @@ Proof.
   apply HR'R; assumption.
 Qed.
 
-Lemma funct_choice_imp_rel_choice :
+Notation description_rel_choice_imp_funct_choice := functional_rel_reification_imp_fun_choice (compat "8.6").
+
+Lemma fun_choice_imp_rel_choice :
   forall A B : Type, FunctionalChoice_on A B -> RelationalChoice_on A B.
 Proof.
   intros A B FunCh R H.
@@ -311,7 +313,9 @@ Proof.
     trivial.
 Qed.
 
-Lemma funct_choice_imp_description :
+Notation funct_choice_imp_rel_choice := fun_choice_imp_rel_choice (compat "8.6").
+
+Lemma fun_choice_imp_functional_rel_reification :
   forall A B : Type, FunctionalChoice_on A B -> FunctionalRelReification_on A B.
 Proof.
   intros A B FunCh R H.
@@ -323,6 +327,8 @@ Proof.
   (* 2 *)
   exists f; exact H0.
 Qed.
+
+Notation funct_choice_imp_description := fun_choice_imp_functional_rel_reification (compat "8.6").
 
 Corollary FunChoice_Equiv_RelChoice_and_ParamDefinDescr :
   forall A B : Type, FunctionalChoice_on A B <->
