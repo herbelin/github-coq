@@ -521,7 +521,7 @@ End Weak_proof_irrelevance_CCI.
 (** ** Weak excluded-middle *)
 
 (** The weak classical logic based on [~~A \/ ~A] is referred to with
-    name KC in {[ChagrovZakharyaschev97]]
+    name KC in [[ChagrovZakharyaschev97]]
 
    [[ChagrovZakharyaschev97]] Alexander Chagrov and Michael
    Zakharyaschev, "Modal Logic", Clarendon Press, 1997.
@@ -746,7 +746,7 @@ End Example_of_undecidable_predicate_with_the_minimization_property.
 
 (** ** Choice of representatives in a partition of bool *)
 
-(** This is similar to Bell's "weak extensional selection principle"  in {[Bell]]
+(** This is similar to Bell's "weak extensional selection principle"  in [[Bell]]
 
    [[Bell]] John L. Bell, Choice principles in intuitionistic set theory, unpublished.
 *)
