@@ -1,0 +1,14 @@
+Debug: (* info auto: *)
+Debug:  simple apply @eq_refl.
+Debug: (* debug auto: *)
+Debug: * assumption. (*fail*)
+Debug: * intro. (*fail*)
+Debug: * simple apply mult_n_Sm. (*fail*)
+Debug: * simple apply mult_n_O. (*fail*)
+Debug: * simple apply plus_n_O. (*fail*)
+Debug: * simple apply @eq_refl. (*success*)
+Debug: (* info eauto: *)
+Debug: simple apply @eq_refl.
+Debug: (* debug eauto: *)
+Debug: 1 depth=5 
+Debug: 1.1 depth=5 simple apply @eq_refl
