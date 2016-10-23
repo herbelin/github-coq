@@ -2,6 +2,12 @@
 = CHANGES BETWEEN COQ V8.5 AND COQ V8.6 =
 =========================================
 
+** Tactic extensions **
+
+Entry "constr_with_bindings" has been renamed into
+"open_constr_with_bindings". New entry "constr_with_bindings" now
+uses type classes and rejects terms with unresolved holes.
+
 ** Parsing **
 
 Pcoq.parsable now takes an extra optional filename argument so as to
