@@ -178,7 +178,7 @@ let process_goal sigma g =
   in
   let process_hyp d (env,l) =
     let d' = CompactedDecl.to_named_context d in
-      (List.fold_right Environ.push_named d' env,
+      (List.fold_right (fun d env -> Environ.push_named d env) d' env,
        (pr_compacted_decl env sigma d) :: l) in
   let (_env, hyps) =
     Context.Compacted.fold process_hyp

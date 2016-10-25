@@ -321,7 +321,7 @@ val push_named_context_val  : named_declaration -> named_context_val -> named_co
 val rel_context : env -> rel_context
 val named_context : env -> named_context
 
-val val_of_named_context : named_context -> named_context_val
+val val_of_named_context : ?secvars:Id.t Id.Map.t -> named_context -> named_context_val
 val named_context_of_val : named_context_val -> named_context
 
 val lookup_rel : int -> env -> rel_declaration
