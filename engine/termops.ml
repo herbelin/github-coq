@@ -1364,9 +1364,9 @@ let compact_named_context sign =
 
 let clear_named_body id env =
   let open NamedDecl in
-  let aux _ = function
-  | LocalDef (id',c,t) when Id.equal id id'.binder_name -> push_named (LocalAssum (id',t))
-  | d -> push_named d in
+  let aux _ d env = match d with
+  | LocalDef (id',c,t) when Id.equal id id'.binder_name -> push_named (LocalAssum (id',t)) env
+  | d -> push_named d env in
   fold_named_context aux env ~init:(reset_context env)
 
 let global_vars_set env sigma constr =

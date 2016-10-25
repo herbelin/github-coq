@@ -803,7 +803,7 @@ let push_named_context_val d e = push_named_context_val (cast_named_decl unsafe_
 let rel_context e = cast_rel_context (sym unsafe_eq) (rel_context e)
 let named_context e = cast_named_context (sym unsafe_eq) (named_context e)
 
-let val_of_named_context e = val_of_named_context (cast_named_context unsafe_eq e)
+let val_of_named_context ?secvars e = val_of_named_context ?secvars (cast_named_context unsafe_eq e)
 let named_context_of_val e = cast_named_context (sym unsafe_eq) (named_context_of_val e)
 
 let of_existential : Constr.existential -> existential =
