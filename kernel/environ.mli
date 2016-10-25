@@ -66,6 +66,7 @@ type named_context_val = private {
   (** List of identifiers in [env_named_ctx], in the same order, including
       let-ins. This is not used in the kernel, but is critical to preserve
       sharing of evar instances in the proof engine. *)
+  env_named_secvars : Id.t Id.Map.t;
 }
 
 type rel_context_val = private {
@@ -140,7 +141,7 @@ val fold_rel_context :
 (** {5 Context of variables (section variables and goal assumptions) } *)
 
 val named_context_of_val : named_context_val -> Constr.named_context
-val val_of_named_context : Constr.named_context -> named_context_val
+val val_of_named_context : ?secvars:Id.t Id.Map.t -> Constr.named_context -> named_context_val
 val empty_named_context_val : named_context_val
 val ids_of_named_context_val : named_context_val -> Id.Set.t
 
@@ -151,10 +152,10 @@ val ids_of_named_context_val : named_context_val -> Id.Set.t
 val map_named_val :
    (named_declaration -> named_declaration) -> named_context_val -> named_context_val
 
-val push_named : Constr.named_declaration -> env -> env
+val push_named : Constr.named_declaration -> ?secvar:Id.t option -> env -> env
 val push_named_context : Constr.named_context -> env -> env
-val push_named_context_val  :
-    Constr.named_declaration -> named_context_val -> named_context_val
+val push_named_context_val :
+   Constr.named_declaration -> ?secvar:Id.t option -> named_context_val -> named_context_val
 
 
 

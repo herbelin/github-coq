@@ -314,8 +314,9 @@ let rename_hyp repl =
       let replace id = try List.assoc_f Id.equal id repl with Not_found -> id in
       let map decl = decl |> NamedDecl.map_id replace |> NamedDecl.map_constr subst in
       let nhyps = List.map map (named_context_of_val sign) in
+      let secvars = sign.env_named_secvars in
       let nconcl = subst concl in
-      let nctx = val_of_named_context nhyps in
+      let nctx = val_of_named_context ~secvars nhyps in
       let instance = EConstr.identity_subst_val (Environ.named_context_val env) in
       Refine.refine ~typecheck:false begin fun sigma ->
         let sigma, ev = Evarutil.new_pure_evar nctx sigma nconcl ~principal:true in

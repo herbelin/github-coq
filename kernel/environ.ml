@@ -80,6 +80,7 @@ type named_context_val = {
   env_named_ctx : Constr.named_context;
   env_named_map : (Constr.named_declaration * lazy_val) Id.Map.t;
   env_named_var : Constr.t list;
+  env_named_secvars : Id.t Id.Map.t;
 }
 
 type rel_context_val = {
@@ -103,6 +104,7 @@ let empty_named_context_val = {
   env_named_ctx = [];
   env_named_map = Id.Map.empty;
   env_named_var = [];
+  env_named_secvars = Id.Map.empty;
 }
 
 let empty_rel_context_val = {
@@ -168,23 +170,28 @@ let env_of_rel n env =
 
 (* Named context *)
 
-let push_named_context_val_val d rval ctxt =
+let push_named_context_val_val d ?(secvar=Some (NamedDecl.get_id d)) rval ctxt =
 (*   assert (not (Id.Map.mem (NamedDecl.get_id d) ctxt.env_named_map)); *)
+  let id = NamedDecl.get_id d in
   {
     env_named_ctx = Context.Named.add d ctxt.env_named_ctx;
-    env_named_map = Id.Map.add (NamedDecl.get_id d) (d, rval) ctxt.env_named_map;
-    env_named_var = mkVar (NamedDecl.get_id d) :: ctxt.env_named_var;
+    env_named_map = Id.Map.add id (d, rval) ctxt.env_named_map;
+    env_named_var = mkVar id :: ctxt.env_named_var;
+    env_named_secvars = match secvar with Some id' -> Id.Map.add id' id ctxt.env_named_secvars | _-> ctxt.env_named_secvars;
   }
 
-let push_named_context_val d ctxt =
-  push_named_context_val_val d (ref VKnone) ctxt
+let push_named_context_val d ?secvar ctxt =
+  push_named_context_val_val ?secvar d (ref VKnone) ctxt
 
 let match_named_context_val c = match c.env_named_ctx with
 | [] -> None
 | decl :: ctx ->
-  let (_, v) = Id.Map.find (NamedDecl.get_id decl) c.env_named_map in
-  let map = Id.Map.remove (NamedDecl.get_id decl) c.env_named_map in
-  let cval = { env_named_ctx = ctx; env_named_map = map; env_named_var = List.tl c.env_named_var } in
+  let id = NamedDecl.get_id decl in
+  let (_, v) = Id.Map.find id c.env_named_map in
+  let map = Id.Map.remove id c.env_named_map in
+  let cval = { env_named_ctx = ctx; env_named_map = map;
+               env_named_var = List.tl c.env_named_var;
+               env_named_secvars = try Id.Map.remove id c.env_named_secvars with Not_found -> c.env_named_secvars } in
   Some (decl, v, cval)
 
 let map_named_val f ctxt =
@@ -199,10 +206,12 @@ let map_named_val f ctxt =
   in
   let map, ctx = List.fold_left_map fold ctxt.env_named_map ctxt.env_named_ctx in
   if map == ctxt.env_named_map then ctxt
-  else { env_named_ctx = ctx; env_named_map = map; env_named_var = ctxt.env_named_var }
+  else { env_named_ctx = ctx; env_named_map = map;
+         env_named_var = ctxt.env_named_var;
+         env_named_secvars = ctxt.env_named_secvars }
 
-let push_named d env =
-  {env with env_named_context = push_named_context_val d env.env_named_context}
+let push_named d ?secvar env =
+  {env with env_named_context = push_named_context_val ?secvar d env.env_named_context}
 
 let lookup_named id env =
   fst (Id.Map.find id env.env_named_context.env_named_map)
@@ -325,10 +334,17 @@ let ids_of_named_context_val c = Id.Map.domain c.env_named_map
 
 let empty_named_context = Context.Named.empty
 
-let push_named_context = List.fold_right push_named
+let push_named_context = List.fold_right (fun d env -> push_named d env)
 
-let val_of_named_context ctxt =
-  List.fold_right push_named_context_val ctxt empty_named_context_val
+let val_of_named_context ?secvars ctxt =
+  let open Context.Named.Declaration in
+  let push d =
+    let secvar =
+      match secvars with
+      | None -> Some (get_id d)
+      | Some secvars -> try Some (Id.Map.find (get_id d) secvars) with Not_found -> None in
+    push_named_context_val ~secvar d in
+  List.fold_right push ctxt empty_named_context_val
 
 
 let eq_named_context_val c1 c2 =
@@ -781,11 +797,12 @@ let apply_to_hyp ctxt id f =
   let rec aux rtail ctxt =
     match match_named_context_val ctxt with
     | Some (d, v, ctxt) ->
+        let secvar = try Some (Id.Map.find (get_id d) ctxt.env_named_secvars) with Not_found -> None in
         if Id.equal (get_id d) id then
-          push_named_context_val_val (f ctxt.env_named_ctx d rtail) v ctxt
+          push_named_context_val_val ~secvar (f ctxt.env_named_ctx d rtail) v ctxt
         else
           let ctxt' = aux (d::rtail) ctxt in
-          push_named_context_val_val d v ctxt'
+          push_named_context_val_val ~secvar d v ctxt'
     | None -> raise Hyp_not_found
   in aux [] ctxt
 
@@ -804,7 +821,9 @@ let remove_hyps ids check_context check_value ctxt =
       let v' = check_value v in
       if d == d' && v == v' && rctxt == rctxt' then
         ctxt, true
-      else push_named_context_val_val d' v' rctxt', true
+      else
+        let secvar = try Some (Id.Map.find (get_id d) ctxt.env_named_secvars) with Not_found -> None in
+        push_named_context_val_val ~secvar d' v' rctxt', true
   in
   fst (remove_hyps ctxt)
 
