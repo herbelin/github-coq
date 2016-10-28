@@ -94,6 +94,9 @@ Program
 Notations
 
 - "Bind Scope" can once again bind "Funclass" and "Sortclass".
+- New option "Set Immediate Only Implicit Scope" to control whether implicit
+  scopes apply only to the immediate subterms or to non-immediate subterms
+  too (granting #3990). It is activated by default.
 
 Tools
 

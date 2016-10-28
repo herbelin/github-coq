@@ -300,9 +300,26 @@ let set_var_scope loc id istermvar env ntnvars =
     (* Not in a notation *)
     ()
 
+let temporary_implicit_scope = ref true
+
+open Goptions
+
+let _ =
+  declare_bool_option
+    { optsync  = true;
+      optdepr  = false;
+      optname  = "immediate-only implicit scope";
+      optkey   = ["Immediate";"Only";"Implicit";"Scope"];
+      optread  = (fun () -> !temporary_implicit_scope);
+      optwrite = (fun b -> temporary_implicit_scope := b)}
+
 let set_type_scope env = {env with tmp_scope = Notation.current_type_scope_name ()}
 
 let reset_tmp_scope env = {env with tmp_scope = None}
+
+let push_immediate_scope env scopt =
+  if !temporary_implicit_scope then {env with tmp_scope = scopt}
+  else match scopt with None -> env | Some sc -> {env with scopes = sc::env.scopes}
 
 let rec it_mkGProd loc2 env body =
   match env with
@@ -668,7 +685,7 @@ let instantiate_notation_constr loc intern ntnvars subst infos c =
           else assert false (** FIXME *)
         in
         let mk_env id (c, (tmp_scope, subscopes)) accu =
-          let nenv = {env with tmp_scope; scopes = subscopes @ env.scopes} in
+          let nenv = push_immediate_scope {env with scopes = subscopes @ env.scopes} tmp_scope in
           let gc = intern nenv c in
           let c = ConstrMayEval (Genredexpr.ConstrTerm (gc, Some c)) in
           ((loc, id), c) :: accu
@@ -720,8 +737,7 @@ let instantiate_notation_constr loc intern ntnvars subst infos c =
     (* of the notations *)
     try
       let (a,(scopt,subscopes)) = Id.Map.find id terms in
-      intern {env with tmp_scope = scopt;
-                scopes = subscopes @ env.scopes} a
+      intern (push_immediate_scope {env with scopes = subscopes @ env.scopes} scopt) a
     with Not_found ->
     try
       GVar (loc, Id.Map.find id renaming)
@@ -920,7 +936,7 @@ let interp_reference vars r =
 (** {6 Elemtary bricks } *)
 let apply_scope_env env = function
   | [] -> {env with tmp_scope = None}, []
-  | sc::scl -> {env with tmp_scope = sc}, scl
+  | sc::scl -> push_immediate_scope env sc, scl
 
 let rec simple_adjust_scopes n scopes =
   (* Note: they can be less scopes than arguments but also more scopes *)
