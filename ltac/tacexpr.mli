@@ -69,7 +69,7 @@ type ('dconstr,'id) induction_clause =
     'dconstr with_bindings destruction_arg *
     (intro_pattern_naming_expr located option (* eqn:... *)
     * 'dconstr or_and_intro_pattern_expr located or_var option) (* as ... *)
-    * 'id clause_expr option (* in ... *)
+    * ('id clause_expr option (* in ... *) * 'id list (* over ... *))
 
 type ('constr,'dconstr,'id) induction_clause_list =
     ('dconstr,'id) induction_clause list

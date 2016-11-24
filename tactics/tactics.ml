@@ -4357,10 +4357,10 @@ let has_generic_occurrences_but_goal cls id env ccl =
   (cls.concl_occs != NoOccurrences || not (occur_var env id ccl))
 
 let induction_gen clear_flag isrec with_evars elim
-    ((_pending,(c,lbind)),(eqname,names) as arg) cls =
+    ((_pending,(c,lbind)),(eqname,names) as arg) (cls,over) =
   let inhyps = match cls with
-  | Some {onhyps=Some hyps} -> List.map (fun ((_,id),_) -> id) hyps
-  | _ -> [] in
+  | Some {onhyps=Some hyps} -> List.map (fun ((_,id),_) -> id) hyps @ over
+  | _ -> over in
   Proofview.Goal.enter { enter = begin fun gl ->
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
@@ -4448,7 +4448,7 @@ let induction_gen_l isrec with_evars elim names lc =
 let induction_destruct isrec with_evars (lc,elim) =
   match lc with
   | [] -> assert false (* ensured by syntax, but if called inside caml? *)
-  | [c,(eqname,names as allnames),cls] ->
+  | [c,(eqname,names as allnames),(cls,over)] ->
     Proofview.Goal.nf_enter { enter = begin fun gl ->
     let env = Proofview.Goal.env gl in
     let sigma = Tacmach.New.project gl in
@@ -4457,6 +4457,7 @@ let induction_destruct isrec with_evars (lc,elim) =
       (* Standard induction on non-standard induction schemes *)
       (* will be removable when is_functional_induction will be more clever *)
       if not (Option.is_empty cls) then error "'in' clause not supported here.";
+      if not (List.is_empty over) then error "'over' clause not supported here.";
       let _,c = force_destruction_arg false env sigma c in
       onInductionArg
 	(fun _clear_flag c ->
@@ -4465,7 +4466,7 @@ let induction_destruct isrec with_evars (lc,elim) =
     | _ ->
       (* standard induction *)
       onOpenInductionArg env sigma
-      (fun clear_flag c -> induction_gen clear_flag isrec with_evars elim (c,allnames) cls) c
+      (fun clear_flag c -> induction_gen clear_flag isrec with_evars elim (c,allnames) (cls,over)) c
     end }
   | _ ->
     Proofview.Goal.enter { enter = begin fun gl ->
@@ -4494,8 +4495,9 @@ let induction_destruct isrec with_evars (lc,elim) =
       (* Several induction hyps with induction scheme *)
       let lc = List.map (on_pi1 (fun c -> snd (force_destruction_arg false env sigma c))) lc in
       let newlc =
-        List.map (fun (x,(eqn,names),cls) ->
+        List.map (fun (x,(eqn,names),(cls,over)) ->
           if cls != None then error "'in' clause not yet supported here.";
+          if over != [] then error "'over' clause not yet supported here.";
 	  match x with (* FIXME: should we deal with ElimOnIdent? *)
           | _clear_flag,ElimOnConstr x ->
               if eqn <> None then error "'eqn' clause not supported here.";
@@ -4512,11 +4514,11 @@ let induction_destruct isrec with_evars (lc,elim) =
 
 let induction ev clr c l e =
   induction_gen clr true ev e 
-    (((Evd.empty,Evd.empty),(c,NoBindings)),(None,l)) None
+    (((Evd.empty,Evd.empty),(c,NoBindings)),(None,l)) (None,[])
 
 let destruct ev clr c l e =
   induction_gen clr false ev e
-    (((Evd.empty,Evd.empty),(c,NoBindings)),(None,l)) None
+    (((Evd.empty,Evd.empty),(c,NoBindings)),(None,l)) (None,[])
 
 (* The registered tactic, which calls the default elimination
  * if no elimination constant is provided. *)

@@ -499,6 +499,10 @@ module Make
       pr_in
         (prlist_with_sep (fun () -> str", ") (pr_hyp_location pr_id) l ++ pr_occs)
 
+  let pr_over pr_id = function
+    | [] -> mt ()
+    | l -> str " over " ++ prlist_with_sep pr_comma pr_id l
+
   let pr_orient b = if b then mt () else str "<- "
 
   let pr_multi = function
@@ -815,10 +819,11 @@ module Make
           hov 1 (
             primitive (with_evars ev (if isrec then "induction" else "destruct"))
             ++ spc ()
-            ++ prlist_with_sep pr_comma (fun (h,ids,cl) ->
+            ++ prlist_with_sep pr_comma (fun (h,ids,(cl,over)) ->
               pr_destruction_arg pr.pr_dconstr pr.pr_dconstr h ++
                 pr_non_empty_arg (pr_with_induction_names pr.pr_dconstr) ids ++
-                pr_opt (pr_clauses None pr.pr_name) cl) l ++
+                pr_opt (pr_clauses None pr.pr_name) cl ++
+                pr_over pr.pr_name over) l ++
               pr_opt pr_eliminator el
           )
 

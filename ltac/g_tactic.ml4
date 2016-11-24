@@ -150,16 +150,16 @@ let destruction_arg_of_constr (c,lbind as clbind) = match lbind with
   | _ -> ElimOnConstr clbind
 
 let mkTacCase with_evar = function
-  | [(clear,ElimOnConstr cl),(None,None),None],None ->
+  | [(clear,ElimOnConstr cl),(None,None),(None,[])],None ->
       TacCase (with_evar,(clear,cl))
   (* Reinterpret numbers as a notation for terms *)
-  | [(clear,ElimOnAnonHyp n),(None,None),None],None ->
+  | [(clear,ElimOnAnonHyp n),(None,None),(None,[])],None ->
       TacCase (with_evar,
         (clear,(CPrim (Loc.ghost, Numeral (Bigint.of_int n)),
 	 NoBindings)))
   (* Reinterpret ident as notations for variables in the context *)
   (* because we don't know if they are quantified or not *)
-  | [(clear,ElimOnIdent id),(None,None),None],None ->
+  | [(clear,ElimOnIdent id),(None,None),(None,[])],None ->
       TacCase (with_evar,(clear,(CRef (Ident id,None),NoBindings)))
   | ic ->
       if List.exists (function ((_, ElimOnAnonHyp _),_,_) -> true | _ -> false) (fst ic)
@@ -422,6 +422,10 @@ GEXTEND Gram
       | "at"; occs = occs_nums -> Some {onhyps=Some[]; concl_occs=occs}
       | -> None ] ]
   ;
+  opt_over:
+    [ [ "over"; hl = LIST1 id_or_meta SEP "," -> hl
+      | -> [] ] ]
+  ;
   concl_occ:
     [ [ "*"; occs = occs -> occs
       | -> NoOccurrences ] ]
@@ -506,14 +510,14 @@ GEXTEND Gram
   ;
   induction_clause:
     [ [ c = destruction_arg; pat = as_or_and_ipat; eq = eqn_ipat;
-        cl = opt_clause -> (c,(eq,pat),cl) ] ]
+        cl = opt_clause; hypl = opt_over -> (c,(eq,pat),(cl,hypl)) ] ]
   ;
   induction_clause_list:
     [ [ ic = LIST1 induction_clause SEP ","; el = OPT eliminator;
         cl_tolerance = opt_clause ->
         (* Condition for accepting "in" at the end by compatibility *)
         match ic,el,cl_tolerance with
-        | [c,pat,None],Some _,Some _ -> ([c,pat,cl_tolerance],el)
+        | [c,pat,(None,[])],Some _,Some _ -> ([c,pat,(cl_tolerance,[])],el)
         | _,_,Some _ -> err ()
         | _,_,None -> (ic,el) ]]
   ;
@@ -599,7 +603,7 @@ GEXTEND Gram
 	  TacAtom (!@loc, TacInductionDestruct(true,true,ic))
       | IDENT "destruct"; icl = induction_clause_list ->
 	  TacAtom (!@loc, TacInductionDestruct(false,false,icl))
-      | IDENT "edestruct";  icl = induction_clause_list ->
+      | IDENT "edestruct"; icl = induction_clause_list ->
 	  TacAtom (!@loc, TacInductionDestruct(false,true,icl))
 
       (* Equality and inversion *)

@@ -785,7 +785,7 @@ let case_eq_intros_rewrite x =
 
 let rec find_a_destructable_match t =
   let cl = induction_arg_of_quantified_hyp (NamedHyp (Id.of_string "x")) in
-  let cl = [cl, (None, None), None], None in
+  let cl = [cl, (None, None), (None, [])], None in
   let dest = TacAtom (Loc.ghost, TacInductionDestruct(false, false, cl)) in
   match kind_of_term t with
     | Case (_,_,x,_) when closed0 x ->
