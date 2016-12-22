@@ -1466,18 +1466,28 @@ exception IsNonrec
 
 let is_nonrec mind = (Global.lookup_mind (fst mind)).mind_finite == Declarations.BiFinite
 
-let find_ind_eliminator env sigma ind s =
-  let gr = lookup_eliminator env ind s in
-  Evd.fresh_global env sigma gr
+let find_ind_eliminator env sigma dep (ind,_ as indu) s =
+  let indsort = Inductive.inductive_sort_family (snd (Global.lookup_inductive ind)) in
+  if dep = Some true && indsort == Sorts.InProp then
+    let sigma, c = build_induction_scheme env sigma indu true s in
+    sigma, EConstr.of_constr c
+  else
+    let gr = lookup_eliminator env ind s in
+    Evd.fresh_global env sigma gr
 
 let find_eliminator c gl =
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
   let concl = Proofview.Goal.concl gl in
   let sigma, t = Typing.type_of env sigma c in
-  let ((ind,u),t) = reduce_to_quantified_ind env sigma t in
+  let dep =
+    (* This is approximative, maybe there are evars, not using conversion *)
+    let concl = Proofview.Goal.concl gl in
+    dependent (Tacmach.New.project gl) c concl in
+  let ((ind,u as indu),t) = reduce_to_quantified_ind env sigma t in
   if is_nonrec ind then raise IsNonrec;
-  let sigma, c = find_ind_eliminator env sigma ind (Retyping.get_sort_family_of env sigma concl) in
+  let u = EInstance.kind (Tacmach.New.project gl) u in
+  let sigma, c = find_ind_eliminator env sigma (Some dep) (ind, u) (Retyping.get_sort_family_of env sigma concl) in
   sigma, ElimTerm c
 
 let default_elim with_evars clear_flag (c,_ as cx) =
@@ -4153,17 +4163,15 @@ let guess_elim isrec dep s hyp0 gl =
   let env = Tacmach.New.pf_env gl in
   let sigma = Tacmach.New.project gl in
   let sigma, elimc =
-    if isrec && not (is_nonrec mind)
-    then
-      let gr = lookup_eliminator env mind s in
-      Evd.fresh_global env sigma gr
+    let u = EInstance.kind sigma u in
+    if isrec && not (is_nonrec mind) then find_ind_eliminator env sigma dep (mind,u) s
     else
-      let u = EInstance.kind sigma u in
-      if dep then
+      match dep with
+      | Some true ->
         let (sigma, ind) = build_case_analysis_scheme env sigma (mind, u) true s in
         let ind = EConstr.of_constr ind in
         (sigma, ind)
-      else
+      | Some false | None ->
         let (sigma, ind) = build_case_analysis_scheme_default env sigma (mind, u) s in
         let ind = EConstr.of_constr ind in
         (sigma, ind)
@@ -4191,7 +4199,7 @@ let find_induction_type isrec elim hyp0 gl =
     match elim with
     | None ->
        let sort = Tacticals.New.elimination_sort_of_goal gl in
-       let _, _,_, scheme = guess_elim isrec false sort hyp0 gl in
+       let _, _,_, scheme = guess_elim isrec None sort hyp0 gl in
        (* We drop the scheme and elimc/elimt waiting to know if it is dependent, this
           needs no update to sigma at this point. *)
        Tacmach.New.project gl, scheme.indref, scheme.nparams, ElimOver (isrec,hyp0)
@@ -4222,7 +4230,7 @@ let get_eliminator elim dep s gl =
   | ElimUsing (elim,indsign) ->
       Tacmach.New.project gl, (* bugged, should be computed *) true, elim, indsign
   | ElimOver (isrec,id) ->
-      let evd, (elimc, elimt), ind_type_guess, scheme = guess_elim isrec dep s id gl in
+      let evd, (elimc, elimt), ind_type_guess, scheme = guess_elim isrec (Some dep) s id gl in
       let l = compute_scheme_signature evd scheme id ind_type_guess in
       evd, isrec, (ElimTerm elimc, elimt), l
 
@@ -4741,11 +4749,14 @@ let elim_scheme_type elim t =
 
 let elim_type t =
   Proofview.Goal.enter begin fun gl ->
-  let (ind,t) = Tacmach.New.pf_apply reduce_to_atomic_ind gl t in
-  let evd, elimc = Tacmach.New.pf_apply find_ind_eliminator gl (fst ind)
+  let env = Proofview.Goal.env gl in
+  let sigma = Proofview.Goal.sigma gl in
+  let ((ind, u), t) = reduce_to_atomic_ind env sigma t in
+  let u = EInstance.kind sigma u in
+  let sigma, elimc = find_ind_eliminator env sigma None (ind, u)
       (Tacticals.New.elimination_sort_of_goal gl)
   in
-  Proofview.tclTHEN (Proofview.Unsafe.tclEVARS evd) (elim_scheme_type elimc t)
+  Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma) (elim_scheme_type elimc t)
   end
 
 let case_type t =
