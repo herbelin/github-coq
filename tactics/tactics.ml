@@ -1646,6 +1646,22 @@ let general_elim_clause with_evars flags id c e =
 
 (* Apply a tactic below the products of the conclusion of a lemma *)
 
+let right_to_left_under_record_conjunctions = ref true
+
+let use_right_to_left_under_record_conjunctions () =
+  !right_to_left_under_record_conjunctions
+  && Flags.version_strictly_greater Flags.V8_6
+
+(* The flag fixes an inconsistency which made search go from right to left when i increases *)
+let _ =
+  declare_bool_option
+    { optsync  = true;
+      optdepr  = false;
+      optname  = "left-to-right order under non record conjunctions";
+      optkey   = ["Apply";"R2L";"Order";"Under";"Record"];
+      optread  = (fun () -> !right_to_left_under_record_conjunctions) ;
+      optwrite = (fun b -> right_to_left_under_record_conjunctions := b) }
+
 type conjunction_status =
   | DefinedRecord of constant option list
   | NotADefinedRecordUseScheme of constr
@@ -1654,7 +1670,7 @@ let make_projection env sigma params cstr sign elim i n c u =
   let open Context.Rel.Declaration in
   let elim = match elim with
   | NotADefinedRecordUseScheme elim ->
-      (* bugs: goes from right to left when i increases! *)
+      (* goes from right to left when i increases *)
       let cs_args = List.map (fun d -> map_rel_decl EConstr.of_constr d) cstr.cs_args in
       let decl = List.nth cs_args i in
       let t = RelDecl.get_type decl in
@@ -1676,7 +1692,8 @@ let make_projection env sigma params cstr sign elim i n c u =
       else
 	None
   | DefinedRecord l ->
-      (* goes from left to right when i increases! *)
+      (* goes from left to right when i increases, unless option is false *)
+      let i = if use_right_to_left_under_record_conjunctions () then i else (n-i-1) in
       match List.nth l i with
       | Some proj ->
 	  let args = Context.Rel.to_extended_vect mkRel 0 sign in
