@@ -88,6 +88,63 @@ let _ =
       optread  = (fun () -> !Flags.tactic_context_compat) ;
       optwrite = (fun b -> Flags.tactic_context_compat := b) }
 
+type tactic_side_conditions_mode =
+  | SideConditionsFirst
+  | SideConditionsLast
+
+let tactic_side_conditions_mode = ref None (* None = Legacy mode *)
+
+let get_tactic_side_conditions_mode () = match !tactic_side_conditions_mode with
+  | None -> "Legacy"
+  | Some SideConditionsFirst -> "First"
+  | Some SideConditionsLast -> "Last"
+
+let set_tactic_side_conditions_mode s =
+  let s = match s with
+  | "Legacy" -> None
+  | "First" -> Some SideConditionsFirst
+  | "Last" -> Some SideConditionsLast
+  | s -> error ("Unknown side-condition mode: "^ s) in
+  tactic_side_conditions_mode := s
+
+let side_conditions_expected_position default =
+  if Flags.version_strictly_greater Flags.V8_6 then
+    match !tactic_side_conditions_mode with
+    | None -> default
+    | Some pos -> pos
+  else default
+
+let _ =
+  declare_string_option
+    { optsync  = true;
+      optdepr  = false;
+      optname  = "tactic side conditions mode";
+      optkey   = ["Tactic";"Side";"Conditions";"Mode"];
+      optread  = get_tactic_side_conditions_mode;
+      optwrite = set_tactic_side_conditions_mode }
+
+let tclTHENMAINPREMISSES default =
+  if side_conditions_expected_position default = SideConditionsFirst
+  then Tacticals.New.tclTHENLASTn
+  else Tacticals.New.tclTHENFIRSTn
+
+let tclTHENMAINPREMISS default =
+  if side_conditions_expected_position default = SideConditionsFirst
+  then Tacticals.New.tclTHENLAST
+  else Tacticals.New.tclTHENFIRST
+
+let tclTHENSIDECONDITION default =
+  if side_conditions_expected_position default = SideConditionsFirst
+  then Tacticals.New.tclTHENFIRST
+  else Tacticals.New.tclTHENLAST
+
+let ensure_side_conditions_position origin target n tac =
+  match origin, target with
+  | SideConditionsFirst, SideConditionsFirst
+  | SideConditionsLast, SideConditionsLast -> tac
+  | SideConditionsFirst, SideConditionsLast -> Proofview.tclINDEPENDENT (Tacticals.New.tclTHEN tac (Proofview.cycle n))
+  | SideConditionsLast, SideConditionsFirst -> Proofview.tclINDEPENDENT (Tacticals.New.tclTHEN tac (Proofview.cycle (-n)))
+
 let apply_solve_class_goals = ref (false)
 let _ = Goptions.declare_bool_option {
   Goptions.optsync = true; Goptions.optdepr = true;
@@ -1279,7 +1336,7 @@ let do_replace id = function
    [Ti] and the first one (resp last one) being [G] whose hypothesis
    [id] is replaced by P using the proof given by [tac] *)
 
-let clenv_refine_in ?(sidecond_first=false) with_evars ?(with_classes=true) 
+let clenv_refine_in sidecondpos with_evars ?(with_classes=true)
     targetid id sigma0 clenv tac =
   let clenv = Clenvtac.clenv_pose_dependent_evars with_evars clenv in
   let clenv =
@@ -1298,7 +1355,7 @@ let clenv_refine_in ?(sidecond_first=false) with_evars ?(with_classes=true)
   let with_clear = do_replace (Some id) naming in
   Tacticals.New.tclTHEN
     (Proofview.Unsafe.tclEVARS (clear_metas clenv.evd))
-    (if sidecond_first then
+    (if sidecondpos = SideConditionsFirst then
        Tacticals.New.tclTHENFIRST
          (assert_before_then_gen with_clear naming new_hyp_typ tac) exact_tac
      else
@@ -1365,9 +1422,17 @@ let enforce_prop_bound_names rename tac =
           let t = Proofview.Goal.concl gl in
           change_concl (aux env sigma i t)
         end } in
-      (if isrec then Tacticals.New.tclTHENFIRSTn else Tacticals.New.tclTHENLASTn)
-        tac
+      let sidecondpos = if isrec then SideConditionsLast else SideConditionsFirst in
+      let sidecondexpectedpos = side_conditions_expected_position sidecondpos in
+      tclTHENMAINPREMISSES sidecondexpectedpos
+        (ensure_side_conditions_position sidecondpos sidecondexpectedpos
+                                         (Array.length nn) tac)
         (Array.map rename_branch nn)
+  | Some (isrec,nn) ->
+      let sidecondpos = if isrec then SideConditionsLast else SideConditionsFirst in
+      let sidecondexpectedpos = side_conditions_expected_position sidecondpos in
+      ensure_side_conditions_position sidecondpos sidecondexpectedpos
+        (Array.length nn) tac
   | _ ->
       tac
 
@@ -1568,7 +1633,7 @@ let elimination_in_clause_scheme with_evars ?(flags=elim_flags ())
   if EConstr.eq_constr sigma hyp_typ new_hyp_typ then
     user_err ~hdr:"general_rewrite_in"
       (str "Nothing to rewrite in " ++ pr_id id ++ str".");
-  clenv_refine_in with_evars id id sigma elimclause''
+  clenv_refine_in (side_conditions_expected_position SideConditionsLast) with_evars id id sigma elimclause''
     (fun id -> Proofview.tclUNIT ())
   end }
 
@@ -1644,26 +1709,28 @@ let descend_in_conjunctions avoid tac (err, info) c =
 	let (_,inst), params = dest_ind_family indf in
 	let params = List.map EConstr.of_constr params in
 	let cstr = (get_constructors env indf).(0) in
-	let elim =
-	  try DefinedRecord (Recordops.lookup_projections ind)
+	let elim,sidecondpos =
+	  try DefinedRecord (Recordops.lookup_projections ind), SideConditionsLast
 	  with Not_found ->
             let u = EInstance.kind sigma u in
             let sigma = Sigma.Unsafe.of_evar_map sigma in
 	    let Sigma (elim, _, _) = build_case_analysis_scheme env sigma (ind,u) false sort in
 	    let elim = EConstr.of_constr elim in
-	    NotADefinedRecordUseScheme elim in
+	    NotADefinedRecordUseScheme elim, SideConditionsFirst in
 	Tacticals.New.tclORELSE0
 	(Tacticals.New.tclFIRST
 	  (List.init n (fun i ->
             Proofview.Goal.enter { enter = begin fun gl ->
             let env = Proofview.Goal.env gl in
             let sigma = Tacmach.New.project gl in
+            let sidecondexpectedpos = side_conditions_expected_position sidecondpos in
 	    match make_projection env sigma params cstr sign elim i n c u with
 	    | None -> Tacticals.New.tclFAIL 0 (mt())
 	    | Some (p,pt) ->
 	      Tacticals.New.tclTHENS
 		(assert_before_gen false (NamingAvoid avoid) pt)
-		[Proofview.V82.tactic (refine p);
+		[ensure_side_conditions_position sidecondpos sidecondexpectedpos 1
+                                                 (Proofview.V82.tactic (refine p));
 		 (* Might be ill-typed due to forbidden elimination. *)
 		 Tacticals.New.onLastHypId (tac (not isrec))]
            end })))
@@ -1882,7 +1949,7 @@ let apply_in_once sidecond_first with_delta with_destruct with_evars naming
     let sigma = Tacmach.New.project gl in
     try
       let clause = apply_in_once_main flags innerclause env sigma (loc,c,lbind) in
-      clenv_refine_in ~sidecond_first with_evars targetid id sigma clause
+      clenv_refine_in sidecond_first with_evars targetid id sigma clause
         (fun id ->
           Tacticals.New.tclTHENLIST [
             apply_clear_request clear_flag false c;
@@ -2327,7 +2394,8 @@ let intro_or_and_pattern loc with_evars bracketed ll thin tac id =
   let nv_with_let = Array.map List.length branchsigns in
   let ll = fix_empty_or_and_pattern (Array.length branchsigns) ll in
   let ll = get_and_check_or_and_pattern loc ll branchsigns in
-  Tacticals.New.tclTHENLASTn
+  let sidecondpos = side_conditions_expected_position SideConditionsFirst in
+  tclTHENMAINPREMISSES sidecondpos
     (Tacticals.New.tclTHEN (simplest_ecase c) (clear [id]))
     (Array.map2 (fun n l -> tac thin (Some (bracketed,n)) l)
        nv_with_let ll)
@@ -2536,7 +2604,7 @@ and intro_pattern_action loc with_evars b style pat thin destopt tac id =
         let Sigma (c, sigma, p) = f.delayed env sigma in
         Sigma ((c, NoBindings), sigma, p)
       } in
-      apply_in_delayed_once false true true with_evars naming id (None,(loc',f))
+      apply_in_delayed_once (side_conditions_expected_position SideConditionsLast) true true with_evars naming id (None,(loc',f))
         (fun id -> Tacticals.New.tclTHENLIST [doclear; tac_ipat id; tac thin None []])
 
 and prepare_intros_loc loc with_evars dft destopt = function
@@ -2633,10 +2701,10 @@ let general_apply_in sidecond_first with_delta with_destruct with_evars
 
 let apply_in simple with_evars id lemmas ipat =
   let lemmas = List.map (fun (k,(loc,l)) -> k, (loc, { delayed = fun _ sigma -> Sigma.here l sigma })) lemmas in
-  general_apply_in false simple simple with_evars id lemmas ipat
+  general_apply_in (side_conditions_expected_position SideConditionsLast) simple simple with_evars id lemmas ipat
 
 let apply_delayed_in simple with_evars id lemmas ipat =
-  general_apply_in false simple simple with_evars id lemmas ipat
+  general_apply_in (side_conditions_expected_position SideConditionsLast) simple simple with_evars id lemmas ipat
 
 (*****************************)
 (* Tactics abstracting terms *)
@@ -4223,8 +4291,9 @@ let apply_induction_in_context with_evars hyp0 inhyps elim indvars names induct_
       Array.map (fun (_,l) -> List.map f l) indsign in
     let names = compute_induction_names branchletsigns names in
     Array.iter (check_name_unicity env toclear []) names;
+    let sidecondpos = if isrec then SideConditionsLast else SideConditionsFirst in
     let tac =
-    (if isrec then Tacticals.New.tclTHENFIRSTn else Tacticals.New.tclTHENLASTn)
+     tclTHENMAINPREMISSES sidecondpos
       (Tacticals.New.tclTHENLIST [
         (* Generalize dependent hyps (but not args) *)
         if deps = [] then Proofview.tclUNIT () else apply_type tmpcl deps_cstr;
@@ -4402,13 +4471,11 @@ let pose_induction_arg_then isrec with_evars (is_arg_pure_hyp,from_prefix) elim
          resolution etc. on the term given by the user *)
       let flags = tactic_infer_flags (with_evars && (* do not give a success semantics to edestruct on an open term yet *) false) in
       let Sigma (c0, sigma, q) = finish_evar_resolution ~flags env sigma (pending,c0) in
+        (* Because of the form of the schema, induction has side conditions last *)
+        (* and destruct has side conditions first *)
+      let sidecondpos = if isrec then SideConditionsLast else SideConditionsFirst in
       let tac =
-      (if isrec then
-          (* Historically, induction has side conditions last *)
-          Tacticals.New.tclTHENFIRST
-       else
-          (* and destruct has side conditions first *)
-          Tacticals.New.tclTHENLAST)
+      tclTHENMAINPREMISS sidecondpos
       (Tacticals.New.tclTHENLIST [
         Refine.refine ~unsafe:true { run = begin fun sigma ->
           let b = not with_evars && with_eq != None in
@@ -4421,7 +4488,8 @@ let pose_induction_arg_then isrec with_evars (is_arg_pure_hyp,from_prefix) elim
         if is_arg_pure_hyp
         then Proofview.tclEVARMAP >>= fun sigma -> Tacticals.New.tclTRY (clear [destVar sigma c0])
         else Proofview.tclUNIT ();
-        if isrec then Proofview.cycle (-1) else Proofview.tclUNIT ()
+        if side_conditions_expected_position sidecondpos = SideConditionsLast then
+        Proofview.cycle (-1) else Proofview.tclUNIT ();
       ])
       tac
       in

@@ -433,7 +433,7 @@ let leibniz_rewrite_ebindings_clause cls lft2rgt tac c t l with_evars frzevars d
       Proofview.tclEFFECTS effs <*>
       general_elim_clause with_evars frzevars tac cls c t l
       (match lft2rgt with None -> false | Some b -> b)
-      {elimindex = None; elimbody = (elim,NoBindings); elimrename = None}
+      {elimindex = None; elimbody = (elim,NoBindings); elimrename = Some (true,[|0|])}
   in
   Sigma (tac, sigma, p)
   end }
