@@ -293,13 +293,32 @@ let orelse_name name name' = match name with
   | Anonymous -> name'
   | _ -> name
 
-let ltac_interp_name { ltac_idents ; ltac_genargs } = function
+let pr_loc_pos loc =
+  if Loc.is_ghost loc then (str"<unknown>")
+  else
+    let loc = Loc.unloc loc in
+    int (fst loc) ++ str"-" ++ int (snd loc)
+
+let pr_loc loc =
+  if Loc.is_ghost loc then str"<unknown>" ++ fnl ()
+  else
+    let (fname,line_nb,bol_pos,bp,ep) = Loc.represent loc in
+    if CString.equal fname "" then
+      Loc.(str"Toplevel input, characters " ++ int bp ++
+           str"-" ++ int ep ++ str":" ++ fnl ())
+    else
+      Loc.(str"File " ++ str "\"" ++ str fname ++ str "\"" ++
+           str", line " ++ int line_nb ++ str", characters " ++
+           int (bp-bol_pos) ++ str"-" ++ int (ep-bol_pos) ++
+           str":" ++ fnl())
+
+let ltac_interp_name loc { ltac_idents ; ltac_genargs } = function
   | Anonymous -> Anonymous
   | Name id as n ->
       try Name (Id.Map.find id ltac_idents)
       with Not_found ->
         if Id.Map.mem id ltac_genargs then
-          errorlabstrm "" (str"Ltac variable"++spc()++ pr_id id ++
+          errorlabstrm "" (pr_loc loc ++ str"Ltac variable"++spc()++ pr_id id ++
                            spc()++str"is not bound to an identifier."++spc()++
                            str"It cannot be used in a binder.")
         else n
@@ -313,7 +332,7 @@ let ltac_interp_name_env k0 lvar env =
   let n = rel_context_length (rel_context env) - k0 in
   let ctxt,_ = List.chop n (rel_context env) in
   let env = pop_rel_context n env in
-  let ctxt = List.map (fun (na,c,t) -> ltac_interp_name lvar na,c,t) ctxt in
+  let ctxt = List.map (fun (na,c,t) -> ltac_interp_name Loc.ghost lvar na,c,t) ctxt in
   push_rel_context ctxt env
 
 let invert_ltac_bound_name lvar env id0 id =
@@ -527,13 +546,13 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) env evdref (lvar : ltac_
       | (na,bk,None,ty)::bl ->
         let ty' = pretype_type empty_valcon env evdref lvar ty in
         let dcl = (na,None,ty'.utj_val) in
-        let dcl' = (ltac_interp_name lvar na,None,ty'.utj_val) in
+        let dcl' = (ltac_interp_name loc lvar na,None,ty'.utj_val) in
 	  type_bl (push_rel dcl env) (add_rel_decl dcl' ctxt) bl
       | (na,bk,Some bd,ty)::bl ->
         let ty' = pretype_type empty_valcon env evdref lvar ty in
         let bd' = pretype (mk_tycon ty'.utj_val) env evdref lvar bd in
         let dcl = (na,Some bd'.uj_val,ty'.utj_val) in
-        let dcl' = (ltac_interp_name lvar na,Some bd'.uj_val,ty'.utj_val) in
+        let dcl' = (ltac_interp_name loc lvar na,Some bd'.uj_val,ty'.utj_val) in
 	  type_bl (push_rel dcl env) (add_rel_decl dcl' ctxt) bl in
     let ctxtv = Array.map (type_bl env empty_rel_context) bl in
     let larj =
@@ -704,7 +723,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) env evdref (lvar : ltac_
        looked up in the rel context. *)
     let var = (name,None,j.utj_val) in
     let j' = pretype rng (push_rel var env) evdref lvar c2 in
-    let name = ltac_interp_name lvar name in
+    let name = ltac_interp_name loc lvar name in
     let resj = judge_of_abstraction env (orelse_name name name') j j' in
       inh_conv_coerce_to_tycon loc env evdref resj tycon
 
@@ -722,7 +741,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) env evdref (lvar : ltac_
         let env' = push_rel_assum var env in
           pretype_type empty_valcon env' evdref lvar c2
     in
-    let name = ltac_interp_name lvar name in
+    let name = ltac_interp_name loc lvar name in
     let resj =
       try
         judge_of_product env name j j'
@@ -749,7 +768,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) env evdref (lvar : ltac_
     let var = (name,Some j.uj_val,t) in
     let tycon = lift_tycon 1 tycon in
     let j' = pretype tycon (push_rel var env) evdref lvar c2 in
-    let name = ltac_interp_name lvar name in
+    let name = ltac_interp_name loc lvar name in
       { uj_val = mkLetIn (name, j.uj_val, t, j'.uj_val) ;
 	uj_type = subst1 j.uj_val j'.uj_type }
 
@@ -787,7 +806,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) env evdref (lvar : ltac_
 	in aux 1 1 (List.rev nal) cs.cs_args, true in
     let obj ind p v f =
       if not record then 
-        let nal = List.map (fun na -> ltac_interp_name lvar na) nal in
+        let nal = List.map (fun na -> ltac_interp_name loc lvar na) nal in
         let nal = List.rev nal in
         let fsign = List.map2 (fun na (_,b,t) -> (na,b,t)) nal fsign in
 	let f = it_mkLambda_or_LetIn f fsign in
