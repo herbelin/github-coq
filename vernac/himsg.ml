@@ -1426,13 +1426,13 @@ let rec vernac_interp_error_handler = function
   | Univ.UniverseInconsistency i ->
     str "Universe inconsistency." ++ spc() ++
     Univ.explain_universe_inconsistency UnivNames.(pr_with_global_universes empty_binders) i ++ str "."
-  | TypeError(ctx,te) ->
+  | TypeError(env,te) ->
     let te = map_ptype_error EConstr.of_constr te in
-    explain_type_error ctx Evd.empty te
-  | PretypeError(ctx,sigma,te) ->
-    explain_pretype_error ctx sigma te
-  | Notation.PrimTokenNotationError(kind,ctx,sigma,te) ->
-    explain_prim_token_notation_error kind ctx sigma te
+    explain_type_error env Evd.empty te
+  | PretypeError(env,sigma,te) ->
+    explain_pretype_error env sigma te
+  | Notation.PrimTokenNotationError(kind,env,sigma,te) ->
+    explain_prim_token_notation_error kind env sigma te
   | Typeclasses_errors.TypeClassError(env, sigma, te) ->
     explain_typeclass_error env sigma te
   | InductiveError e ->
