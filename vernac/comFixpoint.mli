@@ -20,11 +20,11 @@ open Vernacexpr
 
 val do_fixpoint :
   (* When [false], assume guarded. *)
-  locality -> polymorphic -> (fixpoint_expr * decl_notation list) list -> unit
+  Environ.env -> locality -> polymorphic -> (fixpoint_expr * decl_notation list) list -> unit
 
 val do_cofixpoint :
   (* When [false], assume guarded. *)
-  locality -> polymorphic -> (cofixpoint_expr * decl_notation list) list -> unit
+  Environ.env -> locality -> polymorphic -> (cofixpoint_expr * decl_notation list) list -> unit
 
 (************************************************************************)
 (** Internal API  *)
@@ -46,7 +46,7 @@ val interp_recursive :
   (* Misc arguments *)
   program_mode:bool -> cofix:bool ->
   (* Notations of the fixpoint / should that be folded in the previous argument? *)
-  structured_fixpoint_expr list -> decl_notation list ->
+  Environ.env -> structured_fixpoint_expr list -> decl_notation list ->
 
   (* env / signature / univs / evar_map *)
   (Environ.env * EConstr.named_context * UState.universe_decl * Evd.evar_map) *
@@ -72,7 +72,7 @@ type recursive_preentry =
   Id.t list * constr option list * types list
 
 val interp_fixpoint :
-  cofix:bool ->
+  cofix:bool -> Environ.env ->
   structured_fixpoint_expr list -> decl_notation list ->
   recursive_preentry * UState.universe_decl * UState.t *
   (EConstr.rel_context * Impargs.manual_implicits * int option) list
@@ -80,12 +80,12 @@ val interp_fixpoint :
 (** Registering fixpoints and cofixpoints in the environment *)
 (** [Not used so far] *)
 val declare_fixpoint :
-  locality -> polymorphic ->
+  Environ.env -> locality -> polymorphic ->
   recursive_preentry * UState.universe_decl * UState.t *
   (Constr.rel_context * Impargs.manual_implicits * int option) list ->
   Proof_global.lemma_possible_guards -> decl_notation list -> unit
 
-val declare_cofixpoint : locality -> polymorphic ->
+val declare_cofixpoint : Environ.env -> locality -> polymorphic ->
   recursive_preentry * UState.universe_decl * UState.t *
   (Constr.rel_context * Impargs.manual_implicits * int option) list ->
   decl_notation list -> unit

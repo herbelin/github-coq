@@ -1535,7 +1535,7 @@ end = struct (* {{{ *)
           let pobject, _ =
             Proof_global.close_future_proof ~feedback_id:stop (Future.from_val ~fix_exn p) in
           let terminator = (* The one sent by master is an InvalidKey *)
-            Lemmas.(standard_proof_terminator [] (mk_hook (fun _ _ -> ()))) in
+            Lemmas.(standard_proof_terminator (Global.env ()) [] (mk_hook (fun _ _ -> ()))) in
 
           let st = Vernacstate.freeze_interp_state `No in
           stm_vernac_interp stop
@@ -1675,7 +1675,7 @@ end = struct (* {{{ *)
       else begin
       (* The original terminator, a hook, has not been saved in the .vio*)
       Proof_global.set_terminator
-        (Lemmas.standard_proof_terminator []
+        (Lemmas.standard_proof_terminator (Global.env ()) []
           (Lemmas.mk_hook (fun _ _ -> ())));
       let proof =
         Proof_global.close_proof ~keep_body_ucst_separate:true (fun x -> x) in

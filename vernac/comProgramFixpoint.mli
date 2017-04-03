@@ -5,8 +5,8 @@ open Vernacexpr
 
 val do_fixpoint :
   (* When [false], assume guarded. *)
-  locality -> polymorphic -> (fixpoint_expr * decl_notation list) list -> unit
+  Environ.env -> locality -> polymorphic -> (fixpoint_expr * decl_notation list) list -> unit
 
 val do_cofixpoint :
   (* When [false], assume guarded. *)
-  locality -> polymorphic -> (cofixpoint_expr * decl_notation list) list -> unit
+  Environ.env -> locality -> polymorphic -> (cofixpoint_expr * decl_notation list) list -> unit

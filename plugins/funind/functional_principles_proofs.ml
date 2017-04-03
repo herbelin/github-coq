@@ -1003,7 +1003,7 @@ let generate_equation_lemma evd fnames f fun_num nb_params nb_args rec_args_num 
       ]
   in
   (* Pp.msgnl (str "lemma type (2) " ++ Printer.pr_lconstr_env (Global.env ()) evd lemma_type); *)
-  Lemmas.start_proof
+  Lemmas.start_proof (Global.env ())
     (*i The next call to mk_equation_id is valid since we are constructing the lemma
       Ensures by: obvious
       i*)
@@ -1013,7 +1013,7 @@ let generate_equation_lemma evd fnames f fun_num nb_params nb_args rec_args_num 
   lemma_type
   (Lemmas.mk_hook (fun _ _ -> ()));
   ignore (Pfedit.by (Proofview.V82.tactic prove_replacement));
-  Lemmas.save_proof (Vernacexpr.(Proved(Proof_global.Transparent,None)));
+  Lemmas.save_proof (Global.env ()) (Vernacexpr.(Proved(Proof_global.Transparent,None)));
   evd
 
 

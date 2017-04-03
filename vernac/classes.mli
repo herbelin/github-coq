@@ -40,7 +40,7 @@ val declare_instance_constant :
   unit
 
 val new_instance :
-  ?abstract:bool -> (** Not abstract by default. *)
+  Environ.env -> ?abstract:bool -> (** Not abstract by default. *)
   ?global:bool -> (** Not global by default. *)
   ?refine:bool -> (** Allow refinement *)
   program_mode:bool ->
@@ -60,10 +60,10 @@ val set_typeclass_transparency : evaluable_global_reference -> bool -> bool -> u
 
 (** For generation on names based on classes only *)
 
-val id_of_class : typeclass -> Id.t
+val id_of_class : Environ.env -> typeclass -> Id.t
 
 (** Context command *)
 
 (** returns [false] if, for lack of section, it declares an assumption
     (unless in a module type). *)
-val context : Decl_kinds.polymorphic -> local_binder_expr list -> bool
+val context : Environ.env -> Decl_kinds.polymorphic -> local_binder_expr list -> bool

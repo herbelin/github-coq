@@ -1776,67 +1776,68 @@ let declare_an_instance n s args =
 
 let declare_instance a aeq n s = declare_an_instance n s [a;aeq]
 
-let anew_instance global binders instance fields =
+let anew_instance global env binders instance fields =
   let program_mode = Flags.is_program_mode () in
   let poly = Flags.is_universe_polymorphism () in
-  new_instance ~program_mode poly
+  new_instance env ~program_mode poly
     binders instance (Some (true, CAst.make @@ CRecord (fields)))
     ~global ~generalize:false ~refine:false Hints.empty_hint_info
 
-let declare_instance_refl global binders a aeq n lemma =
+let declare_instance_refl global env binders a aeq n lemma =
   let instance = declare_instance a aeq (add_suffix n "_Reflexive") "Coq.Classes.RelationClasses.Reflexive"
-  in anew_instance global binders instance
+  in anew_instance global env binders instance
        [(qualid_of_ident (Id.of_string "reflexivity"),lemma)]
 
-let declare_instance_sym global binders a aeq n lemma =
+let declare_instance_sym global env binders a aeq n lemma =
   let instance = declare_instance a aeq (add_suffix n "_Symmetric") "Coq.Classes.RelationClasses.Symmetric"
-  in anew_instance global binders instance
+  in anew_instance global env binders instance
        [(qualid_of_ident (Id.of_string "symmetry"),lemma)]
 
-let declare_instance_trans global binders a aeq n lemma =
+let declare_instance_trans global env binders a aeq n lemma =
   let instance = declare_instance a aeq (add_suffix n "_Transitive") "Coq.Classes.RelationClasses.Transitive"
-  in anew_instance global binders instance
+  in anew_instance global env binders instance
        [(qualid_of_ident (Id.of_string "transitivity"),lemma)]
 
 let declare_relation ?locality ?(binders=[]) a aeq n refl symm trans =
   init_setoid ();
+  let env = Global.env () in
   let global = not (Locality.make_section_locality locality) in
   let instance = declare_instance a aeq (add_suffix n "_relation") "Coq.Classes.RelationClasses.RewriteRelation"
-  in ignore(anew_instance global binders instance []);
+  in ignore(anew_instance global env binders instance []);
   match (refl,symm,trans) with
       (None, None, None) -> ()
     | (Some lemma1, None, None) ->
-	ignore (declare_instance_refl global binders a aeq n lemma1)
+	ignore (declare_instance_refl global env binders a aeq n lemma1)
     | (None, Some lemma2, None) ->
-	ignore (declare_instance_sym global binders a aeq n lemma2)
+	ignore (declare_instance_sym global env binders a aeq n lemma2)
     | (None, None, Some lemma3) ->
-	ignore (declare_instance_trans global binders a aeq n lemma3)
+	ignore (declare_instance_trans global env binders a aeq n lemma3)
     | (Some lemma1, Some lemma2, None) ->
-	ignore (declare_instance_refl global binders a aeq n lemma1);
-	ignore (declare_instance_sym global binders a aeq n lemma2)
+	ignore (declare_instance_refl global env binders a aeq n lemma1);
+	ignore (declare_instance_sym global env binders a aeq n lemma2)
     | (Some lemma1, None, Some lemma3) ->
-	let _lemma_refl = declare_instance_refl global binders a aeq n lemma1 in
-	let _lemma_trans = declare_instance_trans global binders a aeq n lemma3 in
+	let _lemma_refl = declare_instance_refl global env binders a aeq n lemma1 in
+	let _lemma_trans = declare_instance_trans global env binders a aeq n lemma3 in
 	let instance = declare_instance a aeq n "Coq.Classes.RelationClasses.PreOrder"
 	in ignore(
-	    anew_instance global binders instance
+	    anew_instance global env binders instance
               [(qualid_of_ident (Id.of_string "PreOrder_Reflexive"), lemma1);
                (qualid_of_ident (Id.of_string "PreOrder_Transitive"),lemma3)])
     | (None, Some lemma2, Some lemma3) ->
-	let _lemma_sym = declare_instance_sym global binders a aeq n lemma2 in
-	let _lemma_trans = declare_instance_trans global binders a aeq n lemma3 in
+	let _lemma_sym = declare_instance_sym global env binders a aeq n lemma2 in
+	let _lemma_trans = declare_instance_trans global env binders a aeq n lemma3 in
 	let instance = declare_instance a aeq n "Coq.Classes.RelationClasses.PER"
 	in ignore(
-	    anew_instance global binders instance
+	    anew_instance global env binders instance
               [(qualid_of_ident (Id.of_string "PER_Symmetric"), lemma2);
                (qualid_of_ident (Id.of_string "PER_Transitive"),lemma3)])
      | (Some lemma1, Some lemma2, Some lemma3) ->
-	let _lemma_refl = declare_instance_refl global binders a aeq n lemma1 in
-	let _lemma_sym = declare_instance_sym global binders a aeq n lemma2 in
-	let _lemma_trans = declare_instance_trans global binders a aeq n lemma3 in
+	let _lemma_refl = declare_instance_refl global env binders a aeq n lemma1 in
+	let _lemma_sym = declare_instance_sym global env binders a aeq n lemma2 in
+	let _lemma_trans = declare_instance_trans global env binders a aeq n lemma3 in
 	let instance = declare_instance a aeq n "Coq.Classes.RelationClasses.Equivalence"
 	in ignore(
-	  anew_instance global binders instance
+	  anew_instance global env binders instance
             [(qualid_of_ident (Id.of_string "Equivalence_Reflexive"), lemma1);
              (qualid_of_ident (Id.of_string "Equivalence_Symmetric"), lemma2);
              (qualid_of_ident (Id.of_string "Equivalence_Transitive"), lemma3)])
@@ -1852,9 +1853,8 @@ let proper_projection sigma r ty =
 		  Array.append args [| instarg |]) in
     it_mkLambda_or_LetIn app ctx
 
-let declare_projection n instance_id r =
-  let poly = Global.is_polymorphic r in
-  let env = Global.env () in
+let declare_projection env n instance_id r =
+  let poly = Environ.is_polymorphic env r in
   let sigma = Evd.from_env env in
   let sigma,c = Evd.fresh_global env sigma r in
   let ty = Retyping.get_type_of env sigma c in
@@ -1938,12 +1938,13 @@ let warn_add_setoid_deprecated =
 let add_setoid global binders a aeq t n =
   warn_add_setoid_deprecated ?loc:a.CAst.loc ();
   init_setoid ();
-  let _lemma_refl = declare_instance_refl global binders a aeq n (mkappc "Seq_refl" [a;aeq;t]) in
-  let _lemma_sym = declare_instance_sym global binders a aeq n (mkappc "Seq_sym" [a;aeq;t]) in
-  let _lemma_trans = declare_instance_trans global binders a aeq n (mkappc "Seq_trans" [a;aeq;t]) in
+  let env = Global.env () in
+  let _lemma_refl = declare_instance_refl global env binders a aeq n (mkappc "Seq_refl" [a;aeq;t]) in
+  let _lemma_sym = declare_instance_sym global env binders a aeq n (mkappc "Seq_sym" [a;aeq;t]) in
+  let _lemma_trans = declare_instance_trans global env binders a aeq n (mkappc "Seq_trans" [a;aeq;t]) in
   let instance = declare_instance a aeq n "Coq.Classes.RelationClasses.Equivalence"
   in ignore(
-    anew_instance global binders instance
+    anew_instance global env binders instance
       [(qualid_of_ident (Id.of_string "Equivalence_Reflexive"), mkappc "Seq_refl" [a;aeq;t]);
        (qualid_of_ident (Id.of_string "Equivalence_Symmetric"), mkappc "Seq_sym" [a;aeq;t]);
        (qualid_of_ident (Id.of_string "Equivalence_Transitive"), mkappc "Seq_trans" [a;aeq;t])])
@@ -1961,9 +1962,9 @@ let warn_add_morphism_deprecated =
 let add_morphism_infer glob m n =
   warn_add_morphism_deprecated ?loc:m.CAst.loc ();
   init_setoid ();
+  let env = Global.env () in
   let poly = Flags.is_universe_polymorphism () in
   let instance_id = add_suffix n "_Proper" in
-  let env = Global.env () in
   let evd = Evd.from_env env in
   let uctx, instance = build_morphism_signature env evd m in
     if Lib.is_modtype () then
@@ -1975,7 +1976,7 @@ let add_morphism_infer glob m n =
       in
 	add_instance (Typeclasses.new_instance 
                         (Lazy.force PropGlobal.proper_class) Hints.empty_hint_info glob (ConstRef cst));
-	declare_projection n instance_id (ConstRef cst)
+	declare_projection env n instance_id (ConstRef cst)
     else
       let kind = Decl_kinds.Global, poly, 
 	Decl_kinds.DefinitionBody Decl_kinds.Instance 
@@ -1983,20 +1984,21 @@ let add_morphism_infer glob m n =
       let tac = make_tactic "Coq.Classes.SetoidTactics.add_morphism_tactic" in
       let hook _ = function
 	| Globnames.ConstRef cst ->
-	  add_instance (Typeclasses.new_instance 
+	  add_instance (Typeclasses.new_instance
 			  (Lazy.force PropGlobal.proper_class) Hints.empty_hint_info
                           glob (ConstRef cst));
-	  declare_projection n instance_id (ConstRef cst)
+	  declare_projection env n instance_id (ConstRef cst)
 	| _ -> assert false
       in
       let hook = Lemmas.mk_hook hook in
 	Flags.silently
 	  (fun () ->
-	    Lemmas.start_proof instance_id kind (Evd.from_ctx uctx) (EConstr.of_constr instance) hook;
+	    Lemmas.start_proof env instance_id kind (Evd.from_ctx uctx) (EConstr.of_constr instance) hook;
 	    ignore (Pfedit.by (Tacinterp.interp tac))) ()
 
 let add_morphism glob binders m s n =
   init_setoid ();
+  let env = Global.env () in
   let poly = Flags.is_universe_polymorphism () in
   let instance_id = add_suffix n "_Proper" in
   let instance =
@@ -2007,9 +2009,9 @@ let add_morphism glob binders m s n =
   in
   let tac = Tacinterp.interp (make_tactic "add_morphism_tactic") in
   let program_mode = Flags.is_program_mode () in
-  ignore(new_instance ~program_mode ~global:glob poly binders instance
+  ignore(new_instance env ~program_mode ~global:glob poly binders instance
            (Some (true, CAst.make @@ CRecord []))
-    ~generalize:false ~tac ~hook:(declare_projection n instance_id) Hints.empty_hint_info)
+    ~generalize:false ~tac ~hook:(declare_projection env n instance_id) Hints.empty_hint_info)
 
 (** Bind to "rewrite" too *)
 

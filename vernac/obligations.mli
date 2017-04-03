@@ -56,7 +56,7 @@ type progress = (* Resolution status of a program *)
 
 val default_tactic : unit Proofview.tactic ref
 
-val add_definition : Names.Id.t -> ?term:constr -> types -> 
+val add_definition : Environ.env -> Names.Id.t -> ?term:constr -> types -> 
   UState.t ->
   ?univdecl:UState.universe_decl -> (* Universe binders and constraints *)
   ?implicits:(Constrexpr.explicitation * (bool * bool * bool)) list ->
@@ -73,7 +73,7 @@ type fixpoint_kind =
   | IsCoFixpoint
 
 val add_mutual_definitions :
-  (Names.Id.t * constr * types *
+  Environ.env -> (Names.Id.t * constr * types *
       (Constrexpr.explicitation * (bool * bool * bool)) list * obligation_info) list ->
   UState.t ->
   ?univdecl:UState.universe_decl -> (* Universe binders and constraints *)

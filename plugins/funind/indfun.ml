@@ -411,7 +411,7 @@ let register_struct is_rec (fixpoint_exprl:(Vernacexpr.fixpoint_expr * Vernacexp
   match fixpoint_exprl with
     | [(({CAst.v=fname},pl),_,bl,ret_type,body),_] when not is_rec ->
       let body = match body with | Some body -> body | None -> user_err ~hdr:"Function" (str "Body of Function must be given") in 
-      ComDefinition.do_definition
+      ComDefinition.do_definition (Global.env ())
         ~program_mode:false
 	fname
 	(Decl_kinds.Global,(Flags.is_universe_polymorphism ()),Decl_kinds.Definition) pl
@@ -431,7 +431,7 @@ let register_struct is_rec (fixpoint_exprl:(Vernacexpr.fixpoint_expr * Vernacexp
        in
        evd,List.rev rev_pconstants
     | _ ->
-       ComFixpoint.do_fixpoint Global (Flags.is_universe_polymorphism ()) fixpoint_exprl;
+       ComFixpoint.do_fixpoint (Global.env ()) Global (Flags.is_universe_polymorphism ()) fixpoint_exprl;
        let evd,rev_pconstants =
 	 List.fold_left
            (fun (evd,l) ((({CAst.v=fname},_),_,_,_,_),_) ->
@@ -621,7 +621,7 @@ let rebuild_bl aux bl typ = rebuild_bl aux bl typ
 
 let recompute_binder_list (fixpoint_exprl : (Vernacexpr.fixpoint_expr * Vernacexpr.decl_notation list) list) = 
   let fixl,ntns = ComFixpoint.extract_fixpoint_components false fixpoint_exprl in
-  let ((_,_,typel),_,ctx,_) = ComFixpoint.interp_fixpoint ~cofix:false fixl ntns in
+  let ((_,_,typel),_,ctx,_) = ComFixpoint.interp_fixpoint (Global.env ()) ~cofix:false fixl ntns in
   let constr_expr_typel = 
     with_full_print (List.map (fun c -> Constrextern.extern_constr false (Global.env ()) (Evd.from_ctx ctx) (EConstr.of_constr c))) typel in
   let fixpoint_exprl_with_new_bl = 

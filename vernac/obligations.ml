@@ -835,7 +835,7 @@ let solve_by_tac name evi t poly ctx =
 
 let obligation_terminator name num guard hook auto pf =
   let open Proof_global in
-  let term = Lemmas.universe_proof_terminator guard hook in
+  let term = Lemmas.universe_proof_terminator (Global.env ()) guard hook in
   match pf with
   | Admitted _ -> apply_terminator term pf
   | Proved (opq, id, proof) ->
@@ -960,7 +960,7 @@ let rec solve_obligation prg num tac =
     Proof_global.make_terminator
       (obligation_terminator prg.prg_name num guard hook auto) in
   let hook ctx = Lemmas.mk_hook (obligation_hook prg obl num auto ctx) in
-  let () = Lemmas.start_proof_univs ~sign:prg.prg_sign obl.obl_name kind evd (EConstr.of_constr obl.obl_type) ~terminator hook in
+  let () = Lemmas.start_proof_univs (Global.env ()) ~sign:prg.prg_sign obl.obl_name kind evd (EConstr.of_constr obl.obl_type) ~terminator hook in
   let _ = Pfedit.by !default_tactic in
   Option.iter (fun tac -> Proof_global.set_endline_tactic tac) tac
 
@@ -1105,7 +1105,7 @@ let show_term n =
              Printer.pr_constr_env env sigma prg.prg_type ++ spc () ++ str ":=" ++ fnl ()
             ++ Printer.pr_constr_env env sigma prg.prg_body)
 
-let add_definition n ?term t ctx ?(univdecl=UState.default_univ_decl)
+let add_definition env n ?term t ctx ?(univdecl=UState.default_univ_decl)
                    ?(implicits=[]) ?(kind=Global,false,Definition) ?tactic
     ?(reduce=reduce) ?(hook=mk_univ_hook (fun _ _ _ -> ())) ?(opaque = false) obls =
   let sign = Lemmas.initialize_named_context_for_proof () in
@@ -1125,7 +1125,7 @@ let add_definition n ?term t ctx ?(univdecl=UState.default_univ_decl)
 	| Remain rem -> Flags.if_verbose (fun () -> show_obligations ~msg:false (Some n)) (); res
 	| _ -> res)
 
-let add_mutual_definitions l ctx ?(univdecl=UState.default_univ_decl) ?tactic
+let add_mutual_definitions env l ctx ?(univdecl=UState.default_univ_decl) ?tactic
                            ?(kind=Global,false,Definition) ?(reduce=reduce)
     ?(hook=mk_univ_hook (fun _ _ _ -> ())) ?(opaque = false) notations fixkind =
   let sign = Lemmas.initialize_named_context_for_proof () in

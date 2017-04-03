@@ -305,7 +305,7 @@ let build_functional_principle (evd:Evd.evar_map ref) interactive_proof old_prin
   evd := sigma;
   let hook = Lemmas.mk_hook (hook new_principle_type) in
   begin
-    Lemmas.start_proof
+    Lemmas.start_proof (Global.env ())
       new_princ_name
       (Decl_kinds.Global,Flags.is_universe_polymorphism (),(Decl_kinds.Proof Decl_kinds.Theorem))
       !evd

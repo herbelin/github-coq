@@ -163,10 +163,9 @@ type recursive_preentry =
 let fix_proto sigma =
   Evarutil.new_global sigma (Coqlib.lib_ref "program.tactic.fix_proto")
 
-let interp_recursive ~program_mode ~cofix fixl notations =
+let interp_recursive ~program_mode ~cofix env fixl notations =
   let open Context.Named.Declaration in
   let open EConstr in
-  let env = Global.env() in
   let fixnames = List.map (fun fix -> fix.fix_name) fixl in
 
   (* Interp arities allowing for unresolved types *)
@@ -242,12 +241,12 @@ let check_recursive isfix env evd (fixnames,fixdefs,_) =
     check_mutuality env evd isfix (List.combine fixnames fixdefs)
   end
 
-let interp_fixpoint ~cofix l ntns =
-  let (env,_,pl,evd),fix,info = interp_recursive ~program_mode:false ~cofix l ntns in
+let interp_fixpoint ~cofix env l ntns =
+  let (env,_,pl,evd),fix,info = interp_recursive ~program_mode:false ~cofix env l ntns in
   check_recursive true env evd fix;
   (fix,pl,Evd.evar_universe_context evd,info)
 
-let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) indexes ntns =
+let declare_fixpoint env local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) indexes ntns =
   if List.exists Option.is_empty fixdefs then
     (* Some bodies to define by proof *)
     let thms =
@@ -257,7 +256,7 @@ let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ind
       Some (List.map (Option.cata (EConstr.of_constr %> Tactics.exact_no_check) Tacticals.New.tclIDTAC)
         fixdefs) in
     let evd = Evd.from_ctx ctx in
-    Lemmas.start_proof_with_initialization (local,poly,DefinitionBody Fixpoint)
+    Lemmas.start_proof_with_initialization env (local,poly,DefinitionBody Fixpoint)
       evd pl (Some(false,indexes,init_tac)) thms None (Lemmas.mk_hook (fun _ _ -> ()))
   else begin
     (* We shortcut the proof process *)
@@ -282,7 +281,7 @@ let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ind
   (* Declare notations *)
   List.iter (Metasyntax.add_notation_interpretation (Global.env())) ntns
 
-let declare_cofixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ntns =
+let declare_cofixpoint env local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) ntns =
   if List.exists Option.is_empty fixdefs then
     (* Some bodies to define by proof *)
     let thms =
@@ -292,7 +291,7 @@ let declare_cofixpoint local poly ((fixnames,fixdefs,fixtypes),pl,ctx,fiximps) n
       Some (List.map (Option.cata (EConstr.of_constr %> Tactics.exact_no_check) Tacticals.New.tclIDTAC)
         fixdefs) in
     let evd = Evd.from_ctx ctx in
-      Lemmas.start_proof_with_initialization (Global,poly, DefinitionBody CoFixpoint)
+      Lemmas.start_proof_with_initialization env (Global,poly, DefinitionBody CoFixpoint)
       evd pl (Some(true,[],init_tac)) thms None (Lemmas.mk_hook (fun _ _ -> ()))
   else begin
     (* We shortcut the proof process *)
@@ -340,16 +339,16 @@ let check_safe () =
   let flags = Environ.typing_flags (Global.env ()) in
   flags.check_universes && flags.check_guarded
 
-let do_fixpoint local poly l =
+let do_fixpoint env local poly l =
   let fixl, ntns = extract_fixpoint_components true l in
-  let (_, _, _, info as fix) = interp_fixpoint ~cofix:false fixl ntns in
+  let (_, _, _, info as fix) = interp_fixpoint ~cofix:false env fixl ntns in
   let possible_indexes =
     List.map compute_possible_guardness_evidences info in
-  declare_fixpoint local poly fix possible_indexes ntns;
+  declare_fixpoint env local poly fix possible_indexes ntns;
   if not (check_safe ()) then Feedback.feedback Feedback.AddedAxiom else ()
 
-let do_cofixpoint local poly l =
+let do_cofixpoint env local poly l =
   let fixl,ntns = extract_cofixpoint_components l in
-  let cofix = interp_fixpoint ~cofix:true fixl ntns in
-  declare_cofixpoint local poly cofix ntns;
+  let cofix = interp_fixpoint ~cofix:true env fixl ntns in
+  declare_cofixpoint env local poly cofix ntns;
   if not (check_safe ()) then Feedback.feedback Feedback.AddedAxiom else ()

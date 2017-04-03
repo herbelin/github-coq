@@ -91,12 +91,11 @@ let check_definition (ce, evd, _, imps) =
   check_evars_are_solved env evd empty_sigma;
   ce
 
-let do_definition ~program_mode ident k univdecl bl red_option c ctypopt hook =
+let do_definition env ~program_mode ident k univdecl bl red_option c ctypopt hook =
   let (ce, evd, univdecl, imps as def) =
     interp_definition univdecl bl (pi2 k) red_option c ctypopt
   in
     if program_mode then
-      let env = Global.env () in
       let (c,ctx), sideff = Future.force ce.const_entry_body in
       assert(Safe_typing.empty_private_constants = sideff);
       assert(Univ.ContextSet.is_empty ctx);
@@ -110,7 +109,7 @@ let do_definition ~program_mode ident k univdecl bl red_option c ctypopt hook =
       in
       let ctx = Evd.evar_universe_context evd in
       let hook = Obligations.mk_univ_hook (fun _ l r -> Lemmas.call_hook (fun x -> x) hook l r) in
-      ignore(Obligations.add_definition
+      ignore(Obligations.add_definition env
           ident ~term:c cty ctx ~univdecl ~implicits:imps ~kind:k ~hook obls)
     else let ce = check_definition def in
       ignore(DeclareDef.declare_definition ident k ce (Evd.universe_binders evd) imps hook)

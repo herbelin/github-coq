@@ -131,9 +131,8 @@ let process_assumptions_udecls kind l =
   in
   udecl, List.map (fun (coe, (idl, c)) -> coe, (List.map fst idl, c)) l
 
-let do_assumptions kind nl l =
+let do_assumptions env kind nl l =
   let open Context.Named.Declaration in
-  let env = Global.env () in
   let udecl, l = process_assumptions_udecls kind l in
   let sigma, udecl = interp_univ_decl_opt env udecl in
   let l =

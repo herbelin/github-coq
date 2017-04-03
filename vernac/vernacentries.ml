@@ -488,6 +488,7 @@ let vernac_definition_hook p = function
 | _ -> no_hook
 
 let vernac_definition ~atts discharge kind ({loc;v=id}, pl) def =
+  let env = Global.env () in
   let local = enforce_locality_exp atts.locality discharge in
   let hook = vernac_definition_hook atts.polymorphic kind in
   let () =
@@ -506,7 +507,7 @@ let vernac_definition ~atts discharge kind ({loc;v=id}, pl) def =
   in
   (match def with
     | ProveBody (bl,t) ->   (* local binders, typ *)
-      start_proof_and_print (local, atts.polymorphic, DefinitionBody kind)
+      start_proof_and_print env (local, atts.polymorphic, DefinitionBody kind)
         [(CAst.make ?loc name, pl), (bl, t)] hook
     | DefineBody (bl,red_option,c,typ_opt) ->
       let red_option = match red_option with
@@ -514,27 +515,30 @@ let vernac_definition ~atts discharge kind ({loc;v=id}, pl) def =
           | Some r ->
             let sigma, env = Pfedit.get_current_context () in
             Some (snd (Hook.get f_interp_redexp env sigma r)) in
-      ComDefinition.do_definition ~program_mode name
+      ComDefinition.do_definition env ~program_mode name
         (local, atts.polymorphic, kind) pl bl red_option c typ_opt hook)
 
 let vernac_start_proof ~atts kind l =
   let local = enforce_locality_exp atts.locality NoDischarge in
+  let env = Global.env () in
   if Dumpglob.dump () then
     List.iter (fun ((id, _), _) -> Dumpglob.dump_definition id false "prf") l;
-  start_proof_and_print (local, atts.polymorphic, Proof kind) l no_hook
+  start_proof_and_print env (local, atts.polymorphic, Proof kind) l no_hook
 
 let vernac_end_proof ?proof = function
-  | Admitted          -> save_proof ?proof Admitted
-  | Proved (_,_) as e -> save_proof ?proof e
+  | Admitted          -> save_proof (Global.env ()) ?proof Admitted
+  | Proved (_,_) as e -> save_proof (Global.env ()) ?proof e
 
 let vernac_exact_proof c =
+  let env = Global.env() in
   (* spiwack: for simplicity I do not enforce that "Proof proof_term" is
      called only at the begining of a proof. *)
   let status = Pfedit.by (Tactics.exact_proof c) in
-  save_proof (Vernacexpr.(Proved(Proof_global.Opaque,None)));
+  save_proof env (Vernacexpr.(Proved(Proof_global.Opaque,None)));
   if not status then Feedback.feedback Feedback.AddedAxiom
 
 let vernac_assumption ~atts discharge kind l nl =
+  let env = Global.env() in
   let local = enforce_locality_exp atts.locality discharge in
   let global = local == Global in
   let kind = local, atts.polymorphic, kind in
@@ -543,7 +547,7 @@ let vernac_assumption ~atts discharge kind l nl =
       List.iter (fun (lid, _) ->
 	if global then Dumpglob.dump_definition lid false "ax"
 	else Dumpglob.dump_definition lid true "var") idl) l;
-  let status = ComAssumption.do_assumptions kind nl l in
+  let status = ComAssumption.do_assumptions env kind nl l in
   if not status then Feedback.feedback Feedback.AddedAxiom
 
 let should_treat_as_cumulative cum poly =
@@ -605,6 +609,7 @@ let extract_inductive_udecl (indl:(inductive_expr * decl_notation list) list) =
     neither. *)
 let vernac_inductive ~atts cum lo finite indl =
   let open Pp in
+  let env = Global.env() in
   let udecl, indl = extract_inductive_udecl indl in
   if Dumpglob.dump () then
     List.iter (fun (((coe,lid), _, _, _, cstrs), _) ->
@@ -684,7 +689,7 @@ let vernac_inductive ~atts cum lo finite indl =
     let indl = List.map unpack indl in
     let is_cumulative = should_treat_as_cumulative cum atts.polymorphic in
     let uniform = should_treat_as_uniform () in
-    ComInductive.do_mutual_inductive ~template udecl indl is_cumulative atts.polymorphic lo ~uniform finite
+    ComInductive.do_mutual_inductive ~template env udecl indl is_cumulative atts.polymorphic lo ~uniform finite
   else
     user_err (str "Mixed record-inductive definitions are not allowed")
 (*
@@ -700,6 +705,7 @@ let vernac_inductive ~atts cum lo finite indl =
 
 let vernac_fixpoint ~atts discharge l =
   let local = enforce_locality_exp atts.locality discharge in
+  let env = Global.env() in
   if Dumpglob.dump () then
     List.iter (fun (((lid,_), _, _, _, _), _) -> Dumpglob.dump_definition lid false "def") l;
   (* XXX: Switch to the attribute system and match on ~atts *)
@@ -708,10 +714,11 @@ let vernac_fixpoint ~atts discharge l =
     else
       ComFixpoint.do_fixpoint
   in
-  do_fixpoint local atts.polymorphic l
+  do_fixpoint env local atts.polymorphic l
 
 let vernac_cofixpoint ~atts discharge l =
   let local = enforce_locality_exp atts.locality discharge in
+  let env = Global.env() in
   if Dumpglob.dump () then
     List.iter (fun (((lid,_), _, _, _), _) -> Dumpglob.dump_definition lid false "def") l;
   let do_cofixpoint = if Flags.is_program_mode () then
@@ -719,7 +726,7 @@ let vernac_cofixpoint ~atts discharge l =
     else
       ComFixpoint.do_cofixpoint
   in
-  do_cofixpoint local atts.polymorphic l
+  do_cofixpoint env local atts.polymorphic l
 
 let vernac_scheme l =
   if Dumpglob.dump () then
@@ -950,12 +957,14 @@ let vernac_identity_coercion ~atts id qids qidt =
 
 let vernac_instance ~atts abst sup inst props pri =
   let global = not (make_section_locality atts.locality) in
+  let env = Global.env() in
   Dumpglob.dump_constraint (fst (pi1 inst)) false "inst";
   let program_mode = Flags.is_program_mode () in
-  ignore(Classes.new_instance ~program_mode ~abstract:abst ~global atts.polymorphic sup inst props pri)
+  ignore(Classes.new_instance env ~program_mode ~abstract:abst ~global atts.polymorphic sup inst props pri)
 
 let vernac_context ~atts l =
-  if not (Classes.context atts.polymorphic l) then Feedback.feedback Feedback.AddedAxiom
+  let env = Global.env() in
+  if not (Classes.context env atts.polymorphic l) then Feedback.feedback Feedback.AddedAxiom
 
 let vernac_declare_instances ~atts insts =
   let glob = not (make_section_locality atts.locality) in

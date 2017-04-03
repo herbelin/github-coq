@@ -56,11 +56,10 @@ let retrieve_first_recthm uctx = function
       (Option.map map (Global.body_of_constant_body cb), is_opaque cb)
   | _ -> assert false
 
-let adjust_guardness_conditions const = function
+let adjust_guardness_conditions env const = function
   | [] -> const (* Not a recursive statement *)
   | possible_indexes ->
   (* Try all combinations... not optimal *)
-     let env = Global.env() in
      { const with const_entry_body =
         Future.chain const.const_entry_body
         (fun ((body, ctx), eff) ->
@@ -84,14 +83,14 @@ let adjust_guardness_conditions const = function
 		(mkFix ((indexes,0),fixdecls), ctx), eff
           | _ -> (body, ctx), eff) }
 
-let find_mutually_recursive_statements sigma thms =
+let find_mutually_recursive_statements env sigma thms =
     let n = List.length thms in
     let inds = List.map (fun (id,(t,impls)) ->
       let (hyps,ccl) = EConstr.decompose_prod_assum sigma t in
       let x = (id,(t,impls)) in
       let whnf_hyp_hds = EConstr.map_rel_context_in_env
         (fun env c -> fst (Reductionops.whd_all_stack env sigma c))
-        (Global.env()) hyps in
+        env hyps in
       let ind_hyps =
         List.flatten (List.map_i (fun i decl ->
           let t = RelDecl.get_type decl in
@@ -159,24 +158,24 @@ let find_mutually_recursive_statements sigma thms =
     in
     (finite,guard,None), ordered_inds
 
-let look_for_possibly_mutual_statements sigma = function
+let look_for_possibly_mutual_statements env sigma = function
   | [id,(t,impls)] ->
       (* One non recursively proved theorem *)
       None,[id,(t,impls)],None
   | _::_ as thms ->
     (* More than one statement and/or an explicit decreasing mark: *)
     (* we look for a common inductive hyp or a common coinductive conclusion *)
-    let recguard,ordered_inds = find_mutually_recursive_statements sigma thms in
+    let recguard,ordered_inds = find_mutually_recursive_statements env sigma thms in
     let thms = List.map pi2 ordered_inds in
     Some recguard,thms, Some (List.map (fun (_,_,i) -> succ i) ordered_inds)
   | [] -> anomaly (Pp.str "Empty list of theorems.")
 
 (* Saving a goal *)
 
-let save ?export_seff id const uctx do_guard (locality,poly,kind) hook =
+let save env ?export_seff id const uctx do_guard (locality,poly,kind) hook =
   let fix_exn = Future.fix_exn_of const.Entries.const_entry_body in
   try
-    let const = adjust_guardness_conditions const do_guard in
+    let const = adjust_guardness_conditions env const do_guard in
     let k = Kindops.logical_kind_of_goal_kind kind in
     let should_suggest = const.const_entry_opaque && Option.is_empty const.const_entry_secctx in
     let r = match locality with
@@ -299,7 +298,7 @@ let admit (id,k,e) pl hook () =
 
 (* Starting a goal *)
 
-let universe_proof_terminator compute_guard hook =
+let universe_proof_terminator env compute_guard hook =
   let open Proof_global in
   make_terminator begin function
   | Admitted (id,k,pe,ctx) ->
@@ -315,11 +314,11 @@ let universe_proof_terminator compute_guard hook =
       let id = match idopt with
         | None -> id
         | Some { CAst.v = save_id } -> check_anonymity id save_id; save_id in
-      save ~export_seff id const univs compute_guard persistence (hook (Some univs))
+      save ~export_seff env id const univs compute_guard persistence (hook (Some univs))
   end
 
-let standard_proof_terminator compute_guard hook =
-  universe_proof_terminator compute_guard (fun _ -> hook)
+let standard_proof_terminator env compute_guard hook =
+  universe_proof_terminator env compute_guard (fun _ -> hook)
 
 let initialize_named_context_for_proof () =
   let sign = Global.named_context () in
@@ -329,9 +328,9 @@ let initialize_named_context_for_proof () =
       let d = if variable_opacity id then NamedDecl.LocalAssum (id, NamedDecl.get_type d) else d in
       Environ.push_named_context_val d signv) sign Environ.empty_named_context_val
 
-let start_proof id ?pl kind sigma ?terminator ?sign c ?init_tac ?(compute_guard=[]) hook =
+let start_proof env id ?pl kind sigma ?terminator ?sign c ?init_tac ?(compute_guard=[]) hook =
   let terminator = match terminator with
-  | None -> standard_proof_terminator compute_guard hook
+  | None -> standard_proof_terminator env compute_guard hook
   | Some terminator -> terminator compute_guard hook
   in
   let sign = 
@@ -341,9 +340,9 @@ let start_proof id ?pl kind sigma ?terminator ?sign c ?init_tac ?(compute_guard=
   in
   Pfedit.start_proof id ?pl kind sigma sign c ?init_tac terminator
 
-let start_proof_univs id ?pl kind sigma ?terminator ?sign c ?init_tac ?(compute_guard=[]) hook =
+let start_proof_univs env id ?pl kind sigma ?terminator ?sign c ?init_tac ?(compute_guard=[]) hook =
   let terminator = match terminator with
-  | None -> universe_proof_terminator compute_guard hook
+  | None -> universe_proof_terminator env compute_guard hook
   | Some terminator -> terminator compute_guard hook
   in
   let sign = 
@@ -367,7 +366,7 @@ let rec_tac_initializer finite guard thms snl =
        | (id,n,_)::l -> Tactics.mutual_fix id n l 0
        | _ -> assert false
 
-let start_proof_with_initialization kind sigma decl recguard thms snl hook =
+let start_proof_with_initialization env kind sigma decl recguard thms snl hook =
   let intro_tac (_, (_, (ids, _))) =
     Tacticals.New.tclMAP (function
     | Name id -> Tactics.intro_mustbe_force id
@@ -410,9 +409,9 @@ let start_proof_with_initialization kind sigma decl recguard thms snl hook =
         List.iter (fun (strength,ref,imps) ->
 	  maybe_declare_manual_implicits false ref imps;
 	  call_hook (fun exn -> exn) hook strength ref) thms_data in
-      start_proof_univs id ~pl:decl kind sigma t ?init_tac (fun ctx -> mk_hook (hook ctx)) ~compute_guard:guard
+      start_proof_univs env id ~pl:decl kind sigma t ?init_tac (fun ctx -> mk_hook (hook ctx)) ~compute_guard:guard
 
-let start_proof_com ?inference_hook kind thms hook =
+let start_proof_com env0 ?inference_hook kind thms hook =
   let env0 = Global.env () in
   let decl = fst (List.hd thms) in
   let evd, decl = Constrexpr_ops.interp_univ_decl_opt env0 (snd decl) in
@@ -429,7 +428,7 @@ let start_proof_com ?inference_hook kind thms hook =
           (Evarutil.nf_evar evd (EConstr.it_mkProd_or_LetIn t' ctx),
            (ids, imps @ lift_implicits (Context.Rel.nhyps ctx) imps'))))
       evd thms in
-  let recguard,thms,snl = look_for_possibly_mutual_statements evd thms in
+  let recguard,thms,snl = look_for_possibly_mutual_statements env0 evd thms in
   let evd = Evd.minimize_universes evd in
   (* XXX: This nf_evar is critical too!! We are normalizing twice if
      you look at the previous lines... *)
@@ -444,7 +443,7 @@ let start_proof_com ?inference_hook kind thms hook =
     else (* We fix the variables to ensure they won't be lowered to Set *)
       Evd.fix_undefined_variables evd
   in
-    start_proof_with_initialization kind evd decl recguard thms snl hook
+    start_proof_with_initialization env0 kind evd decl recguard thms snl hook
 
 (* Saving a proof *)
 
@@ -459,7 +458,7 @@ let _ =
       optread  = (fun () -> !keep_admitted_vars);
       optwrite = (fun b -> keep_admitted_vars := b) }
 
-let save_proof ?proof = function
+let save_proof env ?proof = function
   | Vernacexpr.Admitted ->
       let pe =
         let open Proof_global in
@@ -487,7 +486,6 @@ let save_proof ?proof = function
               else match Proof_global.get_used_variables(), pproofs with
               | Some _ as x, _ -> x
               | None, (pproof, _) :: _ -> 
-                  let env = Global.env () in
                   let ids_typ = Environ.global_vars_set env typ in
                   let ids_def = Environ.global_vars_set env pproof in
                   Some (Environ.keep_hyps env (Id.Set.union ids_typ ids_def))

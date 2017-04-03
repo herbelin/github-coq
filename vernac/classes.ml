@@ -97,11 +97,11 @@ let type_ctx_instance env sigma ctx inst subst =
     | [] -> sigma, subst
   in aux (sigma, subst, []) inst (List.rev ctx)
 
-let id_of_class cl =
+let id_of_class env cl =
   match cl.cl_impl with
     | ConstRef kn -> Label.to_id @@ Constant.label kn
     | IndRef (kn,i) ->
-	let mip = (Environ.lookup_mind kn (Global.env ())).Declarations.mind_packets in
+	let mip = (Environ.lookup_mind kn env).Declarations.mind_packets in
 	  mip.(0).Declarations.mind_typename
     | _ -> assert false
 
@@ -165,7 +165,7 @@ let declare_instance_open env sigma ?hook ~tac ~program_mode ~global ~poly k id 
     in
     let hook = Obligations.mk_univ_hook hook in
     let ctx = Evd.evar_universe_context sigma in
-    ignore (Obligations.add_definition id ?term:constr
+    ignore (Obligations.add_definition env id ?term:constr
               ~univdecl:decl typ ctx ~kind:(Global,poly,Instance) ~hook obls)
   else
     Flags.silently (fun () ->
@@ -175,7 +175,7 @@ let declare_instance_open env sigma ?hook ~tac ~program_mode ~global ~poly k id 
            the refinement manually.*)
         let gls = List.rev (Evd.future_goals sigma) in
         let sigma = Evd.reset_future_goals sigma in
-        Lemmas.start_proof id ~pl:decl kind sigma (EConstr.of_constr termtype)
+        Lemmas.start_proof env id ~pl:decl kind sigma (EConstr.of_constr termtype)
           (Lemmas.mk_hook
              (fun _ -> instance_hook k pri global imps ?hook));
         (* spiwack: I don't know what to do with the status here. *)
@@ -279,10 +279,9 @@ let do_transparent_instance env env' sigma ?hook ~refine ~tac ~global ~poly ~pro
   else CErrors.user_err Pp.(str "Unsolved obligations remaining.");
   id
 
-let new_instance ?(abstract=false) ?(global=false) ?(refine= !refine_instance) ~program_mode
+let new_instance env ?(abstract=false) ?(global=false) ?(refine= !refine_instance) ~program_mode
     poly ctx (instid, bk, cl) props
     ?(generalize=true) ?(tac:unit Proofview.tactic option) ?hook pri =
-  let env = Global.env() in
   let ({CAst.loc;v=instid}, pl) = instid in
   let sigma, decl = Constrexpr_ops.interp_univ_decl_opt env pl in
   let tclass, ids =
@@ -331,7 +330,7 @@ let new_instance ?(abstract=false) ?(global=false) ?(refine= !refine_instance) ~
 	      user_err ~hdr:"new_instance" (Id.print id ++ Pp.str " already exists.");
 	    id
       | Anonymous ->
-	  let i = Nameops.add_suffix (id_of_class k) "_instance_0" in
+	  let i = Nameops.add_suffix (id_of_class env k) "_instance_0" in
 	    Namegen.next_global_ident_away i (Termops.vars_of_env env)
   in
   let env' = push_rel_context ctx env in
@@ -356,8 +355,7 @@ let named_of_rel_context l =
       l ([], [])
   in ctx
 
-let context poly l =
-  let env = Global.env() in
+let context env poly l =
   let sigma = Evd.from_env env in
   let sigma, (_, ((env', fullctx), impls)) = interp_context_evars env sigma l in
   (* Note, we must use the normalized evar from now on! *)

@@ -560,16 +560,16 @@ type uniform_inductive_flag =
   | UniformParameters
   | NonUniformParameters
 
-let do_mutual_inductive ~template udecl indl cum poly prv ~uniform finite =
+let do_mutual_inductive ~template env udecl indl cum poly prv ~uniform finite =
   let (params,indl),coes,ntns = extract_mutual_inductive_declaration_components indl in
   (* Interpret the types *)
   let indl = match uniform with UniformParameters -> (params, [], indl) | NonUniformParameters -> ([], params, indl) in
-  let mie,pl,impls = interp_mutual_inductive_gen (Global.env()) ~template udecl indl ntns cum poly prv finite in
+  let mie,pl,impls = interp_mutual_inductive_gen env ~template udecl indl ntns cum poly prv finite in
   (* Declare the mutual inductive block with its associated schemes *)
   ignore (declare_mutual_inductive_with_eliminations mie pl impls);
   (* Declare the possible notations of inductive types *)
-  List.iter (Metasyntax.add_notation_interpretation (Global.env ())) ntns;
+  List.iter (Metasyntax.add_notation_interpretation env) ntns;
   (* Declare the coercions *)
   List.iter (fun qid -> Class.try_add_new_coercion (Nametab.locate qid) ~local:false poly) coes;
   (* If positivity is assumed declares itself as unsafe. *)
-  if Environ.deactivated_guard (Global.env ()) then Feedback.feedback Feedback.AddedAxiom else ()
+  if Environ.deactivated_guard env then Feedback.feedback Feedback.AddedAxiom else ()

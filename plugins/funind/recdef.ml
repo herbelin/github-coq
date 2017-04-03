@@ -75,7 +75,7 @@ let declare_fun f_id kind ?univs value =
   let ce = definition_entry ?univs value (*FIXME *) in
     ConstRef(declare_constant f_id (DefinitionEntry ce, kind));;
 
-let defined () = Lemmas.save_proof (Vernacexpr.(Proved (Proof_global.Transparent,None)))
+let defined () = Lemmas.save_proof (Global.env ()) (Vernacexpr.(Proved (Proof_global.Transparent,None)))
 
 let def_of_const t =
    match (Constr.kind t) with
@@ -1381,10 +1381,10 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
 	       )
       		 g)
 ;
-    Lemmas.save_proof (Vernacexpr.Proved(opacity,None));
+    Lemmas.save_proof env (Vernacexpr.Proved(opacity,None));
   in
   Lemmas.start_proof
-    na
+    (Global.env ()) na
     (Decl_kinds.Global, false (* FIXME *), Decl_kinds.Proof Decl_kinds.Lemma)
     sigma gls_type
     (Lemmas.mk_hook hook);
@@ -1431,7 +1431,7 @@ let com_terminate
     hook =
   let start_proof ctx (tac_start:tactic) (tac_end:tactic) =
     let evd, env = Pfedit.get_current_context () in
-    Lemmas.start_proof thm_name
+    Lemmas.start_proof env thm_name
       (Global, false (* FIXME *), Proof Lemma) ~sign:(Environ.named_context_val env)
       ctx (EConstr.of_constr (compute_terminate_type nb_args fonctional_ref)) hook;
 
@@ -1486,7 +1486,7 @@ let (com_eqn : int -> Id.t ->
     let evd = Evd.from_ctx (Evd.evar_universe_context evd) in
     let f_constr = constr_of_global f_ref in
     let equation_lemma_type = subst1 f_constr equation_lemma_type in
-    (Lemmas.start_proof eq_name (Global, false, Proof Lemma)
+    (Lemmas.start_proof env eq_name (Global, false, Proof Lemma)
        ~sign:(Environ.named_context_val env)
        evd
        (EConstr.of_constr equation_lemma_type)
@@ -1521,7 +1521,7 @@ let (com_eqn : int -> Id.t ->
        ))); 
      (* (try Vernacentries.interp (Vernacexpr.VernacShow Vernacexpr.ShowProof) with _ -> ()); *)
 (*      Vernacentries.interp (Vernacexpr.VernacShow Vernacexpr.ShowScript); *)
-     Flags.silently (fun () -> Lemmas.save_proof (Vernacexpr.Proved(opacity,None))) () ; 
+     Flags.silently (fun () -> Lemmas.save_proof env (Vernacexpr.Proved(opacity,None))) () ;
 (*      Pp.msgnl (str "eqn finished"); *)
     );;
 

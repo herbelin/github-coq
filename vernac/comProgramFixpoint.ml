@@ -226,7 +226,7 @@ let build_wellfounded (recname,pl,n,bl,arityc,body) poly r measure notation =
     Obligations.eterm_obligations env recname sigma 0 fullcoqc fullctyp
   in
   let ctx = Evd.evar_universe_context sigma in
-    ignore(Obligations.add_definition recname ~term:evars_def ~univdecl:decl
+    ignore(Obligations.add_definition env recname ~term:evars_def ~univdecl:decl
              evars_typ ctx evars ~hook)
 
 let out_def = function
@@ -238,10 +238,10 @@ let collect_evars_of_term evd c ty =
   Evar.Set.fold (fun ev acc -> Evd.add acc ev (Evd.find_undefined evd ev))
   evars (Evd.from_ctx (Evd.evar_universe_context evd))
 
-let do_program_recursive local poly fixkind fixl ntns =
+let do_program_recursive env local poly fixkind fixl ntns =
   let cofix = fixkind = Obligations.IsCoFixpoint in
   let (env, rec_sign, pl, evd), fix, info =
-    interp_recursive ~cofix ~program_mode:true fixl ntns
+    interp_recursive ~cofix ~program_mode:true env fixl ntns
   in
     (* Program-specific code *)
     (* Get the interesting evars, those that were not instantiated *)
@@ -284,9 +284,9 @@ let do_program_recursive local poly fixkind fixl ntns =
   | Obligations.IsFixpoint _ -> (local, poly, Fixpoint)
   | Obligations.IsCoFixpoint -> (local, poly, CoFixpoint)
   in
-  Obligations.add_mutual_definitions defs ~kind ~univdecl:pl ctx ntns fixkind
+  Obligations.add_mutual_definitions env defs ~kind ~univdecl:pl ctx ntns fixkind
 
-let do_program_fixpoint local poly l =
+let do_program_fixpoint env local poly l =
   let g = List.map (fun ((_,wf,_,_,_),_) -> wf) l in
     match g, l with
     | [(n, CWfRec r)], [((({CAst.v=id},pl),_,bl,typ,def),ntn)] ->
@@ -305,7 +305,7 @@ let do_program_fixpoint local poly l =
     | _, _ when List.for_all (fun (n, ro) -> ro == CStructRec) g ->
         let fixl,ntns = extract_fixpoint_components true l in
         let fixkind = Obligations.IsFixpoint g in
-          do_program_recursive local poly fixkind fixl ntns
+          do_program_recursive env local poly fixkind fixl ntns
 
     | _, _ ->
         user_err ~hdr:"do_program_fixpoint"
@@ -323,11 +323,11 @@ let check_safe () =
   let flags = Environ.typing_flags (Global.env ()) in
   flags.check_universes && flags.check_guarded
 
-let do_fixpoint local poly l =
-  do_program_fixpoint local poly l;
+let do_fixpoint env local poly l =
+  do_program_fixpoint env local poly l;
   if not (check_safe ()) then Feedback.feedback Feedback.AddedAxiom else ()
 
-let do_cofixpoint local poly l =
+let do_cofixpoint env local poly l =
   let fixl,ntns = extract_cofixpoint_components l in
-  do_program_recursive local poly Obligations.IsCoFixpoint fixl ntns;
+  do_program_recursive env local poly Obligations.IsCoFixpoint fixl ntns;
   if not (check_safe ()) then Feedback.feedback Feedback.AddedAxiom else ()

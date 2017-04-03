@@ -24,7 +24,7 @@ type uniform_inductive_flag =
   | NonUniformParameters
 
 val do_mutual_inductive :
-  template:bool option -> universe_decl_expr option ->
+  template:bool option -> Environ.env -> universe_decl_expr option ->
   (one_inductive_expr * decl_notation list) list -> cumulative_inductive_flag ->
   polymorphic -> private_flag -> uniform:uniform_inductive_flag ->
   Declarations.recursivity_kind -> unit
