@@ -21,12 +21,9 @@ let get_name avoid ?(default="H") = function
   | Name n -> Name n
 
 let array_get_start a =
-  try
-    Array.init
-      (Array.length a - 1)
-      (fun i -> a.(i))
-  with Invalid_argument "index out of bounds" ->
-    invalid_arg "array_get_start"
+  Array.init
+    (Array.length a - 1)
+    (fun i -> a.(i))
 
 let id_of_name = function
     Name id -> id
@@ -508,7 +505,6 @@ let list_rewrite (rev:bool) (eqs: (EConstr.constr*bool) list) =
        (if rev then (List.rev eqs) else eqs) (tclFAIL 0 (mt())));;
 
 let decompose_lam_n sigma n =
-  let open EConstr in
   if n < 0 then CErrors.error "decompose_lam_n: integer parameter must be positive";
   let rec lamdec_rec l n c =
     if Int.equal n 0 then l,c
@@ -543,3 +539,8 @@ let prodn n env b =
 
 (* compose_prod [xn:Tn;..;x1:T1] b = (x1:T1)..(xn:Tn)b *)
 let compose_prod l b = prodn (List.length l) l b
+
+type tcc_lemma_value = 
+  | Undefined
+  | Value of Constr.constr
+  | Not_needed

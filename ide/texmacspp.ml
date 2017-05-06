@@ -508,7 +508,6 @@ let rec tmpp ?loc v =
       xmlApply ?loc (Element("timeout",["val",string_of_int s],[]) ::
                     [tmpp ?loc e])
   | VernacFail e -> xmlApply ?loc (Element("fail",[],[]) :: [tmpp ?loc e])
-  | VernacError _ -> xmlWithLoc ?loc "error" [] []
 
   (* Syntax *)
   | VernacSyntaxExtension (_, ((_, name), sml)) ->
@@ -557,7 +556,7 @@ let rec tmpp ?loc v =
       let str_dk = Kindops.string_of_definition_kind (l, false, dk) in
       let str_id = Id.to_string id in
       (xmlDef ?loc str_dk str_id [pp_expr e])
-  | VernacStartTheoremProof (tk, [ Some ((_,id),_), ([], statement, None) ], b) ->
+  | VernacStartTheoremProof (tk, [ Some ((_,id),_), ([], statement) ], b) ->
       let str_tk = Kindops.string_of_theorem_kind tk in
       let str_id = Id.to_string id in
       (xmlThm ?loc str_tk str_id [pp_expr statement])

@@ -858,13 +858,11 @@ let tclPROGRESS t =
   let quick_test =
     initial.solution == final.solution && initial.comb == final.comb
   in
-  let exhaustive_test =
+  let test =
+    quick_test ||
     Util.List.for_all2eq begin fun i f ->
       Progress.goal_equal initial.solution i final.solution f
     end initial.comb final.comb
-  in
-  let test =
-    quick_test || exhaustive_test
   in
   if not test then
     tclUNIT res
@@ -1020,11 +1018,11 @@ module Goal = struct
 
   let assume (gl : ('a, 'r) t) = (gl :> ([ `NF ], 'r) t)
 
-  let env { env=env } = env
-  let sigma { sigma=sigma } = Sigma.Unsafe.of_evar_map sigma
-  let hyps { env=env } = EConstr.named_context env
-  let concl { concl=concl } = concl
-  let extra { sigma=sigma; self=self } = goal_extra sigma self
+  let env {env} = env
+  let sigma {sigma} = Sigma.Unsafe.of_evar_map sigma
+  let hyps {env} = EConstr.named_context env
+  let concl {concl} = concl
+  let extra {sigma; self} = goal_extra sigma self
 
   let gmake_with info env sigma goal = 
     { env = Environ.reset_with_named_context (Evd.evar_filtered_hyps info) env ;
@@ -1040,7 +1038,7 @@ module Goal = struct
   let nf_enter f =
     InfoL.tag (Info.Dispatch) begin
     iter_goal begin fun goal ->
-      Env.get >>= fun env ->
+      tclENV >>= fun env ->
       tclEVARMAP >>= fun sigma ->
       try
         let (gl, sigma) = nf_gmake env sigma goal in

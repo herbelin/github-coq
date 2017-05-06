@@ -162,21 +162,8 @@ module DirPath =
 struct
   type t = module_ident list
 
-  let rec compare (p1 : t) (p2 : t) =
-    if p1 == p2 then 0
-    else begin match p1, p2 with
-    | [], [] -> 0
-    | [], _ -> -1
-    | _, [] -> 1
-    | id1 :: p1, id2 :: p2 ->
-      let c = Id.compare id1 id2 in
-      if Int.equal c 0 then compare p1 p2 else c
-    end
-
-  let rec equal p1 p2 = p1 == p2 || match p1, p2 with
-  | [], [] -> true
-  | id1 :: p1, id2 :: p2 -> Id.equal id1 id2 && equal p1 p2
-  | _ -> false
+  let compare = List.compare Id.compare
+  let equal = List.equal Id.equal
 
   let rec hash accu = function
   | [] -> accu
@@ -191,7 +178,7 @@ struct
 
   let empty = []
 
-  let is_empty d = match d with [] -> true | _ -> false
+  let is_empty = List.is_empty
 
   let to_string = function
     | [] -> "<>"
@@ -555,7 +542,6 @@ module KerPair = struct
   end
 
   module SyntacticOrd = struct
-    type t = kernel_pair
     let compare x y = match x, y with
       | Same knx, Same kny -> KerName.compare knx kny
       | Dual (knux,kncx), Dual (knuy,kncy) ->
@@ -878,7 +864,6 @@ struct
   let hash (c, b) = (if b then 0 else 1) + Constant.hash c
 
   module SyntacticOrd = struct
-    type t = constant * bool
     let compare (c, b) (c', b') =
       if b = b' then Constant.SyntacticOrd.compare c c' else -1
     let equal (c, b as x) (c', b' as x') =

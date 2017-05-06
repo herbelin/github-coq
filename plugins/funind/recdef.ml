@@ -45,12 +45,6 @@ open Indfun_common
 open Sigma.Notations
 open Context.Rel.Declaration
 
-let local_assum (na, t) =
-  LocalAssum (na, EConstr.Unsafe.to_constr t)
-
-let local_def (na, b, t) =
-  LocalDef (na, EConstr.Unsafe.to_constr b, EConstr.Unsafe.to_constr t)
-
 (* Ugly things which should not be here *)
 
 let coq_constant m s =
@@ -1227,6 +1221,7 @@ let get_current_subgoals_types () =
   let { Evd.it=sgs ; sigma=sigma } = Proof.V82.subgoals p in
     sigma, List.map (Goal.V82.abstract_type sigma) sgs
 
+exception EmptySubgoals
 let build_and_l sigma l =
   let and_constr =  Coqlib.build_coq_and () in
   let conj_constr = coq_conj () in
@@ -1248,7 +1243,7 @@ let build_and_l sigma l =
   in
   let l = List.sort compare l in 
   let rec f  = function
-    | [] -> failwith "empty list of subgoals!"
+    | [] -> raise EmptySubgoals
     | [p] -> p,tclIDTAC,1
     | p1::pl ->
 	let c,tac,nb = f pl in
@@ -1319,7 +1314,7 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
 	| _ -> anomaly ~label:"equation_lemma" (Pp.str "not a constant")
     in
     let lemma = mkConst (Names.Constant.make1 (Lib.make_kn na)) in
-    ref_ := Some (EConstr.Unsafe.to_constr lemma);
+    ref_ := Value (EConstr.Unsafe.to_constr lemma);
     let lid = ref [] in
     let h_num = ref (-1) in
     let env = Global.env () in
@@ -1407,7 +1402,7 @@ let open_new_goal build_proof sigma using_lemmas ref_ goal_name (gls_type,decomp
 
 let com_terminate
     tcc_lemma_name
-    (tcc_lemma_ref : Constr.t option ref)
+    tcc_lemma_ref
     is_mes
     fonctional_ref
     input_type
@@ -1434,8 +1429,9 @@ let com_terminate
       using_lemmas tcc_lemma_ref
       (Some tcc_lemma_name)
       (new_goal_type);
-  with Failure "empty list of subgoals!" ->
+  with EmptySubgoals ->
     (* a non recursive function declared with measure ! *)
+    tcc_lemma_ref := Not_needed;
     defined ()
 
 
@@ -1511,7 +1507,6 @@ let (com_eqn : int -> Id.t ->
 (*      Pp.msgnl (str "eqn finished"); *)
     );;
 
-
 let recursive_definition is_mes function_name rec_impls type_of_f r rec_arg_num eq
     generate_induction_principle using_lemmas : unit =
   let open Term in
@@ -1557,7 +1552,7 @@ let recursive_definition is_mes function_name rec_impls type_of_f r rec_arg_num 
   in
   let evm = Evd.from_ctx evuctx in
   let tcc_lemma_name = add_suffix function_name "_tcc" in
-  let tcc_lemma_constr = ref None in
+  let tcc_lemma_constr = ref Undefined in
   (* let _ = Pp.msgnl (str "relation := " ++ Printer.pr_lconstr_env env_with_pre_rec_args relation) in *)
   let hook _ _ = 
     let term_ref = Nametab.locate (qualid_of_ident term_id) in
@@ -1586,8 +1581,8 @@ let recursive_definition is_mes function_name rec_impls type_of_f r rec_arg_num 
       and eq_ref = destConst (constr_of_global eq_ref) in
       generate_induction_principle f_ref tcc_lemma_constr
 	functional_ref eq_ref rec_arg_num (EConstr.of_constr rec_arg_type) (nb_prod evm (EConstr.of_constr res)) (EConstr.of_constr relation);
-      if Flags.is_verbose ()
-      then msgnl (h 1 (Ppconstr.pr_id function_name ++
+      Flags.if_verbose
+        msgnl (h 1 (Ppconstr.pr_id function_name ++
 			 spc () ++ str"is defined" )++ fnl () ++
 		    h 1 (Ppconstr.pr_id equation_id ++
 			   spc () ++ str"is defined" )

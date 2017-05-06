@@ -477,7 +477,7 @@ let vernac_definition locality p (local,k) ((loc,id as lid),pl) def =
   (match def with
     | ProveBody (bl,t) ->   (* local binders, typ *)
 	  start_proof_and_print (local,p,DefinitionBody k)
-	    [Some (lid,pl), (bl,t,None)] hook
+	    [Some (lid,pl), (bl,t)] hook
     | DefineBody (bl,red_option,c,typ_opt) ->
  	let red_option = match red_option with
           | None -> None
@@ -780,7 +780,7 @@ let vernac_require from import qidl =
   in
   let locate (loc, qid) =
     try
-      let warn = Flags.is_verbose () in
+      let warn = not !Flags.quiet in
       let (_, dir, f) = Library.locate_qualified_library ?root ~warn qid in
       (dir, f)
     with
@@ -1232,8 +1232,8 @@ let _ =
       optdepr  = false;
       optname  = "silent";
       optkey   = ["Silent"];
-      optread  = is_silent;
-      optwrite = make_silent }
+      optread  = (fun () -> !Flags.quiet);
+      optwrite = ((:=) Flags.quiet) }
 
 let _ =
   declare_bool_option
@@ -1533,7 +1533,14 @@ let get_current_context_of_args = function
   | Some n -> get_goal_context n
   | None -> get_current_context ()
 
-let vernac_check_may_eval redexp glopt rc =
+let query_command_selector ?loc = function
+  | None -> None
+  | Some (SelectNth n) -> Some n
+  | _ -> user_err ?loc ~hdr:"query_command_selector"
+      (str "Query commands only support the single numbered goal selector.")
+
+let vernac_check_may_eval ?loc redexp glopt rc =
+  let glopt = query_command_selector ?loc glopt in
   let (sigma, env) = get_current_context_of_args glopt in
   let sigma', c = interp_open_constr env sigma rc in
   let c = EConstr.Unsafe.to_constr c in
@@ -1595,9 +1602,10 @@ exception NoHyp
 (* Printing "About" information of a hypothesis of the current goal.
    We only print the type and a small statement to this comes from the
    goal. Precondition: there must be at least one current goal. *)
-let print_about_hyp_globs ref_or_by_not glnumopt =
+let print_about_hyp_globs ?loc ref_or_by_not glopt =
   let open Context.Named.Declaration in
   try
+    let glnumopt = query_command_selector ?loc glopt in
     let gl,id =
       match glnumopt,ref_or_by_not with
       | None,AN (Ident (_loc,id)) -> (* goal number not given, catch any failure *)
@@ -1605,8 +1613,8 @@ let print_about_hyp_globs ref_or_by_not glnumopt =
       | Some n,AN (Ident (_loc,id)) ->  (* goal number given, catch if wong *)
 	 (try get_nth_goal n,id
 	  with
-	    Failure _ -> user_err ~hdr:"print_about_hyp_globs"
-                           (str "No such goal: " ++ int n ++ str "."))
+	    Failure _ -> user_err ?loc ~hdr:"print_about_hyp_globs"
+                          (str "No such goal: " ++ int n ++ str "."))
       | _ , _ -> raise NoHyp in
     let hyps = pf_hyps gl in
     let decl = Context.Named.lookup id hyps in
@@ -1619,7 +1627,7 @@ let print_about_hyp_globs ref_or_by_not glnumopt =
     | NoHyp | Not_found -> print_about ref_or_by_not
 
 	       
-let vernac_print = let open Feedback in function
+let vernac_print ?loc = let open Feedback in function
   | PrintTables -> msg_notice (print_tables ())
   | PrintFullContext-> msg_notice (print_full_context_typ ())
   | PrintSectionContext qid -> msg_notice (print_sec_context_typ qid)
@@ -1664,7 +1672,7 @@ let vernac_print = let open Feedback in function
   | PrintVisibility s ->
       msg_notice (Notation.pr_visibility (Constrextern.without_symbols pr_lglob_constr) s)
   | PrintAbout (ref_or_by_not,glnumopt) ->
-     msg_notice (print_about_hyp_globs ref_or_by_not glnumopt)
+     msg_notice (print_about_hyp_globs ?loc ref_or_by_not glnumopt)
   | PrintImplicit qid ->
     dump_global qid; msg_notice (print_impargs qid)
   | PrintAssumptions (o,t,r) ->
@@ -1729,7 +1737,8 @@ let _ =
       optread  = (fun () -> !search_output_name_only);
       optwrite = (:=) search_output_name_only }
 
-let vernac_search s gopt r =
+let vernac_search ?loc s gopt r =
+  let gopt = query_command_selector ?loc gopt in
   let r = interp_search_restriction r in
   let env,gopt =
     match gopt with | None ->
@@ -1905,6 +1914,7 @@ let vernac_load interp fname =
  * still parsed as the obsolete_locality grammar entry for retrocompatibility.
  * loc is the Loc.t of the vernacular command being interpreted. *)
 let interp ?proof ?loc locality poly c =
+  let loc = (loc : Loc.t option) in
   vernac_pperr_endline (fun () -> str "interpreting: " ++ Ppvernac.pr_vernac c);
   match c with
   (* The below vernac are candidates for removal from the main type
@@ -1934,9 +1944,6 @@ let interp ?proof ?loc locality poly c =
   | VernacResetInitial -> anomaly (str "VernacResetInitial not handled by Stm")
   | VernacBack _       -> anomaly (str "VernacBack not handled by Stm")
   | VernacBackTo _     -> anomaly (str "VernacBackTo not handled by Stm")
-
-  (* Horrible Hack that should die. *)
-  | VernacError e -> raise e
 
   (* This one is possible to handle here *)
   | VernacAbort id    -> CErrors.user_err  (str "Abort cannot be used through the Load command")
@@ -2039,17 +2046,17 @@ let interp ?proof ?loc locality poly c =
   | VernacAddOption (key,v) -> vernac_add_option key v
   | VernacMemOption (key,v) -> vernac_mem_option key v
   | VernacPrintOption key -> vernac_print_option key
-  | VernacCheckMayEval (r,g,c) -> vernac_check_may_eval r g c
+  | VernacCheckMayEval (r,g,c) -> vernac_check_may_eval ?loc r g c
   | VernacDeclareReduction (s,r) -> vernac_declare_reduction locality s r
   | VernacGlobalCheck c -> vernac_global_check c
-  | VernacPrint p -> vernac_print p
-  | VernacSearch (s,g,r) -> vernac_search s g r
+  | VernacPrint p -> vernac_print ?loc p
+  | VernacSearch (s,g,r) -> vernac_search ?loc s g r
   | VernacLocate l -> vernac_locate l
   | VernacRegister (id, r) -> vernac_register id r
   | VernacComments l -> if_verbose Feedback.msg_info (str "Comments ok\n")
 
   (* Proof management *)
-  | VernacGoal t -> vernac_start_proof locality poly Theorem [None,([],t,None)] false
+  | VernacGoal t -> vernac_start_proof locality poly Theorem [None,([],t)] false
   | VernacFocus n -> vernac_focus n
   | VernacUnfocus -> vernac_unfocus ()
   | VernacUnfocused -> vernac_unfocused ()
@@ -2173,7 +2180,7 @@ let with_fail b f =
       | HasNotFailed ->
           user_err ~hdr:"Fail" (str "The command has not failed!")
       | HasFailed msg ->
-          if is_verbose () || !test_mode || !ide_slave then Feedback.msg_info
+          if not !Flags.quiet || !test_mode || !ide_slave then Feedback.msg_info
             (str "The command has indeed failed with message:" ++ fnl () ++ msg)
       | _ -> assert false
   end

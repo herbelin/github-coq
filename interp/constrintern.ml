@@ -861,9 +861,9 @@ let intern_qualid loc qid intern env lvar us args =
       | Some _, { loc; v = GApp ({ loc = loc' ; v = GRef (ref, None) }, arg) } ->
         CAst.make ?loc @@ GApp (CAst.make ?loc:loc' @@ GRef (ref, us), arg)
       | Some _, _ ->
-        user_err ?loc  (str "Notation " ++ pr_qualid qid ++
-          str " cannot have a universe instance, its expanded head
-               does not start with a reference")
+        user_err ?loc  (str "Notation " ++ pr_qualid qid
+                        ++ str " cannot have a universe instance,"
+                        ++ str " its expanded head does not start with a reference")
       in
       c, projapp, args2
 
@@ -2072,8 +2072,6 @@ let interp_binder_evars env evdref na t =
   let t = intern_gen IsType env t in
   let t' = locate_if_hole ?loc:(loc_of_glob_constr t) na t in
   understand_tcc_evars env evdref ~expected_type:IsType t'
-
-open Environ
 
 let my_intern_constr env lvar acc c =
   internalize env acc false lvar c

@@ -54,7 +54,8 @@ let coqide_known_option table = List.mem table [
   ["Printing";"All"];
   ["Printing";"Records"];
   ["Printing";"Existential";"Instances"];
-  ["Printing";"Universes"]]
+  ["Printing";"Universes"];
+  ["Printing";"Unfocused"]]
 
 let is_known_option cmd = match cmd with
   | VernacSetOption (o,BoolValue true)
@@ -63,25 +64,26 @@ let is_known_option cmd = match cmd with
 
 (** Check whether a command is forbidden in the IDE *)
 
-let ide_cmd_checks (loc,ast) =
+let ide_cmd_checks ~id (loc,ast) =
   let user_error s = CErrors.user_err ?loc ~hdr:"CoqIde" (str s) in
+  let warn msg = Feedback.(feedback ~id (Message (Warning, loc, strbrk msg))) in
   if is_debug ast then
     user_error "Debug mode not available in the IDE";
   if is_known_option ast then
-    Feedback.msg_warning ?loc (strbrk "Set this option from the IDE menu instead");
+    warn "Set this option from the IDE menu instead";
   if is_navigation_vernac ast || is_undo ast then
-    Feedback.msg_warning ?loc (strbrk "Use IDE navigation instead");
+    warn "Use IDE navigation instead";
   if is_query ast then
-    Feedback.msg_warning ?loc (strbrk "Query commands should not be inserted in scripts")
+    warn "Query commands should not be inserted in scripts"
 
 (** Interpretation (cf. [Ide_intf.interp]) *)
 
 let add ((s,eid),(sid,verbose)) =
   let pa = Pcoq.Gram.parsable (Stream.of_string s) in
   let loc_ast = Stm.parse_sentence sid pa in
-  ide_cmd_checks loc_ast;
   let newid, rc = Stm.add ~ontop:sid verbose loc_ast in
   let rc = match rc with `NewTip -> CSig.Inl () | `Unfocus id -> CSig.Inr id in
+  ide_cmd_checks ~id:newid loc_ast;
   (* TODO: the "" parameter is a leftover of the times the protocol
    * used to include stderr/stdout output.
    *
@@ -504,12 +506,12 @@ let rec parse = function
 
 let () = Coqtop.toploop_init := (fun args ->
         let args = parse args in
-        Flags.make_silent true;
+        Flags.quiet := true;
         CoqworkmgrApi.(init Flags.High);
         args)
 
 let () = Coqtop.toploop_run := loop
 
 let () = Usage.add_to_usage "coqidetop"
-"  --xml_format=Ppcmds    serialize pretty printing messages using the std_ppcmds format
-  --help-XML-protocol    print the documentation of the XML protocol used by CoqIDE\n"
+"  --xml_format=Ppcmds    serialize pretty printing messages using the std_ppcmds format\
+\n  --help-XML-protocol    print the documentation of the XML protocol used by CoqIDE\n"

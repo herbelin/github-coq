@@ -117,7 +117,7 @@ end = struct
       (b#get_iter_at_mark s.start)#offset
       (b#get_iter_at_mark s.stop)#offset
       (ellipsize
-        ((b#get_iter_at_mark s.start)#get_slice (b#get_iter_at_mark s.stop)))
+        ((b#get_iter_at_mark s.start)#get_slice ~stop:(b#get_iter_at_mark s.stop)))
       (String.concat "," (List.map str_of_flag s.flags))
       (ellipsize
         (String.concat ","
@@ -127,9 +127,6 @@ end = struct
 
 end
 open SentenceId
-
-let log_pp msg : unit task =
-  Coq.lift (fun () -> Minilib.log_pp msg)
 
 let log msg : unit task =
   Coq.lift (fun () -> Minilib.log msg)
@@ -207,7 +204,7 @@ object (self)
     in
     List.iter (fun s -> set_index s (s.index + 1)) after;
     set_index s (document_length - List.length after);
-    ignore ((SentenceId.connect s)#changed self#on_changed);
+    ignore ((SentenceId.connect s)#changed ~callback:self#on_changed);
     document_length <- document_length + 1;
     List.iter (fun f -> f `INSERT) cbs
 
@@ -221,8 +218,8 @@ object (self)
     List.iter (fun f -> f `REMOVE) cbs
 
   initializer
-    let _ = (Doc.connect doc)#pushed self#on_push in
-    let _ = (Doc.connect doc)#popped self#on_pop in
+    let _ = (Doc.connect doc)#pushed ~callback:self#on_push in
+    let _ = (Doc.connect doc)#popped ~callback:self#on_pop in
     ()
 
 end
@@ -273,15 +270,15 @@ object(self)
         else iter
       in
       let iter = sentence_start iter in
-      script#buffer#place_cursor iter;
+      script#buffer#place_cursor ~where:iter;
       ignore (script#scroll_to_iter ~use_align:true ~yalign:0. iter)
     in
-    let _ = segment#connect#clicked on_click in
+    let _ = segment#connect#clicked ~callback:on_click in
     ()
 
   method private tooltip_callback ~x ~y ~kbd tooltip =
-    let x, y = script#window_to_buffer_coords `WIDGET x y in
-    let iter = script#get_iter_at_location x y in
+    let x, y = script#window_to_buffer_coords ~tag:`WIDGET ~x ~y in
+    let iter = script#get_iter_at_location ~x ~y in
     if iter#has_tag Tags.Script.tooltip then begin
       let s =
         let rec aux iter =
@@ -366,6 +363,9 @@ object(self)
 
   (* This method is intended to perform stateless commands *)
   method raw_coq_query phrase =
+    let sid = try Document.tip document
+              with Document.Empty -> Stateid.initial
+    in
     let action = log "raw_coq_query starting now" in
     let display_error s =
       if not (validate s) then
@@ -373,11 +373,10 @@ object(self)
       else messages#add s;
     in
     let query =
-      Coq.query (phrase,Stateid.dummy) in
+      Coq.query (phrase,sid) in
     let next = function
     | Fail (_, _, err) -> display_error err; Coq.return ()
-    | Good msg ->
-      messages#add_string msg; Coq.return ()
+    | Good msg -> Coq.return ()
     in
     Coq.bind (Coq.seq action query) next
 
@@ -414,12 +413,9 @@ object(self)
     buffer#apply_tag Tags.Script.tooltip ~start ~stop;
     add_tooltip sentence pre post markup
 
-  method private is_dummy_id id = Stateid.equal id Stateid.dummy
-
   method private enqueue_feedback msg =
-    (* Minilib.log ("Feedback received: " ^ Xml_printer.to_string_fmt (Xmlprotocol.of_feedback msg)); *)
-    let id = msg.id in
-    if self#is_dummy_id id then () else Queue.add msg feedbacks
+    (* Minilib.log ("Feedback received: " ^ Xml_printer.to_string_fmt Xmlprotocol.(of_feedback Ppcmds msg)); *)
+    Queue.add msg feedbacks
 
   method private process_feedback () =
     let rec eat_feedback n =
@@ -433,40 +429,40 @@ object(self)
           | _ -> None in
         try Some (Doc.find_map document finder)
         with Not_found -> None in
-      let log_pp s state_id =
+      let log_pp ?id s=
         Minilib.log_pp Pp.(seq
-                [str "Feedback "; s; str " on ";
-                 str (Stateid.to_string (Option.default Stateid.dummy state_id))]) in
-      let log s state_id = log_pp (Pp.str s) state_id in
+                [str "Feedback "; s; pr_opt (fun id -> str " on " ++ str (Stateid.to_string id)) id])
+      in
+      let log ?id s = log_pp ?id (Pp.str s) in
       begin match msg.contents, sentence with
       | AddedAxiom, Some (id,sentence) ->
-          log "AddedAxiom" id;
+          log ?id "AddedAxiom";
           remove_flag sentence `PROCESSING;
           remove_flag sentence `ERROR;
           add_flag sentence `UNSAFE;
           self#mark_as_needed sentence
       | Processed, Some (id,sentence) ->
-          log "Processed" id;
+          log ?id "Processed" ;
           remove_flag sentence `PROCESSING;
           self#mark_as_needed sentence
       | ProcessingIn _,  Some (id,sentence) ->
-          log "ProcessingIn" id;
+          log ?id "ProcessingIn";
           add_flag sentence `PROCESSING;
           self#mark_as_needed sentence
       | Incomplete, Some (id, sentence) ->
-          log "Incomplete" id;
+          log ?id "Incomplete";
           add_flag sentence `INCOMPLETE;
           self#mark_as_needed sentence
       | Complete, Some (id, sentence) ->
-          log "Complete" id;
+          log ?id "Complete";
           remove_flag sentence `INCOMPLETE;
           self#mark_as_needed sentence
       | GlobRef(loc, filepath, modpath, ident, ty), Some (id,sentence) ->
-          log "GlobRef" id;
+          log ?id "GlobRef";
           self#attach_tooltip ~loc sentence
             (Printf.sprintf "%s %s %s" filepath ident ty)
       | Message(Error, loc, msg), Some (id,sentence) ->
-          log_pp Pp.(str "ErrorMsg" ++ msg) id;
+          log_pp ?id Pp.(str "ErrorMsg" ++ msg);
           remove_flag sentence `PROCESSING;
           let rmsg = Pp.string_of_ppcmds msg in
           add_flag sentence (`ERROR (loc, rmsg));
@@ -474,22 +470,24 @@ object(self)
           self#attach_tooltip ?loc sentence rmsg;
           self#position_tag_at_sentence ?loc Tags.Script.error sentence
       | Message(Warning, loc, msg), Some (id,sentence) ->
-          log_pp Pp.(str "WarningMsg" ++ msg) id;
+          log_pp ?id Pp.(str "WarningMsg" ++ msg);
           let rmsg = Pp.string_of_ppcmds msg     in
           add_flag sentence (`WARNING (loc, rmsg));
           self#attach_tooltip ?loc sentence rmsg;
           self#position_tag_at_sentence ?loc Tags.Script.warning sentence;
           messages#push Warning msg
-      | Message((Info|Notice|Debug as lvl), _, msg), Some (id,sentence) ->
-          log_pp Pp.(str "Msg" ++ msg) id;
+      | Message(lvl, loc, msg), Some (id,sentence) ->
+          log_pp ?id Pp.(str "Msg" ++ msg);
+          messages#push lvl msg
+      | Message(lvl, loc, msg), None ->
+          log_pp Pp.(str "Msg" ++ msg);
           messages#push lvl msg
       | InProgress n, _ ->
           if n < 0 then processed <- processed + abs n
           else to_process <- to_process + n
       | WorkerStatus(id,status), _ ->
-          log "WorkerStatus" None;
+          log "WorkerStatus";
           slaves_status <- CString.Map.add id status slaves_status
-
       | _ ->
           if sentence <> None then Minilib.log "Unsupported feedback message"
           else if Doc.is_empty document then ()
@@ -498,7 +496,7 @@ object(self)
               match id, Doc.tip document with
               | id1, id2 when Stateid.newer_than id2 id1 -> ()
               | _ -> Queue.add msg feedbacks
-            with Doc.Empty | Invalid_argument _ -> Queue.add msg feedbacks 
+            with Doc.Empty | Invalid_argument _ -> Queue.add msg feedbacks
       end;
         eat_feedback (n-1)
     in

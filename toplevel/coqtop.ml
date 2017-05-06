@@ -215,7 +215,7 @@ let glob_opt = ref false
 
 let add_compile verbose s =
   set_batch_mode ();
-  Flags.make_silent true;
+  Flags.quiet := true;
   if not !glob_opt then Dumpglob.dump_to_dotglob ();
   (** make the file name explicit; needed not to break up Coq loadpath stuff. *)
   let s =
@@ -247,6 +247,7 @@ let set_emacs () =
   if not (Option.is_empty !toploop) then
     error "Flag -emacs is incompatible with a custom toplevel loop";
   Flags.print_emacs := true;
+  Printer.enable_goal_tags_printing := true;
   color := `OFF
 
 (** Options for CoqIDE *)
@@ -292,7 +293,7 @@ let init_gc () =
     between coqtop and coqc. *)
 
 let usage () =
-  Envars.set_coqlib CErrors.error;
+  Envars.set_coqlib ~fail:CErrors.error;
   init_load_path ();
   if !batch_mode then Usage.print_usage_coqc ()
   else begin
@@ -384,7 +385,7 @@ let vio_tasks = ref []
 
 let add_vio_task f =
   set_batch_mode ();
-  Flags.make_silent true;
+  Flags.quiet := true;
   vio_tasks := f :: !vio_tasks
 
 let check_vio_tasks () =
@@ -398,7 +399,7 @@ let vio_files_j = ref 0
 let vio_checking = ref false
 let add_vio_file f =
   set_batch_mode ();
-  Flags.make_silent true;
+  Flags.quiet := true;
   vio_files := f :: !vio_files
 
 let set_vio_checking_j opt j =
@@ -430,10 +431,10 @@ let get_native_name s =
 
 (** Prints info which is either an error or an anomaly and then exits
     with the appropriate error code *)
-let fatal_error info anomaly =
-  let msg = info ++ fnl () in
-  Format.fprintf !Topfmt.err_ft "@[%a@]%!" pp_with msg;
-  exit (if anomaly then 129 else 1)
+let fatal_error ?extra exn =
+  Topfmt.print_err_exn ?extra exn;
+  let exit_code = if CErrors.(is_anomaly exn || not (handled exn)) then 129 else 1 in
+  exit exit_code
 
 let parse_args arglist =
   let args = ref arglist in
@@ -563,7 +564,7 @@ let parse_args arglist =
     |"-output-context" -> output_context := true
     |"-profile-ltac" -> Flags.profile_ltac := true
     |"-q" -> no_load_rc ()
-    |"-quiet"|"-silent" -> Flags.make_silent true; Flags.make_warn false
+    |"-quiet"|"-silent" -> Flags.quiet := true; Flags.make_warn false
     |"-quick" -> Flags.compilation_mode := BuildVio
     |"-list-tags" -> print_tags := true
     |"-time" -> Flags.time := true
@@ -596,11 +597,7 @@ let parse_args arglist =
   in
   try
     parse ()
-  with
-    | UserError(_, s) as e ->
-      if ismt s then exit 1
-      else fatal_error (CErrors.print e) false
-    | any -> fatal_error (CErrors.print any) (CErrors.is_anomaly any)
+  with any -> fatal_error any
 
 let init_toplevel arglist =
   init_gc ();
@@ -613,7 +610,7 @@ let init_toplevel arglist =
       (* If we have been spawned by the Spawn module, this has to be done
        * early since the master waits us to connect back *)
       Spawned.init_channels ();
-      Envars.set_coqlib CErrors.error;
+      Envars.set_coqlib ~fail:CErrors.error;
       if !print_where then (print_endline(Envars.coqlib ()); exit(exitcode ()));
       if !print_config then (Usage.print_config (); exit (exitcode ()));
       if !print_tags then (print_style_tags (); exit (exitcode ()));
@@ -646,14 +643,13 @@ let init_toplevel arglist =
       check_vio_tasks ();
       outputstate ()
     with any ->
-      let any = CErrors.push any in
       flush_all();
-      let msg =
-        if !batch_mode then mt ()
-        else str "Error during initialization: " ++ CErrors.iprint any ++ fnl ()
+      let extra =
+        if !batch_mode && not Stateid.(equal (Stm.get_current_state ()) dummy)
+        then None
+        else Some (str "Error during initialization: ")
       in
-      let is_anomaly e = CErrors.is_anomaly e || not (CErrors.handled e) in
-      fatal_error msg (is_anomaly (fst any))
+      fatal_error ?extra any
   end;
   if !batch_mode then begin
     flush_all();
