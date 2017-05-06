@@ -151,10 +151,11 @@ let valid_buffer_loc ib loc =
 (* This is specific to the toplevel *)
 let pr_loc ?loc = Option.default (fun loc ->
     let fname = loc.Loc.fname in
-    if CString.equal fname "" then
+    match fname with
+    | Loc.ToplevelInput ->
       Loc.(str"Toplevel input, characters " ++ int loc.bp ++
 	   str"-" ++ int loc.ep ++ str":")
-    else
+    | Loc.InFile fname ->
       Loc.(str"File " ++ str "\"" ++ str fname ++ str "\"" ++
 	   str", line " ++ int loc.line_nb ++ str", characters " ++
 	   int (loc.bp-loc.bol_pos) ++ str"-" ++ int (loc.ep-loc.bol_pos) ++
@@ -167,14 +168,16 @@ let error_info_for_buffer ?loc buf =
       let fname = loc.Loc.fname in
       let hl, loc =
         (* We are in the toplevel *)
-        if CString.equal fname "" then
+        match fname with
+        | Loc.ToplevelInput ->
           let nloc = adjust_loc_buf buf loc in
           if valid_buffer_loc buf loc then
             (fnl () ++ print_highlight_location buf nloc, nloc)
             (* in the toplevel, but not a valid buffer *)
           else (mt (), nloc)
           (* we are in batch mode, don't adjust location *)
-        else (mt (), loc)
+        | Loc.InFile _ ->
+           (mt (), loc)
       in pr_loc loc ++ hl
     ) loc
 
