@@ -310,5 +310,6 @@ val recover_grammar_command : 'a grammar_command -> 'a list
 val with_grammar_rule_protection : ('a -> 'b) -> 'a -> 'b
 
 (** Location Utils  *)
-val to_coqloc : Ploc.t -> Loc.t
+
 val (!@) : Ploc.t -> Loc.t
+(** Symbolic notation for {!val:CLexer.from_ploc} *)

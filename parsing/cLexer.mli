@@ -6,6 +6,8 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
+(** The Coq lexer *)
+
 (** This should be functional but it is not due to the interface *)
 val add_keyword : string -> unit
 val remove_keyword : string -> unit
@@ -60,3 +62,11 @@ val drop_lexer_state : unit -> unit
 (* Retrieve the comments lexed at a given location of the stream
    currently being processeed *)
 val extract_comments : int -> string list
+
+(** {5 Conversion from/to campl5 } *)
+
+val to_ploc : Loc.t -> Ploc.t
+(** Translate coq location to camlp5 location *)
+
+val from_ploc : Ploc.t -> Loc.t
+(** Translate camlp5 location to coq location *)

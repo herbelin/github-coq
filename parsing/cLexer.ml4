@@ -11,6 +11,7 @@ open Util
 open Tok
 
 (** Location utilities  *)
+
 let ploc_file_of_coq_file = function
 | Loc.ToplevelInput -> ""
 | Loc.InFile f -> f
@@ -18,10 +19,12 @@ let ploc_file_of_coq_file = function
 let coq_file_of_ploc_file s =
   if s = "" then Loc.ToplevelInput else Loc.InFile s
 
-let from_coqloc fname line_nb bol_pos bp ep =
-  Ploc.make_loc (ploc_file_of_coq_file fname) line_nb bol_pos (bp, ep) ""
+let to_ploc loc =
+  Ploc.make_loc (ploc_file_of_coq_file loc.Loc.fname)
+    loc.Loc.line_nb loc.Loc.bol_pos
+    (loc.Loc.bp, loc.Loc.ep) ""
 
-let to_coqloc loc =
+let from_ploc loc =
   { Loc.fname = coq_file_of_ploc_file (Ploc.file_name loc);
     Loc.line_nb = Ploc.line_nb loc;
     Loc.bol_pos = Ploc.bol_pos loc;
@@ -30,7 +33,7 @@ let to_coqloc loc =
     Loc.line_nb_last = Ploc.line_nb_last loc;
     Loc.bol_pos_last = Ploc.bol_pos_last loc; }
 
-let (!@) = to_coqloc
+let (!@) = from_ploc
 
 (* Dictionaries: trees annotated with string options, each node being a map
    from chars to dictionaries (the subtrees). A trie, in other words. *)
@@ -131,7 +134,7 @@ module Error = struct
 end
 open Error
 
-let err loc str = Loc.raise ~loc:(to_coqloc loc) (Error.E str)
+let err loc str = Loc.raise ~loc:(from_ploc loc) (Error.E str)
 
 let bad_token str = raise (Error.E (Bad_token str))
 
@@ -692,7 +695,7 @@ let token_text = function
 
 let func cs =
   let loct = loct_create () in
-  let cur_loc = ref (from_coqloc !current_file 1 0 0 0) in
+  let cur_loc = ref (to_ploc (Loc.create !current_file 1 0 0 0)) in
   let ts =
     Stream.from
       (fun i ->

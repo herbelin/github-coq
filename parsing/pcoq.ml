@@ -15,20 +15,7 @@ open Genarg
 let curry f x y = f (x, y)
 let uncurry f (x,y) = f x y
 
-(** Location Utils  *)
-let coq_file_of_ploc_file s =
-  if s = "" then Loc.ToplevelInput else Loc.InFile s
-
-let to_coqloc loc =
-  { Loc.fname = coq_file_of_ploc_file (Ploc.file_name loc);
-    Loc.line_nb = Ploc.line_nb loc;
-    Loc.bol_pos = Ploc.bol_pos loc;
-    Loc.bp = Ploc.first_pos loc;
-    Loc.ep = Ploc.last_pos loc;
-    Loc.line_nb_last = Ploc.line_nb_last loc;
-    Loc.bol_pos_last = Ploc.bol_pos_last loc; }
-
-let (!@) = to_coqloc
+let (!@) = CLexer.from_ploc
 
 (** The parser of Coq *)
 module G : sig
@@ -127,7 +114,7 @@ end with type 'a Entry.e = 'a Grammar.GMake(CLexer).Entry.e = struct
     with Ploc.Exc (loc,e) ->
       CLexer.drop_lexer_state ();
       let loc' = Loc.get_loc (Exninfo.info e) in
-      let loc = match loc' with None -> to_coqloc loc | Some loc -> loc in
+      let loc = match loc' with None -> CLexer.from_ploc loc | Some loc -> loc in
       Loc.raise ~loc e
 
   let with_parsable (p,state) f x =
@@ -520,7 +507,7 @@ module Vernac_ =
     let noedit_mode = gec_vernac "noedit_command"
 
     let () =
-      let act_vernac = Gram.action (fun v loc -> Some (to_coqloc loc, v)) in
+      let act_vernac = Gram.action (fun v loc -> Some (CLexer.from_ploc loc, v)) in
       let act_eoi = Gram.action (fun _ loc -> None) in
       let rule = [
         ([ Symbols.stoken Tok.EOI ], act_eoi);
