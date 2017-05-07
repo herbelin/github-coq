@@ -106,6 +106,14 @@ GEXTEND Gram
   ;
 END
 
+let ident_or_keyword_ident =
+  Gram.Entry.of_parser "ident_or_keyword_ident"
+    (fun strm ->
+      match stream_nth 0 strm with
+	| KEYWORD s when CLexer.is_ident s && s <> "for" -> stream_njunk 1 strm; s
+	| IDENT s -> stream_njunk 1 strm; s
+	| _ -> raise Stream.Failure)
+
 let warn_plural_command =
   CWarnings.create ~name:"plural-command" ~category:"pedantic" ~default:CWarnings.Disabled
          (fun kwd -> strbrk (Printf.sprintf "Command \"%s\" expects more than one assumption." kwd))
@@ -993,7 +1001,7 @@ GEXTEND Gram
       | s  = STRING   -> StringRefValue s ] ]
   ;
   option_table:
-    [ [ fl = LIST1 [ x = IDENT -> x ] -> fl ]]
+    [ [ fl = LIST1 [ x = ident_or_keyword_ident -> x ] -> fl ]]
   ;
   as_dirpath:
     [ [ d = OPT [ "as"; d = dirpath -> d ] -> d ] ]
