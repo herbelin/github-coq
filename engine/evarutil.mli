@@ -53,11 +53,11 @@ val e_new_evar :
     them during type-checking and unification. *)
 val new_type_evar :
   env -> evar_map -> ?src:Evar_kinds.t Loc.located -> ?filter:Filter.t ->
-  ?naming:Misctypes.intro_pattern_naming_expr -> ?principal:bool -> rigid ->
-  evar_map * (constr * sorts)
+  ?private_ids:Id.Set.t -> ?naming:Misctypes.intro_pattern_naming_expr ->
+  ?principal:bool -> rigid -> evar_map * (constr * sorts)
 
 val e_new_type_evar : env -> evar_map ref ->
-  ?src:Evar_kinds.t Loc.located -> ?filter:Filter.t ->
+  ?src:Evar_kinds.t Loc.located -> ?filter:Filter.t -> ?private_ids:Id.Set.t ->
   ?naming:Misctypes.intro_pattern_naming_expr -> ?principal:bool -> rigid -> constr * sorts
 
 val new_Type : ?rigid:rigid -> env -> evar_map -> evar_map * constr

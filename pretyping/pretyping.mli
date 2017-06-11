@@ -52,7 +52,7 @@ val all_and_fail_flags : inference_flags
     evar_map is modified explicitly or by side-effect. *)
 
 val understand_tcc : ?flags:inference_flags -> env -> evar_map ->
-  ?expected_type:typing_constraint -> glob_constr -> evar_map * constr
+  ?expected_type:typing_constraint -> ?private_ids:Id.Set.t -> glob_constr -> evar_map * constr
 
 (** More general entry point with evars from ltac *)
 
@@ -67,8 +67,8 @@ val understand_tcc : ?flags:inference_flags -> env -> evar_map ->
 *)
 
 val understand_ltac : inference_flags ->
-  env -> evar_map -> ltac_var_map ->
-  typing_constraint -> glob_constr -> evar_map * EConstr.t
+  env -> evar_map -> Id.Set.t -> ltac_var_map ->
+  typing_constraint -> glob_constr -> pure_open_constr
 
 (** Standard call to get a constr from a glob_constr, resolving
     implicit arguments and coercions, and compiling pattern-matching;
@@ -78,7 +78,7 @@ val understand_ltac : inference_flags ->
     unresolved evar remains, expanding evars. *)
 
 val understand : ?flags:inference_flags -> ?expected_type:typing_constraint ->
-  env -> evar_map -> glob_constr -> Constr.constr Evd.in_evar_universe_context
+  ?private_ids:Id.Set.t -> env -> evar_map -> glob_constr -> Constr.constr Evd.in_evar_universe_context
 
 (** Trying to solve remaining evars and remaining conversion problems
     possibly using type classes, heuristics, external tactic solver
@@ -104,15 +104,15 @@ val check_evars : env -> evar_map -> evar_map -> constr -> unit
 (** Internal of Pretyping... *)
 val pretype :
   int -> bool -> type_constraint -> env -> evar_map ref ->
-  ltac_var_map -> glob_constr -> unsafe_judgment
+  Id.Set.t -> ltac_var_map -> glob_constr -> unsafe_judgment
 
 val pretype_type :
   int -> bool -> val_constraint -> env -> evar_map ref ->
-  ltac_var_map -> glob_constr -> unsafe_type_judgment
+  Id.Set.t -> ltac_var_map -> glob_constr -> unsafe_type_judgment
 
 val ise_pretype_gen :
   inference_flags -> env -> evar_map ->
-  ltac_var_map -> typing_constraint -> glob_constr -> evar_map * constr
+  Id.Set.t -> ltac_var_map -> typing_constraint -> glob_constr -> evar_map * constr
 
 (**/**)
 

@@ -174,16 +174,17 @@ let evar_filtered_context evi =
 
 let evar_hyps evi = evi.evar_hyps
 
+let evar_private_ids evi = evi.evar_private
+
 let evar_filtered_hyps evi = match Filter.repr (evar_filter evi) with
 | None -> evar_hyps evi
 | Some filter ->
-  let private_ids = named_context_private_ids evi.evar_hyps in
   let rec make_hyps filter ctxt = match filter, ctxt with
   | [], [] -> empty_named_context_val
   | false :: filter, _ :: ctxt -> make_hyps filter ctxt
   | true :: filter, decl :: ctxt ->
     let hyps = make_hyps filter ctxt in
-    push_named_context_val decl (Id.Set.mem (NamedDecl.get_id decl) private_ids) hyps
+    push_named_context_val decl hyps
   | _ -> instance_mismatch ()
   in
   make_hyps filter (evar_context evi)
@@ -193,13 +194,12 @@ let evar_env evi = Global.env_of_context evi.evar_hyps
 let evar_filtered_env evi = match Filter.repr (evar_filter evi) with
 | None -> evar_env evi
 | Some filter ->
-  let private_ids = named_context_private_ids evi.evar_hyps in
   let rec make_env filter ctxt = match filter, ctxt with
   | [], [] -> reset_context (Global.env ())
   | false :: filter, _ :: ctxt -> make_env filter ctxt
   | true :: filter, decl :: ctxt ->
     let env = make_env filter ctxt in
-    push_named decl (Id.Set.mem (NamedDecl.get_id decl) private_ids) env
+    push_named decl env
   | _ -> instance_mismatch ()
   in
   make_env filter (evar_context evi)

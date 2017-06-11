@@ -118,6 +118,7 @@ val evar_concl : evar_info -> constr
 val evar_context : evar_info -> Context.Named.t
 val evar_filtered_context : evar_info -> Context.Named.t
 val evar_hyps : evar_info -> named_context_val
+val evar_private_ids : evar_info -> Names.Id.Set.t
 val evar_filtered_hyps : evar_info -> named_context_val
 val evar_body : evar_info -> evar_body
 val evar_filter : evar_info -> Filter.t

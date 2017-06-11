@@ -1630,12 +1630,12 @@ let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
   in
   let likefirst = clause_with_generic_occurrences occs in
   let mkvarid () = EConstr.mkVar id in
-  let compute_dependency _ d isprivate (sign,depdecls) =
+  let compute_dependency _ d (sign,depdecls) =
     let d = map_named_decl EConstr.of_constr d in
     let hyp = NamedDecl.get_id d in
     match occurrences_of_hyp hyp occs with
     | NoOccurrences, InHyp ->
-        (push_named_context_val d isprivate sign,depdecls)
+        (push_named_context_val d sign,depdecls)
     | AllOccurrences, InHyp as occ ->
         let occ = if likefirst then LikeFirst else AtOccs occ in
         let newdecl = replace_term_occ_decl_modulo sigma occ test mkvarid d in
@@ -1644,13 +1644,13 @@ let make_abstraction_core name (test,out) env sigma c ty occs check_occs concl =
         then
           if check_occs && not (in_every_hyp occs)
           then raise (PretypeError (env,sigma,NoOccurrenceFound (c,Some hyp)))
-          else (push_named_context_val d isprivate sign, depdecls)
+          else (push_named_context_val d sign, depdecls)
         else
-          (push_named_context_val newdecl isprivate sign, newdecl :: depdecls)
+          (push_named_context_val newdecl sign, newdecl :: depdecls)
     | occ ->
         (* There are specific occurrences, hence not like first *)
         let newdecl = replace_term_occ_decl_modulo sigma (AtOccs occ) test mkvarid d in
-        (push_named_context_val newdecl isprivate sign, newdecl :: depdecls) in
+        (push_named_context_val newdecl sign, newdecl :: depdecls) in
   try
     let sign,depdecls =
       fold_named_context compute_dependency env

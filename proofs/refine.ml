@@ -34,11 +34,9 @@ let typecheck_evar ev env sigma =
     | LocalAssum _ -> ()
     | LocalDef (_,body,_) -> Typing.e_check env evdref (EConstr.of_constr body) t
     in
-    (!evdref, Environ.push_named decl false env)
+    (!evdref, Environ.push_named decl env)
   in
   let (common, changed) = extract_prefix env info in
-  let private_ids = Environ.named_context_private_ids (Environ.named_context_val env) in
-  let env = Environ.reset_with_named_context (Environ.val_of_named_context common private_ids) env in
   let (sigma, env) = List.fold_left type_hyp (sigma, env) changed in
   (** Typecheck the conclusion *)
   let evdref = ref sigma in

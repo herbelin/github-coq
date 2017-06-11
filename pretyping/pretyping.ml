@@ -60,31 +60,34 @@ struct
 
 type t = {
   env : Environ.env;
+  private_ids : Names.Id.Set.t;
+  (** Private ids of the named context part *)
   extra : Evarutil.ext_named_context Lazy.t;
   (** Delay the computation of the evar extended environment *)
 }
 
-let get_extra env sigma =
+let get_extra env sigma private_ids =
   let open Context.Named.Declaration in
   let ids = List.map get_id (named_context env) in
   let avoid = List.fold_right Id.Set.add ids Id.Set.empty in
-  let private_ids = named_context_private_ids (named_context_val env) in
   Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context sigma d acc)
     (rel_context env) ~init:(empty_csubst, [], avoid, named_context env, private_ids)
 
-let make_env env sigma = { env = env; extra = lazy (get_extra env sigma) }
+let make_env env sigma private_ids = { env = env; private_ids; extra = lazy (get_extra env sigma private_ids) }
 let rel_context env = rel_context env.env
 
 let push_rel sigma d env = {
   env = push_rel d env.env;
+  private_ids = env.private_ids;
   extra = lazy (push_rel_decl_to_named_context sigma d (Lazy.force env.extra));
 }
 
-let pop_rel_context n env sigma = make_env (pop_rel_context n env.env) sigma
+let pop_rel_context n env sigma = make_env (pop_rel_context n env.env) sigma env.private_ids
 
 let push_rel_context sigma ctx env = {
   env = push_rel_context ctx env.env;
-  extra = lazy (List.fold_right (fun d acc -> push_rel_decl_to_named_context sigma d acc) ctx (Lazy.force env.extra));
+  private_ids = env.private_ids;
+  extra = lazy (List.fold_right (fun acc d -> push_rel_decl_to_named_context sigma acc d) ctx (Lazy.force env.extra));
 }
 
 let lookup_named id env = lookup_named id env.env
@@ -97,9 +100,9 @@ let e_new_evar env evdref ?src ?naming typ =
   let (subst, vsubst, _, nc,private_ids) = Lazy.force env.extra in
   let typ' = subst2 subst vsubst typ in
   let instance = inst_rels @ inst_vars in
-  let sign = val_of_named_context nc private_ids in
+  let sign = val_of_named_context nc in
   let sigma = !evdref in
-  let (sigma, e) = new_evar_instance sign sigma typ' ?src ?naming instance in
+  let (sigma, e) = new_evar_instance sign sigma typ' ?src ?naming ~private_ids instance in
   evdref := sigma;
   e
 
@@ -1017,7 +1020,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 
   | GCases (sty,po,tml,eqns) ->
     Cases.compile_cases ?loc sty
-      ((fun vtyc env evdref -> pretype vtyc (make_env env !evdref) evdref),evdref)
+      ((fun vtyc env' evdref -> pretype vtyc (make_env env' !evdref env.private_ids) evdref),evdref)
       tycon env.ExtraEnv.env (* loc *) lvar (po,tml,eqns)
 
   | GCast (c,k) ->
@@ -1127,8 +1130,8 @@ and pretype_type k0 resolve_tc valcon (env : ExtraEnv.t) evdref lvar c = match D
 	      error_unexpected_type
                 ?loc:(loc_of_glob_constr c) env.ExtraEnv.env !evdref tj.utj_val v
 
-let ise_pretype_gen flags env sigma lvar kind c =
-  let env = make_env env sigma in
+let ise_pretype_gen flags env sigma private_ids lvar kind c =
+  let env = make_env env sigma private_ids in
   let evdref = ref sigma in
   let k0 = Context.Rel.length (rel_context env) in
   let c' = match kind with
@@ -1158,8 +1161,8 @@ let no_classes_no_fail_inference_flags = {
 let all_and_fail_flags = default_inference_flags true
 let all_no_fail_flags = default_inference_flags false
 
-let ise_pretype_gen_ctx flags env sigma lvar kind c =
-  let evd, c = ise_pretype_gen flags env sigma lvar kind c in
+let ise_pretype_gen_ctx flags env sigma private_ids lvar kind c =
+  let evd, c = ise_pretype_gen flags env sigma private_ids lvar kind c in
   let evd, f = Evarutil.nf_evars_and_universes evd in
     f (EConstr.Unsafe.to_constr c), Evd.evar_universe_context evd
 
@@ -1168,19 +1171,27 @@ let ise_pretype_gen_ctx flags env sigma lvar kind c =
 let understand
     ?(flags=all_and_fail_flags)
     ?(expected_type=WithoutTypeConstraint)
+    ?(private_ids=Names.Id.Set.empty)
     env sigma c =
-  ise_pretype_gen_ctx flags env sigma empty_lvar expected_type c
+  ise_pretype_gen_ctx flags env sigma private_ids empty_lvar expected_type c
 
-let understand_tcc ?(flags=all_no_fail_flags) env sigma ?(expected_type=WithoutTypeConstraint) c =
-  let (sigma, c) = ise_pretype_gen flags env sigma empty_lvar expected_type c in
+let understand_tcc ?(flags=all_no_fail_flags) env sigma ?(expected_type=WithoutTypeConstraint) ?(private_ids=Names.Id.Set.empty) c =
+  let (sigma, c) = ise_pretype_gen flags env sigma private_ids empty_lvar expected_type c in
   (sigma, c)
 
-let understand_ltac flags env sigma lvar kind c =
-  let (sigma, c) = ise_pretype_gen flags env sigma lvar kind c in
+let understand_ltac flags env sigma private_ids lvar kind c =
+  let (sigma, c) = ise_pretype_gen flags env sigma private_ids lvar kind c in
   (sigma, c)
 
-let pretype k0 resolve_tc typcon env evdref lvar t =
-  pretype k0 resolve_tc typcon (make_env env !evdref) evdref lvar t
+let pretype k0 resolve_tc typcon env evdref private_ids lvar t =
+  pretype k0 resolve_tc typcon (make_env env !evdref private_ids) evdref lvar t
 
-let pretype_type k0 resolve_tc valcon env evdref lvar t =
-  pretype_type k0 resolve_tc valcon (make_env env !evdref) evdref lvar t
+let constr_flags = {
+  use_typeclasses = true;
+  solve_unification_constraints = true;
+  use_hook = None;
+  fail_evar = true;
+  expand_evars = true }
+
+let pretype_type k0 resolve_tc valcon env evdref private_ids lvar t =
+  pretype_type k0 resolve_tc valcon (make_env env !evdref private_ids) evdref lvar t
