@@ -124,6 +124,31 @@ type 'a hints_path_gen =
 type pre_hints_path = Libnames.reference hints_path_gen
 type hints_path = global_reference hints_path_gen
 
+let map_hints_path_atom f p =
+  match p with
+  | PathAny -> p
+  | PathHints grs ->
+      let grs' = List.smartmap f grs in
+      if grs' == grs then p else PathHints grs'
+
+let rec map_hints_path f hp =
+  match hp with
+  | PathAtom p ->
+      let p' = map_hints_path_atom f p in
+      if p' == p then hp else PathAtom p'
+  | PathStar p -> let p' = map_hints_path f p in
+      if p' == p then hp else PathStar p'
+  | PathSeq (p, q) ->
+    let p' = map_hints_path f p in
+    let q' = map_hints_path f q in
+      if p' == p && q' == q then hp else PathSeq (p', q')
+  | PathOr (p, q) ->
+    let p' = map_hints_path f p in
+    let q' = map_hints_path f q in
+      if p' == p && q' == q then hp else PathOr (p', q')
+  | PathEmpty -> hp
+  | PathEpsilon -> hp
+
 type hint_term =
   | IsGlobRef of global_reference
   | IsConstr of constr * Univ.universe_context_set
@@ -439,30 +464,13 @@ let glob_hints_path =
     | PathEpsilon -> PathEpsilon
   in aux
 
-let subst_path_atom subst p =
-  match p with
-  | PathAny -> p
-  | PathHints grs ->
-    let gr' gr = fst (subst_global subst gr) in
-    let grs' = List.smartmap gr' grs in
-      if grs' == grs then p else PathHints grs'
+let subst_path_atom subst hp =
+  let gr' gr = fst (subst_global subst gr) in
+  map_hints_path_atom gr' hp
 
-let rec subst_hints_path subst hp =
-  match hp with
-  | PathAtom p ->
-    let p' = subst_path_atom subst p in
-      if p' == p then hp else PathAtom p'
-  | PathStar p -> let p' = subst_hints_path subst p in
-      if p' == p then hp else PathStar p'
-  | PathSeq (p, q) ->
-    let p' = subst_hints_path subst p in
-    let q' = subst_hints_path subst q in
-      if p' == p && q' == q then hp else PathSeq (p', q')
-  | PathOr (p, q) ->
-    let p' = subst_hints_path subst p in
-    let q' = subst_hints_path subst q in
-      if p' == p && q' == q then hp else PathOr (p', q')
-  | _ -> hp
+let subst_hints_path subst hp =
+  let gr' gr = fst (subst_global subst gr) in
+  map_hints_path gr' hp
 
 type hint_db_name = string
 
@@ -1115,6 +1123,46 @@ let subst_autohint (subst, obj) =
   in
   if action == obj.hint_action then obj else { obj with hint_action = action }
 
+let discharge_hint_entry entry = failwith "TODO"
+
+let discharge_evaluable_reference = function
+  | EvalVarRef _ as x -> x
+  | EvalConstRef cst -> EvalConstRef (Globnames.pop_con cst)
+
+let discharge_hints_path = map_hints_path Lib.discharge_global
+
+let discharge_autohint (kn,h) =
+  if h.hint_local then None else
+  let a = match h.hint_action with
+  | AddHints hints -> AddHints (List.map discharge_hint_entry hints)
+  | RemoveHints grs -> RemoveHints (List.map Lib.discharge_global grs)
+  | AddCut path -> AddCut (discharge_hints_path path)
+  | AddMode (l, m) -> AddMode (Lib.discharge_global l,m)
+  | AddTransparency (grs, b) -> AddTransparency (List.map discharge_evaluable_reference grs,b)
+  | CreateDB (b, st) -> failwith "TODO" in
+  Some { h with hint_action = a }
+
+exception NotImplemented
+exception NotDischargeable
+
+let test_globality = function
+  | VarRef id -> raise NotDischargeable
+  | x -> x
+
+let test_discharge action =
+  try match action with
+  | AddHints hints -> raise NotImplemented
+  | RemoveHints grs -> ignore (List.map test_globality grs)
+  | AddCut path -> ignore (map_hints_path test_globality path)
+  | AddMode (l, m) -> ignore (test_globality l)
+  | AddTransparency (grs, b) -> ignore (List.map discharge_evaluable_reference grs)
+  | CreateDB (b, st) -> raise NotImplemented
+  with
+  | NotDischargeable ->
+    user_err Pp.(str "\"Global\" not supported in the presence of references to local variables.")
+  | NotImplemented ->
+    user_err Pp.(str "This command does not support the Global option in sections.")
+
 let classify_autohint obj =
   match obj.hint_action with
   | AddHints [] -> Dispose
@@ -1125,14 +1173,18 @@ let inAutoHint : hint_obj -> obj =
                     cache_function = cache_autohint;
 		    load_function = load_autohint;
 		    open_function = open_autohint;
+                    discharge_function = discharge_autohint;
 		    subst_function = subst_autohint;
 		    classify_function = classify_autohint; }
 
-let make_hint ?(local = false) name action = {
-  hint_local = local;
-  hint_name = name;
-  hint_action = action;
-}
+let make_hint ?(local = false) name action =
+  if not local && Lib.sections_depth () > 0 then test_discharge action;
+  let h = {
+    hint_local = local;
+    hint_name = name;
+    hint_action = action;
+  } in
+  h
 
 let create_hint_db l n st b =
   let hint = make_hint ~local:l n (CreateDB (b, st)) in

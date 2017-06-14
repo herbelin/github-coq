@@ -924,15 +924,15 @@ let vernac_restore_state file =
 (* Commands *)
 
 let vernac_create_hintdb locality id b =
-  let local = make_module_locality locality in
+  let local = make_section_locality locality in
   Hints.create_hint_db local id full_transparent_state b
 
 let vernac_remove_hints locality dbs ids =
-  let local = make_module_locality locality in
+  let local = make_section_locality locality in
   Hints.remove_hints local dbs (List.map Smartlocate.global_with_alias ids)
 
 let vernac_hints locality poly local lb h =
-  let local = enforce_module_locality locality local in
+  let local = enforce_section_locality locality local in
   Hints.add_hints local lb (Hints.interp_hints poly h)
 
 let vernac_syntactic_definition locality lid x local y =
