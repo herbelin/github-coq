@@ -293,7 +293,3 @@ sig
   val eq : (t, Constr.t) eq
   (** Use for transparent cast between types. *)
 end
-
-type info = { private_ids : Id.Set.t }
-type typing_env = { genv : env ; sigma : Evd.evar_map ; info : info }
-type mutable_typing_env = { genv : env ; mutable sigmaref : Evd.evar_map ; info : info }

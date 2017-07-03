@@ -799,8 +799,3 @@ let to_rel_decl = unsafe_to_rel_decl
 let to_named_decl = unsafe_to_named_decl
 let eq = unsafe_eq
 end
-
-type info = { private_ids : Id.Set.t }
-type typing_env = { genv : env ; sigma : Evd.evar_map ; info : info }
-type mutable_typing_env = { genv : env ; mutable sigmaref : Evd.evar_map ; info : info }
-

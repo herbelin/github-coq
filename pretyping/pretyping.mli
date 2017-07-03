@@ -51,8 +51,8 @@ val all_and_fail_flags : inference_flags
     but unresolved evars can remain. The difference is in whether the
     evar_map is modified explicitly or by side-effect. *)
 
-val understand_tcc : ?flags:inference_flags -> typing_env -> 
-  ?expected_type:typing_constraint -> glob_constr -> evar_map * constr
+val understand_tcc : ?flags:inference_flags -> env -> evar_map ->
+  ?expected_type:typing_constraint -> ?private_ids:Id.Set.t -> glob_constr -> evar_map * constr
 
 (** More general entry point with evars from ltac *)
 
