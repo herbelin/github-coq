@@ -668,7 +668,7 @@ let define_evar_from_virtual_equation define_fun env evd src t_in_env ty_t_in_si
 
 exception MorePreciseOccurCheckNeeeded
 
-let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
+let materialize_evar define_fun {genv=env;sigma=evd} k (evk1,args1) ty_in_env =
   if Evd.is_defined evd evk1 then
       (* Some circularity somewhere (see e.g. #3209) *)
       raise MorePreciseOccurCheckNeeeded;
@@ -680,7 +680,7 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
   let src = subterm_source evk1 evi1.evar_source in
   let ids1 = List.map get_id (named_context_of_val sign1) in
   let avoid = Environ.ids_of_named_context_val sign1 in
-  let private_ids1 = named_context_private_ids sign1 in
+  let private_ids1 = evar_private_ids evi1 in
   let inst_in_sign = List.map mkVar (Filter.filter_list filter1 ids1) in
   let open Context.Rel.Declaration in
   let (sign2,filter2,inst2_in_env,inst2_in_sign,_,evd,_,private_ids2) =
