@@ -774,12 +774,12 @@ let get_rel env id i =
 let get_var env id =
   try Id.List.assoc id !(env.env_named)
   with Not_found ->
-    let local = MLlocal (fresh_lname (Name id)) in
+    let local = MLlocal (fresh_lname (Name (TrackedId.inject id))) in
     env.env_named := (id, local)::!(env.env_named);
     local
 
 let fresh_univ () =
-  fresh_lname (Name (Id.of_string "univ"))
+  fresh_lname (Name (TrackedId.of_string "univ"))
 
 (*s Traduction of lambda to mllambda *)
 
@@ -1512,7 +1512,7 @@ let link_info_of_dirpath dir =
 let string_of_name x =
   match x with
     | Anonymous -> "anonymous" (* assert false *)
-    | Name id -> string_of_id id
+    | Name id -> TrackedId.to_string id
 
 let string_of_label_def l =
   match l with
@@ -1955,8 +1955,8 @@ let is_code_loaded ~interactive name =
       if is_loaded_native_file s then true
       else (name := NotLinked; false)
 
-let param_name = Name (id_of_string "params")
-let arg_name = Name (id_of_string "arg")
+let param_name = Name (TrackedId.of_string "params")
+let arg_name = Name (TrackedId.of_string "arg")
 
 let compile_mind prefix ~interactive mb mind stack =
   let u = Declareops.inductive_polymorphic_context mb in

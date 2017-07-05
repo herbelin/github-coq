@@ -122,7 +122,7 @@ let push_named_context_val = push_named_context_val
 open Context.Named.Declaration
 
 let val_of_named_context ctxt ids =
-  List.fold_right (fun d -> push_named_context_val d (Id.Set.mem (get_id d) ids)) ctxt empty_named_context_val
+  List.fold_right (fun d -> push_named_context_val d (Id.Set.mem (get_pure_id d) ids)) ctxt empty_named_context_val
 
 
 let lookup_named = lookup_named
@@ -384,11 +384,11 @@ let add_mind kn mib env =
 
 let lookup_constant_variables c env =
   let cmap = lookup_constant c env in
-  Context.Named.to_vars cmap.const_hyps
+  Context.SecVar.to_vars cmap.const_hyps
 
 let lookup_inductive_variables (kn,i) env =
   let mis = lookup_mind kn env in
-  Context.Named.to_vars mis.mind_hyps
+  Context.SecVar.to_vars mis.mind_hyps
 
 let lookup_constructor_variables (ind,_) env =
   lookup_inductive_variables ind env
@@ -424,7 +424,7 @@ let global_vars_set env constr =
 let really_needed env needed =
   Context.Named.fold_inside
     (fun need decl ->
-      if Id.Set.mem (get_id decl) need then
+      if Id.Set.mem (get_pure_id decl) need then
         let globc =
           match decl with
             | LocalAssum _ -> Id.Set.empty
@@ -440,7 +440,7 @@ let keep_hyps env needed =
   let really_needed = really_needed env needed in
   Context.Named.fold_outside
     (fun d nsign ->
-      if Id.Set.mem (get_id d) really_needed then Context.Named.add d nsign
+      if Id.Set.mem (get_pure_id d) really_needed then Context.Named.add d nsign
       else nsign)
     (named_context env)
     ~init:empty_named_context
@@ -497,7 +497,7 @@ let apply_to_hyp ctxt id f =
   let rec aux rtail ctxt =
     match match_named_context_val ctxt with
     | Some (d, v, isprivate, ctxt) ->
-	if Id.equal (get_id d) id then
+	if Id.equal (get_pure_id d) id then
           push_named_context_val_val (f ctxt.env_named_ctx d rtail) v isprivate ctxt
 	else
 	  let ctxt' = aux (d::rtail) ctxt in
@@ -511,7 +511,7 @@ let remove_hyps ids check_context check_value ctxt =
   | None -> empty_named_context_val, false
   | Some (d, v, isprivate, rctxt) ->
     let (ans, seen) = remove_hyps rctxt in
-    if Id.Set.mem (get_id d) ids then (ans, true)
+    if Id.Set.mem (get_pure_id d) ids then (ans, true)
     else if not seen then ctxt, false
     else
       let rctxt' = ans in

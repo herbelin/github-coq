@@ -808,7 +808,6 @@ let print_any_name = function
     let dir,str = repr_qualid qid in
     if not (DirPath.is_empty dir) then raise Not_found;
     str |> Global.lookup_named |> print_named_decl
-
   with Not_found ->
     user_err
       ~hdr:"print_name" (pr_qualid qid ++ spc () ++ str "not a defined object.")
