@@ -171,7 +171,7 @@ let make_static_rewrite_unif_flags = function
       keyed_unification = rewrite_keyed_unification None;
     }
 
-let make_rewrite_flags ?(frzevars=false) ?(dep_proof_ok=true) version = {
+let make_rewrite_flags ?(frzevars=Flags.version_strictly_greater Flags.V8_7) ?(dep_proof_ok=true) version = {
   rewrite_unif_flags = make_static_rewrite_unif_flags version;
   rewrite_dep_proof_ok = dep_proof_ok;
   rewrite_freeze_evars = frzevars;
