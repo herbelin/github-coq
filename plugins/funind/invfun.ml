@@ -951,6 +951,10 @@ let revert_graph kn post_tac hid g =
    such a lemma exists)
    \end{enumerate}
 *)
+let myinv =
+  (* What rewrite flags do we expect here? *)
+  let flags = Tactic_config.simple_rewrite_flags in
+  fun id -> Inv.inv (Inv.FullInversion flags) None (NamedHyp id)
 
 let functional_inversion kn hid fconst f_correct : Tacmach.tactic =
   fun g ->
@@ -972,7 +976,7 @@ let functional_inversion kn hid fconst f_correct : Tacmach.tactic =
 	    Proofview.V82.of_tactic (generalize [applist(f_correct,(Array.to_list f_args)@[res;mkVar hid])]);
 	    thin [hid];
 	    Proofview.V82.of_tactic (Simple.intro hid);
-	    Proofview.V82.of_tactic (Inv.inv FullInversion None (NamedHyp hid));
+	    Proofview.V82.of_tactic (myinv hid);
 	    (fun g ->
 	       let new_ids = List.filter (fun id -> not (Id.Set.mem id old_ids)) (pf_ids_of_hyps g) in
 	       tclMAP (revert_graph kn pre_tac)  (hid::new_ids)  g

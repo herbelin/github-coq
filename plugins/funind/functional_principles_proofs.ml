@@ -1446,7 +1446,7 @@ let rec rewrite_eqs_in_eqs eqs =
 		  observe_tac
 		    (Format.sprintf "rewrite %s in %s " (Id.to_string eq) (Id.to_string id))
 		    (tclTRY (Proofview.V82.of_tactic (Equality.general_rewrite_in true Locus.AllOccurrences
-			       true (* dep proofs also: *) true id (mkVar eq) false)))
+			       Tactic_config.simple_rewrite_flags id (mkVar eq) false)))
 		    gl
 	       )
 	       eqs

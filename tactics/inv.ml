@@ -63,6 +63,11 @@ let var_occurs_in_pf gl id =
 
 type inversion_status = Dep of constr option | NoDep
 
+type inversion_kind =
+  | SimpleInversion
+  | FullInversion of Tactic_config.rewrite_flags
+  | FullInversionClear of Tactic_config.rewrite_flags
+
 let compute_eqn env sigma n i ai =
   (mkRel (n-i),get_type_of env sigma (mkRel (n-i)))
 
@@ -334,9 +339,9 @@ let remember_first_eq id x = if !x == MoveLast then x := MoveAfter id
    If it can discriminate then the goal is proved, if not tries to use it as
    a rewrite rule. It erases the clause which is given as input *)
 
-let projectAndApply as_mode thin avoid id eqname names depids =
+let projectAndApply rew_flags as_mode thin avoid id eqname names depids =
   let subst_hyp l2r id =
-    tclTHEN (tclTRY(rewriteInConcl l2r (EConstr.mkVar id)))
+    tclTHEN (tclTRY(rewriteInConcl rew_flags l2r (EConstr.mkVar id)))
       (if thin then clear [id] else (remember_first_eq id eqname; tclIDTAC))
   in
   let substHypIfVariable tac id =
@@ -389,7 +394,7 @@ let rewrite_equations as_mode othin neqns names ba =
   let first_eq = ref MoveLast in
   let avoid = if as_mode then List.map NamedDecl.get_id nodepids else [] in
   match othin with
-    | Some thin ->
+    | Some (thin,rew_flags) ->
         tclTHENLIST
             [tclDO neqns intro;
              bring_hyps nodepids;
@@ -400,7 +405,7 @@ let rewrite_equations as_mode othin neqns names ba =
                (tclTHEN
 		 (intro_move_avoid idopt avoid MoveLast)
 		 (onLastHypId (fun id ->
-		   tclTRY (projectAndApply as_mode thin avoid id first_eq names depids)))))
+		   tclTRY (projectAndApply rew_flags as_mode thin avoid id first_eq names depids)))))
 	       names;
 	     tclMAP (fun d -> tclIDTAC >>= fun () -> (* delay for [first_eq]. *)
                let idopt = if as_mode then Some (NamedDecl.get_id d) else None in
@@ -421,14 +426,14 @@ let rewrite_equations as_mode othin neqns names ba =
 
 let interp_inversion_kind = function
   | SimpleInversion -> None
-  | FullInversion -> Some false
-  | FullInversionClear -> Some true
+  | FullInversion flags -> Some (false,flags)
+  | FullInversionClear flags -> Some (true,flags)
 
 let rewrite_equations_tac as_mode othin id neqns names ba =
   let othin = interp_inversion_kind othin in
   let tac = rewrite_equations as_mode othin neqns names ba in
   match othin with
-  | Some true (* if Inversion_clear, clear the hypothesis *) ->
+  | Some (true,_) (* if Inversion_clear, clear the hypothesis *) ->
     tclTHEN tac (tclTRY (clear [id]))
   | _ ->
     tac
@@ -499,13 +504,13 @@ let inv_gen thin status names =
 
 let inv k = inv_gen k NoDep
 
-let inv_tac id       = inv FullInversion None (NamedHyp id)
-let inv_clear_tac id = inv FullInversionClear None (NamedHyp id)
+let inv_tac rew_flags id       = inv (FullInversion rew_flags) None (NamedHyp id)
+let inv_clear_tac rew_flags id = inv (FullInversionClear rew_flags) None (NamedHyp id)
 
 let dinv k c = inv_gen k (Dep c)
 
-let dinv_tac id       = dinv FullInversion None None (NamedHyp id)
-let dinv_clear_tac id = dinv FullInversionClear None None (NamedHyp id)
+let dinv_tac rew_flags id       = dinv (FullInversion rew_flags) None None (NamedHyp id)
+let dinv_clear_tac rew_flags id = dinv (FullInversionClear rew_flags) None None (NamedHyp id)
 
 (* InvIn will bring the specified clauses into the conclusion, and then
  * perform inversion on the named hypothesis.  After, it will intro them

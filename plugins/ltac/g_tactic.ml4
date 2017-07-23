@@ -627,8 +627,8 @@ GEXTEND Gram
 	  cl = clause_dft_concl; t=by_tactic -> TacAtom (Loc.tag ~loc:!@loc @@ TacRewrite (true,l,cl,t))
       | IDENT "dependent"; k =
 	  [ IDENT "simple"; IDENT "inversion" -> SimpleInversion
-	  | IDENT "inversion" -> FullInversion
-	  | IDENT "inversion_clear" -> FullInversionClear ];
+	  | IDENT "inversion" -> FullInversion (Tactic_config.make_rewrite_flags !Flags.compat_version)
+	  | IDENT "inversion_clear" -> FullInversionClear (Tactic_config.make_rewrite_flags !Flags.compat_version) ];
 	  hyp = quantified_hypothesis;
 	  ids = as_or_and_ipat; co = OPT ["with"; c = constr -> c] ->
 	    TacAtom (Loc.tag ~loc:!@loc @@ TacInversion (DepInversion (k,co,ids),hyp))
@@ -639,11 +639,11 @@ GEXTEND Gram
       | IDENT "inversion";
 	  hyp = quantified_hypothesis; ids = as_or_and_ipat;
 	  cl = in_hyp_list ->
-	    TacAtom (Loc.tag ~loc:!@loc @@ TacInversion (NonDepInversion (FullInversion, cl, ids), hyp))
+	    TacAtom (Loc.tag ~loc:!@loc @@ TacInversion (NonDepInversion (FullInversion (Tactic_config.make_rewrite_flags !Flags.compat_version), cl, ids), hyp))
       | IDENT "inversion_clear";
 	  hyp = quantified_hypothesis; ids = as_or_and_ipat;
 	  cl = in_hyp_list ->
-	    TacAtom (Loc.tag ~loc:!@loc @@ TacInversion (NonDepInversion (FullInversionClear, cl, ids), hyp))
+	    TacAtom (Loc.tag ~loc:!@loc @@ TacInversion (NonDepInversion (FullInversionClear (Tactic_config.make_rewrite_flags !Flags.compat_version), cl, ids), hyp))
       | IDENT "inversion"; hyp = quantified_hypothesis;
 	  "using"; c = constr; cl = in_hyp_list ->
 	    TacAtom (Loc.tag ~loc:!@loc @@ TacInversion (InversionUsing (c,cl), hyp))

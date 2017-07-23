@@ -470,8 +470,8 @@ type 'a extra_genarg_printer =
                                
   let pr_inversion_kind = function
     | SimpleInversion -> primitive "simple inversion"
-    | FullInversion -> primitive "inversion"
-    | FullInversionClear -> primitive "inversion_clear"
+    | FullInversion _ -> primitive "inversion"
+    | FullInversionClear _ -> primitive "inversion_clear"
 
   let pr_range_selector (i, j) =
     if Int.equal i j then int i

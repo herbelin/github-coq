@@ -880,7 +880,7 @@ let rec make_rewrite_list expr_info max = function
 	    Nameops.Name.get_id k_na,Nameops.Name.get_id def_na
 	  in
 	  Proofview.V82.of_tactic (general_rewrite_bindings false Locus.AllOccurrences
-	    true (* dep proofs also: *) true 
+            Tactic_config.simple_rewrite_flags
 	    (mkVar hp,
 	     ExplicitBindings[Loc.tag @@ (NamedHyp def, expr_info.f_constr);
                               Loc.tag @@ (NamedHyp k, f_S max)]) false) g) )
@@ -907,7 +907,7 @@ let make_rewrite expr_info l hp max =
 	  in
 	 observe_tac (str "general_rewrite_bindings")
 	   (Proofview.V82.of_tactic (general_rewrite_bindings false Locus.AllOccurrences
-	    true (* dep proofs also: *) true 
+            Tactic_config.simple_rewrite_flags
 	    (mkVar hp,
 	     ExplicitBindings[Loc.tag @@ (NamedHyp def, expr_info.f_constr);
                               Loc.tag @@ (NamedHyp k, f_S (f_S max))]) false)) g)

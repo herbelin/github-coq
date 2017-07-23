@@ -13,6 +13,11 @@ open Tactypes
 
 type inversion_status = Dep of constr option | NoDep
 
+type inversion_kind =
+  | SimpleInversion
+  | FullInversion of Tactic_config.rewrite_flags
+  | FullInversionClear of Tactic_config.rewrite_flags
+
 val inv_clause :
   inversion_kind -> or_and_intro_pattern option -> Id.t list ->
     quantified_hypothesis -> unit Proofview.tactic
@@ -23,7 +28,7 @@ val inv : inversion_kind -> or_and_intro_pattern option ->
 val dinv : inversion_kind -> constr option ->
   or_and_intro_pattern option -> quantified_hypothesis -> unit Proofview.tactic
 
-val inv_tac : Id.t -> unit Proofview.tactic
-val inv_clear_tac : Id.t -> unit Proofview.tactic
-val dinv_tac : Id.t -> unit Proofview.tactic
-val dinv_clear_tac : Id.t -> unit Proofview.tactic
+val inv_tac : Tactic_config.rewrite_flags -> Id.t -> unit Proofview.tactic
+val inv_clear_tac : Tactic_config.rewrite_flags -> Id.t -> unit Proofview.tactic
+val dinv_tac : Tactic_config.rewrite_flags -> Id.t -> unit Proofview.tactic
+val dinv_clear_tac : Tactic_config.rewrite_flags -> Id.t -> unit Proofview.tactic

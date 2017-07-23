@@ -929,13 +929,7 @@ let compute_dec_tact ind lnamesparrec nparrec =
 		  apply (EConstr.of_constr (mkApp(lbI,Array.map (fun x->mkVar x) xargs)));
                   Auto.default_auto
 		]);
-	      Equality.general_rewrite_bindings_in true
-	                      Locus.AllOccurrences true false
-                              (List.hd !avoid)
-                              ((EConstr.mkVar (List.hd (List.tl !avoid))),
-                                NoBindings
-                              )
-                              true;
+              Equality.rewriteLR_in (List.hd !avoid) (EConstr.mkVar (List.hd (List.tl !avoid))); (* Note was calling with_evar on but we don't need it *)
               Equality.discr_tac false None
 	    ]
             end

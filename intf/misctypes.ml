@@ -131,8 +131,3 @@ type 'a core_destruction_arg =
 
 type 'a destruction_arg =
   clear_flag * 'a core_destruction_arg
-
-type inversion_kind =
-  | SimpleInversion
-  | FullInversion
-  | FullInversionClear

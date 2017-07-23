@@ -789,7 +789,7 @@ open Locus
 let rewritetac dir c =
   (* Due to the new optional arg ?tac, application shouldn't be too partial *)
   Proofview.V82.of_tactic begin
-    Equality.general_rewrite (dir = L2R) AllOccurrences true false c
+    Equality.general_rewrite (dir = L2R) AllOccurrences (Tactic_config.make_rewrite_flags ~frzevars:false !Flags.compat_version) c
   end
 
 (**********************`:********* hooks ************************************)

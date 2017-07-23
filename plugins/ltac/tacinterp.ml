@@ -39,6 +39,7 @@ open Tacintern
 open Taccoerce
 open Proofview.Notations
 open Context.Named.Declaration
+open Tactic_config
 
 let ltac_trace_info = Tactic_debug.ltac_trace_info
 
@@ -1864,9 +1865,10 @@ and interp_atomic ist tac : unit Proofview.tactic =
         let env = Proofview.Goal.env gl in
         let sigma = project gl in
         let cl = interp_clause ist env sigma cl in
+        let flags = make_rewrite_flags !Flags.compat_version in
         name_atomic ~env
           (TacRewrite (ev,l,cl,Option.map ignore by))
-          (Equality.general_multi_rewrite ev l' cl
+          (Equality.general_multi_rewrite flags ev l' cl
              (Option.map (fun by -> Tacticals.New.tclCOMPLETE (interp_tactic ist by),
                Equality.Naive)
                 by))

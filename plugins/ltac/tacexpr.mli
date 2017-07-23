@@ -46,10 +46,10 @@ type 'a core_destruction_arg = 'a Misctypes.core_destruction_arg =
 type 'a destruction_arg =
   clear_flag * 'a core_destruction_arg
 
-type inversion_kind = Misctypes.inversion_kind =
+type inversion_kind = Inv.inversion_kind =
   | SimpleInversion
-  | FullInversion
-  | FullInversionClear
+  | FullInversion of Tactic_config.rewrite_flags
+  | FullInversionClear of Tactic_config.rewrite_flags
 
 type ('c,'d,'id) inversion_strength =
   | NonDepInversion of

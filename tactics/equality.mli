@@ -15,10 +15,8 @@ open Ind_tables
 open Locus
 open Misctypes
 open Tactypes
+open Tactic_config
 (*i*)
-
-type dep_proof_flag = bool (* true = support rewriting dependent proofs *)
-type freeze_evars_flag = bool (* true = don't instantiate existing evars *)
 
 type orientation = bool
 
@@ -28,15 +26,18 @@ type conditions =
   | AllMatches (* Rewrite all matches whose side-conditions are solved *)
 
 val general_rewrite_bindings :
-  orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
+  orientation -> occurrences -> rewrite_flags ->
   ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> evars_flag -> unit Proofview.tactic
 val general_rewrite :
-  orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
+  orientation -> occurrences -> rewrite_flags ->
   ?tac:(unit Proofview.tactic * conditions) -> constr -> unit Proofview.tactic
 
-(* Equivalent to [general_rewrite l2r] *)
+(* Equivalent to [general_rewrite l2r] with simple rewriting flags *)
 val rewriteLR : ?tac:(unit Proofview.tactic * conditions) -> constr -> unit Proofview.tactic
 val rewriteRL : ?tac:(unit Proofview.tactic * conditions) -> constr  -> unit Proofview.tactic
+
+val rewriteLR_in : ?tac:(unit Proofview.tactic * conditions) -> Id.t -> constr -> unit Proofview.tactic
+val rewriteRL_in : ?tac:(unit Proofview.tactic * conditions) -> Id.t -> constr  -> unit Proofview.tactic
 
 (* Warning: old [general_rewrite_in] is now [general_rewrite_bindings_in] *)
 
@@ -45,25 +46,28 @@ val general_setoid_rewrite_clause :
    new_goals:constr list -> unit Proofview.tactic) Hook.t
 
 val general_rewrite_ebindings_clause : Id.t option ->
-  orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
+  orientation -> occurrences -> rewrite_flags ->
   ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> evars_flag -> unit Proofview.tactic
 
 val general_rewrite_bindings_in :
-  orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag ->
+  orientation -> occurrences -> rewrite_flags ->
   ?tac:(unit Proofview.tactic * conditions) ->
   Id.t -> constr with_bindings -> evars_flag -> unit Proofview.tactic
 val general_rewrite_in          :
-  orientation -> occurrences -> freeze_evars_flag -> dep_proof_flag -> 
+  orientation -> occurrences -> rewrite_flags ->
   ?tac:(unit Proofview.tactic * conditions) -> Id.t -> constr -> evars_flag -> unit Proofview.tactic
 
 val general_rewrite_clause :
-  orientation -> evars_flag -> ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> clause -> unit Proofview.tactic
+  rewrite_flags -> orientation -> evars_flag -> ?tac:(unit Proofview.tactic * conditions) -> constr with_bindings -> clause -> unit Proofview.tactic
 
 val general_multi_rewrite :
-  evars_flag -> (bool * multi * clear_flag * delayed_open_constr_with_bindings) list ->
+  rewrite_flags -> evars_flag -> (bool * multi * clear_flag * delayed_open_constr_with_bindings) list ->
     clause -> (unit Proofview.tactic * conditions) option -> unit Proofview.tactic
 
-val replace_in_clause_maybe_by : constr -> constr -> clause -> unit Proofview.tactic option -> unit Proofview.tactic
+val replace_in_clause_maybe_by : rewrite_flags -> constr -> constr ->
+  clause -> unit Proofview.tactic option -> unit Proofview.tactic
+
+(* Simple tactics for replacing without conversion, pre-V8.8 style *)
 val replace    : constr -> constr -> unit Proofview.tactic
 val replace_by : constr -> constr -> unit Proofview.tactic -> unit Proofview.tactic
 
@@ -89,12 +93,12 @@ val make_iterated_tuple :
   env -> evar_map -> constr -> (constr * types) -> evar_map * (constr * constr * constr)
 
 (* The family cutRewriteIn expect an equality statement *)
-val cutRewriteInHyp : bool -> types -> Id.t -> unit Proofview.tactic
-val cutRewriteInConcl : bool -> constr -> unit Proofview.tactic
+val cutRewriteInHyp : rewrite_flags -> bool -> types -> Id.t -> unit Proofview.tactic
+val cutRewriteInConcl : rewrite_flags -> bool -> constr -> unit Proofview.tactic
 
 (* The family rewriteIn expect the proof of an equality *)
-val rewriteInHyp : bool -> constr -> Id.t -> unit Proofview.tactic
-val rewriteInConcl : bool -> constr -> unit Proofview.tactic
+val rewriteInHyp : rewrite_flags -> bool -> constr -> Id.t -> unit Proofview.tactic
+val rewriteInConcl : rewrite_flags -> bool -> constr -> unit Proofview.tactic
 
 (* Tells if tactic "discriminate" is applicable *)
 val discriminable : env -> evar_map -> constr -> constr -> bool
@@ -119,7 +123,7 @@ val subst_all : ?flags:subst_tactic_flags -> unit -> unit Proofview.tactic
    perfoms replacement of [c] by the first value found in context
    (according to [dir] if given to get the rewrite direction)  in the clause [cl]
 *)
-val replace_term : bool option -> constr -> clause -> unit Proofview.tactic
+val replace_term : rewrite_flags -> bool option -> constr -> clause -> unit Proofview.tactic
 
 val set_eq_dec_scheme_kind : mutual scheme_kind -> unit
 

@@ -41,6 +41,7 @@ module Auto = Auto
 module Hints = Hints
 module Contradiction = Contradiction
 module Tacticals = Tacticals
+module Tactic_config = Tactic_config
 module Tactics = Tactics
 module Inv = Inv
 module Leminv = Leminv
