@@ -201,6 +201,9 @@ val decompose_prod_lam_n_assum : int -> Evd.evar_map -> constr -> types -> rel_c
 (** Idem but considering only dependent products *)
 val decompose_non_dep_prod_lam_assum : Evd.evar_map -> constr -> types -> rel_context * constr * types
 
+(** Variant of [decompose_prod_assum] which considers only dependent products *)
+val decompose_non_dep_prod_assum : Evd.evar_map -> types -> rel_context * types
+
 (** Get the last arg of a constr intended to be an application *)
 val last_arg : Evd.evar_map -> constr -> constr
 

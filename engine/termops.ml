@@ -1310,6 +1310,18 @@ let decompose_prod_lam_assum =
 let decompose_non_dep_prod_lam_assum =
   decompose_prod_lam_n_assum_gen false 0
 
+let decompose_non_dep_prod_assum sigma c =
+  let open Context.Rel.Declaration in
+  let open EConstr in
+  let rec proddec_rec l c =
+    match kind sigma c with
+    | Prod (x,t,c) when dependent sigma (mkRel 1) c -> proddec_rec (Context.Rel.add (LocalAssum (x,t)) l) c
+    | LetIn (x,b,t,c) -> proddec_rec (Context.Rel.add (LocalDef (x,b,t)) l) c
+    | Cast (c,_,_)      -> proddec_rec l c
+    | _               -> l,c
+  in
+  proddec_rec Context.Rel.empty c
+
 (* We reduce a series of head eta-redex or nothing at all   *)
 (* [x1:c1;...;xn:cn]@(f;a1...an;x1;...;xn) --> @(f;a1...an) *)
 (* Remplace 2 earlier buggish versions                      *)
