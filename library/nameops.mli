@@ -83,6 +83,9 @@ module Name : sig
   val to_option : Name.t -> Id.t option
   (** [to_option Anonymous] is [None] and [to_option (Name id)] is [Some id] *)
 
+  val more_defined : Name.t -> Name.t -> bool
+  (** [more_defined na na'] is [true] when [na'] is [Anonymous] or when [equal na na'] *)
+
 end
 
 val out_name : Name.t -> Id.t

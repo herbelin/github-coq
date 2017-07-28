@@ -6,3 +6,7 @@ foo = λ '(x, y), x + y
      : nat * nat → nat
 ∀ '(a, b), a ∧ b
      : Prop
+let f '(x, y) (z t : nat) := x + y + z + t in f
+     : nat * nat -> nat -> nat -> nat
+let f (b : bool) '(x, y) (z : nat) := if b then x + y else z in f
+     : bool -> nat * nat -> nat -> nat

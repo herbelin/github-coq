@@ -387,6 +387,22 @@ let tag_var = tag Tag.variable
     if is_open then pr_delimited_binders pr_com_at sep pr_c
     else pr_undelimited_binders sep pr_c
 
+  let rec extract_prod_lam_binders c t = let open CAst in
+    match c.v, t.v with
+    | CLambdaN ([],c), CProdN ([],t) ->
+      extract_prod_lam_binders c t
+    | CLambdaN ([[_,Name id],Default Explicit,t],
+                { v = CCases (LetPatternStyle,None, [{ v = CRef (Ident (_,id'),None)},None,None],[(_,([_,[p]],b))])} ),
+      CProdN ([[_,Anonymous],Default Explicit,t'],u)
+         when constr_expr_eq t t' && not (Id.Set.mem id (Topconstr.free_vars_of_constr_expr b)) ->
+      let bl,ct = extract_prod_lam_binders b u in
+      CLocalPattern (c.loc, (p,Some t')) :: bl, ct
+    | CLambdaN ((nal,Default Explicit,t)::bl,c), CProdN ((nal',Default Explicit,t')::bl',u)
+         when List.for_all2 (fun (_,na) (_,na') -> Name.more_defined na na') nal nal' && constr_expr_eq t t' ->
+      let bl,ct = extract_prod_lam_binders (CAst.make ?loc:c.loc @@ CLambdaN(bl,c)) (CAst.make ?loc:t.loc @@ CProdN(bl,c)) in
+      CLocalAssum (nal,Default Explicit,t) :: bl, ct
+    | _ -> [], (c,t)
+
   let rec extract_prod_binders = let open CAst in function
   (*  | CLetIn (loc,na,b,c) as x ->
       let bl,c = extract_prod_binders c in
@@ -597,9 +613,13 @@ let tag_var = tag Tag.variable
           lletin
         )
       | CLetIn (x,a,t,b) ->
+        let bl,a,t = match t with
+          | None -> let bl,a = extract_lam_binders a in bl,a,None
+          | Some t -> let bl,(a,t) = extract_prod_lam_binders a t in bl,a,Some t in
         return (
           hv 0 (
             hov 2 (keyword "let" ++ spc () ++ pr_lname x
+                   ++ (if bl = [] then mt () else spc () ++ pr_undelimited_binders spc (pr mt ltop) bl)
                    ++ pr_opt_no_spc (fun t -> str " :" ++ ws 1 ++ pr mt ltop t) t
                    ++ str " :=" ++ pr spc ltop a ++ spc ()
                    ++ keyword "in") ++

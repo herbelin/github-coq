@@ -135,7 +135,7 @@ sig
   val pick : t -> t -> t
   val cons : t -> Id.t list -> Id.t list
   val to_option : Name.t -> Id.t option
-
+  val more_defined : Name.t -> Name.t -> bool
 end
 
 module Name : ExtName =
@@ -181,6 +181,9 @@ struct
   let to_option = function
     | Anonymous -> None
     | Name id -> Some id
+
+  let more_defined na na' =
+    Name.compare na na' > 1
 
 end
 
