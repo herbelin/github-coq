@@ -1234,14 +1234,6 @@ let filtering sigma env cv_pb c1 c2 =
   in
   aux env cv_pb c1 c2; !evm
 
-let decompose_prod_letin sigma c =
-  let rec prodec_rec i l c = match EConstr.kind sigma c with
-    | Prod (n,t,c)    -> prodec_rec (succ i) (RelDecl.LocalAssum (n,t)::l) c
-    | LetIn (n,d,t,c) -> prodec_rec (succ i) (RelDecl.LocalDef (n,d,t)::l) c
-    | Cast (c,_,_)    -> prodec_rec i l c
-    | _               -> i,l,c in
-  prodec_rec 0 [] c
-
 (* (nb_lam [na1:T1]...[nan:Tan]c) where c is not an abstraction
  * gives n (casts are ignored) *)
 let nb_lam sigma c =
@@ -1270,12 +1262,18 @@ let nb_prod_modulo_zeta sigma x =
       | _ -> n
   in count 0 x
 
+let nb_prod_assum sigma c =
+  let rec nbrec n c = match EConstr.kind sigma c with
+    | Prod (_,_,c)    -> nbrec (n+1) c
+    | LetIn (_,_,_,c) -> nbrec (n+1) c
+    | Cast (c,_,_)    -> nbrec n c
+    | _               -> n in
+  nbrec 0 c
+
 let align_prod_letin sigma c a =
-  let (lc,_,_) = decompose_prod_letin sigma c in
-  let (la,l,a) = decompose_prod_letin sigma a in
-  if not (la >= lc) then invalid_arg "align_prod_letin";
-  let (l1,l2) = Util.List.chop lc l in
-  l2,it_mkProd_or_LetIn a l1
+  let lc = nb_prod_assum sigma c in
+  try EConstr.decompose_prod_n_assum sigma lc a
+  with Failure _ -> invalid_arg "align_prod_letin"
 
 (* We reduce a series of head eta-redex or nothing at all   *)
 (* [x1:c1;...;xn:cn]@(f;a1...an;x1;...;xn) --> @(f;a1...an) *)

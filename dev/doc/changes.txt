@@ -18,6 +18,14 @@ We changed the type of the following functions:
   The returned term contains De Bruijn universe variables.
 - Global.body_of_constant: same as above.
 
+The following functions now fails with a Failure rather than a UserError:
+- decompose_prod_n_assum
+- decompose_lam_n_assum
+- decompose_lam_n_decls
+
+The following too ad hoc (and rare) is discontinued:
+- decompose_prod_letin
+
 =========================================
 = CHANGES BETWEEN COQ V8.6 AND COQ V8.7 =
 =========================================

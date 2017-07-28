@@ -168,16 +168,28 @@ val destCoFix : Evd.evar_map -> t -> (t, t) pcofixpoint
 
 val decompose_app : Evd.evar_map -> t -> t * t list
 
+(* Extract as many products as possible; no reduction *)
 val decompose_lam : Evd.evar_map -> t -> (Name.t * t) list * t
+
+(* Extract as many lambda or let-in as possible; no reduction *)
 val decompose_lam_assum : Evd.evar_map -> t -> rel_context * t
+
+(* Idem but expects [n] lambda, collecting let-ins in the way; Failure if not enough *)
 val decompose_lam_n_assum : Evd.evar_map -> int -> t -> rel_context * t
+
+(* Idem but expects [n] lambda or let-ins; Failure if not enough *)
 val decompose_lam_n_decls : Evd.evar_map -> int -> t -> rel_context * t
 
 val compose_lam : (Name.t * t) list -> t -> t
 val to_lambda : Evd.evar_map -> int -> t -> t
 
+(* Extract as many products as possible; no reduction *)
 val decompose_prod : Evd.evar_map -> t -> (Name.t * t) list * t
+
+(* Extract as many products or let-in as possible; no reduction *)
 val decompose_prod_assum : Evd.evar_map -> t -> rel_context * t
+
+(* Idem but expects [n] product, collecting let-ins in the way; Failure if not enough *)
 val decompose_prod_n_assum : Evd.evar_map -> int -> t -> rel_context * t
 
 val existential_type : Evd.evar_map -> existential -> types

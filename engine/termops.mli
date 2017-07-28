@@ -176,7 +176,6 @@ exception CannotFilter
 type subst = (rel_context * constr) Evar.Map.t
 val filtering : Evd.evar_map -> rel_context -> Reduction.conv_pb -> constr -> constr -> subst
 
-val decompose_prod_letin : Evd.evar_map -> constr -> int * rel_context * constr
 val align_prod_letin : Evd.evar_map -> constr -> constr -> rel_context * constr
 
 (** [nb_lam] {% $ %}[x_1:T_1]...[x_n:T_n]c{% $ %} where {% $ %}c{% $ %} is not an abstraction
@@ -188,6 +187,9 @@ val nb_prod : Evd.evar_map -> constr -> int
 
 (** Similar to [nb_prod], but zeta-contracts let-in on the way *)
 val nb_prod_modulo_zeta : Evd.evar_map -> constr -> int
+
+(** Similar to [nb_prod], but also counts let-ins *)
+val nb_prod_assum : Evd.evar_map -> constr -> int
 
 (** Get the last arg of a constr intended to be an application *)
 val last_arg : Evd.evar_map -> constr -> constr
