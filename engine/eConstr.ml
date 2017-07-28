@@ -46,6 +46,7 @@ val unsafe_to_named_decl : (t, t) Context.Named.Declaration.pt -> (Constr.t, Con
 val unsafe_to_rel_decl : (t, t) Context.Rel.Declaration.pt -> (Constr.t, Constr.types) Context.Rel.Declaration.pt
 val of_rel_decl : (Constr.t, Constr.types) Context.Rel.Declaration.pt -> (t, t) Context.Rel.Declaration.pt
 val to_rel_decl : Evd.evar_map -> (t, t) Context.Rel.Declaration.pt -> (Constr.t, Constr.types) Context.Rel.Declaration.pt
+val unsafe_to_rel_context : (t, t) Context.Rel.pt -> (Constr.t, Constr.types) Context.Rel.pt
 end =
 struct
 
@@ -133,6 +134,7 @@ let unsafe_to_named_decl d = d
 let of_rel_decl d = d
 let unsafe_to_rel_decl d = d
 let to_rel_decl sigma d = Context.Rel.Declaration.map_constr (to_constr sigma) d
+let unsafe_to_rel_context ctx = ctx
 
 end
 
@@ -793,5 +795,6 @@ let to_instance = EInstance.unsafe_to_instance
 let to_constr = unsafe_to_constr
 let to_rel_decl = unsafe_to_rel_decl
 let to_named_decl = unsafe_to_named_decl
+let to_rel_context = unsafe_to_rel_context
 let eq = unsafe_eq
 end
