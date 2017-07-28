@@ -1275,6 +1275,38 @@ let align_prod_letin sigma c a =
   try EConstr.decompose_prod_n_assum sigma lc a
   with Failure _ -> invalid_arg "align_prod_letin"
 
+(* Taking [c] of type [t], returns the common prefix of binders *)
+(* using some heuristics for let-ins; if [n] > 0 tells how many *)
+(* binders to extract *)
+
+let decompose_prod_lam_n_assum_gen n sigma c t =
+  let open Context.Rel.Declaration in
+  let open EConstr in
+  let rec aux n l c t =
+  match EConstr.kind sigma c, EConstr.kind sigma t with
+    | Lambda (na,t,c), Prod (na',t',c') ->
+        aux (n-1) (Context.Rel.add (LocalAssum (Nameops.Name.pick na na',t)) l) c c'
+    | LetIn (na,b,t,c), _ when n > 0 ->
+        aux n (Context.Rel.add (LocalDef (na,b,t)) l) c (Vars.lift 1 t)
+    (* Only if built w/o let-expansion in types *)
+    | _, LetIn (_,b,_,t) when n > 0 ->
+	aux n l c (Vars.subst1 b t)
+    (* If it is an open proof: we eta-expand *)
+    | _, Prod (na',t',c') when n > 0 ->
+        let appc = mkApp (Vars.lift 1 c,[|mkRel 1|]) in
+        aux (n-1) (Context.Rel.add (LocalAssum (na',t')) l) appc c'
+    | _ ->
+        if n>0 then failwith "decompose_prod_lam_assum: cannot factorize enough";
+        (l,c,t)
+  in aux n [] c t
+
+let decompose_prod_lam_n_assum n =
+  if n < 0 then invalid_arg "decompose_prod_lam_n_assum: integer parameter must be positive";
+  decompose_prod_lam_n_assum_gen n
+
+let decompose_prod_lam_assum =
+  decompose_prod_lam_n_assum 0
+
 (* We reduce a series of head eta-redex or nothing at all   *)
 (* [x1:c1;...;xn:cn]@(f;a1...an;x1;...;xn) --> @(f;a1...an) *)
 (* Remplace 2 earlier buggish versions                      *)

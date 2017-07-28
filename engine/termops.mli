@@ -191,6 +191,13 @@ val nb_prod_modulo_zeta : Evd.evar_map -> constr -> int
 (** Similar to [nb_prod], but also counts let-ins *)
 val nb_prod_assum : Evd.evar_map -> constr -> int
 
+(** Taking [c] of type [t], returns the common prefix of binders *)
+(** using some heuristics for let-ins *)
+val decompose_prod_lam_assum : Evd.evar_map -> constr -> types -> rel_context * constr * types
+
+(** Idem but tells how many binders to extract (let-in excluded) *)
+val decompose_prod_lam_n_assum : int -> Evd.evar_map -> constr -> types -> rel_context * constr * types
+
 (** Get the last arg of a constr intended to be an application *)
 val last_arg : Evd.evar_map -> constr -> constr
 

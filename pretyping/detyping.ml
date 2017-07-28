@@ -567,7 +567,9 @@ and detype_fix flags avoid env sigma (vn,_ as nvn) (names,tys,bodies) =
       (avoid, env, []) names tys in
   let n = Array.length tys in
   let v = Array.map3
-    (fun c t i -> share_names flags (i+1) [] def_avoid def_env sigma c (lift n t))
+    (fun c t i ->
+      let bl,c,t = decompose_prod_lam_n_assum (i+1) sigma c (lift n t) in
+      detype_in_binders flags def_avoid def_env sigma bl c t)
     bodies tys vn in
   GRec(GFix (Array.map (fun i -> Some i, GStructRec) (fst nvn), snd nvn),Array.of_list (List.rev lfi),
        Array.map (fun (bl,_,_) -> bl) v,
@@ -583,48 +585,20 @@ and detype_cofix flags avoid env sigma n (names,tys,bodies) =
       (avoid, env, []) names tys in
   let ntys = Array.length tys in
   let v = Array.map2
-    (fun c t -> share_names flags 0 [] def_avoid def_env sigma c (lift ntys t))
+    (fun c t ->
+      let bl,c,t = decompose_prod_lam_assum sigma c (lift ntys t) in
+      detype_in_binders flags def_avoid def_env sigma bl c t)
     bodies tys in
   GRec(GCoFix n,Array.of_list (List.rev lfi),
        Array.map (fun (bl,_,_) -> bl) v,
        Array.map (fun (_,_,ty) -> ty) v,
        Array.map (fun (_,bd,_) -> bd) v)
 
-and share_names flags n l avoid env sigma c t =
-  match EConstr.kind sigma c, EConstr.kind sigma t with
-    (* factorize even when not necessary to have better presentation *)
-    | Lambda (na,t,c), Prod (na',t',c') ->
-        let na = match (na,na') with
-            Name _, _ -> na
-          | _, Name _ -> na'
-          | _ -> na in
-        let t' = detype flags avoid env sigma t in
-	let id = next_name_away na avoid in
-        let avoid = id::avoid and env = add_name (Name id) None t env in
-        share_names flags (n-1) ((Name id,Explicit,None,t')::l) avoid env sigma c c'
-    (* May occur for fix built interactively *)
-    | LetIn (na,b,t',c), _ when n > 0 ->
-        let t'' = detype flags avoid env sigma t' in
-        let b' = detype flags avoid env sigma b in
-	let id = next_name_away na avoid in
-        let avoid = id::avoid and env = add_name (Name id) (Some b) t' env in
-        share_names flags n ((Name id,Explicit,Some b',t'')::l) avoid env sigma c (lift 1 t)
-    (* Only if built with the f/n notation or w/o let-expansion in types *)
-    | _, LetIn (_,b,_,t) when n > 0 ->
-	share_names flags n l avoid env sigma c (subst1 b t)
-    (* If it is an open proof: we cheat and eta-expand *)
-    | _, Prod (na',t',c') when n > 0 ->
-        let t'' = detype flags avoid env sigma t' in
-	let id = next_name_away na' avoid in
-        let avoid = id::avoid and env = add_name (Name id) None t' env in
-        let appc = mkApp (lift 1 c,[|mkRel 1|]) in
-        share_names flags (n-1) ((Name id,Explicit,None,t'')::l) avoid env sigma appc c'
-    (* If built with the f/n notation: we renounce to share names *)
-    | _ ->
-        if n>0 then Feedback.msg_debug (strbrk "Detyping.detype: cannot factorize fix enough");
-        let c = detype flags avoid env sigma c in
-        let t = detype flags avoid env sigma t in
-        (List.rev l,c,t)
+and detype_in_binders flags avoid env sigma bl c t =
+  let avoid,env,bl = detype_binders flags avoid env sigma bl in
+  let c = detype flags avoid env sigma c in
+  let t = detype flags avoid env sigma t in
+  (List.rev bl,c,t)
 
 and detype_eqns flags avoid env sigma ci computable constructs consnargsl bl =
   try
@@ -693,6 +667,26 @@ and detype_binder (lax,isgoal as flags) bk avoid env sigma na body ty c =
       let s = try Retyping.get_sort_family_of (snd env) sigma ty with _ when !Flags.in_debugger || !Flags.in_toplevel -> InType (* Can fail because of sigma missing in debugger *) in
       let t = if s != InProp  && not !Flags.raw_print then None else Some (detype (lax,false) avoid env sigma ty) in
       GLetIn (na', c, t, r)
+
+and detype_binders flags avoid env sigma bl =
+  let open Context.Rel.Declaration in
+  match bl with
+    | LocalAssum (na,t) :: bl ->
+        let avoid,env,bl = detype_binders flags avoid env sigma bl in
+        let t' = detype flags avoid env sigma t in
+	let id = next_name_away na avoid in
+        let avoid = id::avoid and env = add_name (Name id) None t env in
+        avoid,env,(Name id,Explicit,None,t')::bl
+    (* May occur for fix built interactively *)
+    | LocalDef (na,b,t) :: bl ->
+        let avoid,env,bl = detype_binders flags avoid env sigma bl in
+        let t' = detype flags avoid env sigma t in
+        let b' = detype flags avoid env sigma b in
+	let id = next_name_away na avoid in
+        let avoid = id::avoid and env = add_name (Name id) (Some b) t env in
+        avoid,env,(Name id,Explicit,Some b',t')::bl
+    | [] ->
+       avoid,env,[]
 
 let detype_rel_context ?(lax=false) where avoid env sigma sign =
   let where = Option.map (fun c -> EConstr.it_mkLambda_or_LetIn c sign) where in
