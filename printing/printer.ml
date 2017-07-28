@@ -319,7 +319,8 @@ let get_compact_context,set_compact_context =
 let pr_compacted_decl env sigma decl =
   let ids, bl, pbody, typ = match decl with
     | CompactedDecl.LocalAssum (ids, typ) ->
-       ids, [], mt (), EConstr.of_constr typ
+       let bl,t = EConstr.decompose_prod_assum sigma (EConstr.of_constr typ) in
+       ids, EConstr.Unsafe.to_rel_context bl, mt (), t
     | CompactedDecl.LocalDef (ids,c,typ) ->
        let bl,c',t = Termops.decompose_non_dep_prod_lam_assum sigma (EConstr.of_constr c) (EConstr.of_constr typ) in
        (* Force evaluation *)
