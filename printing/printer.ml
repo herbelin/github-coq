@@ -304,6 +304,11 @@ let pr_pattern t = pr_pattern_env (Global.env()) empty_names_context t*)
 (**********************************************************************)
 (* Contexts and declarations                                          *)
 
+let pr_rel_context env sigma rel_context =
+  pr_binders (extern_rel_context None env sigma rel_context)
+
+let pr_rel_context_of env sigma =
+  pr_rel_context env sigma (rel_context env)
 
 (* Flag for compact display of goals *)
 
@@ -312,19 +317,24 @@ let get_compact_context,set_compact_context =
   (fun () -> !compact_context),(fun b  -> compact_context := b)
 
 let pr_compacted_decl env sigma decl =
-  let ids, pbody, typ = match decl with
+  let ids, bl, pbody, typ = match decl with
     | CompactedDecl.LocalAssum (ids, typ) ->
-       ids, mt (), typ
+       ids, [], mt (), EConstr.of_constr typ
     | CompactedDecl.LocalDef (ids,c,typ) ->
+       let bl,c',t = Termops.decompose_prod_lam_assum sigma (EConstr.of_constr c) (EConstr.of_constr typ) in
        (* Force evaluation *)
-       let pb = pr_lconstr_env env sigma c in
+       let bl = EConstr.Unsafe.to_rel_context bl in
+       let env = push_rel_context bl env in
+       let pb = pr_leconstr_env env sigma c' in
        let pb = if isCast c then surround pb else pb in
-       ids, (str" := " ++ pb ++ cut ()), typ
+       ids, bl, (str" := " ++ pb ++ cut ()), t
   in
   let pids = prlist_with_sep pr_comma pr_id ids in
-  let pt = pr_ltype_env env sigma typ in
+  let pbl = if bl = [] then mt () else spc () ++ pr_rel_context env sigma bl in
+  let env = push_rel_context bl env in
+  let pt = pr_letype_env env sigma typ in
   let ptyp = (str" : " ++ pt) in
-  hov 0 (pids ++ pbody ++ ptyp)
+  hov 0 (pids ++ pbl ++ pbody ++ ptyp)
 
 let pr_named_decl env sigma decl =
   decl |> CompactedDecl.of_named_decl |> pr_compacted_decl env sigma
@@ -362,12 +372,6 @@ let pr_named_context env sigma ne_context =
   hv 0 (Context.Named.fold_outside
 	  (fun d pps -> pps ++ ws 2 ++ pr_named_decl env sigma d)
           ne_context ~init:(mt ()))
-
-let pr_rel_context env sigma rel_context =
-  pr_binders (extern_rel_context None env sigma rel_context)
-
-let pr_rel_context_of env sigma =
-  pr_rel_context env sigma (rel_context env)
 
 (* Prints an env (variables and de Bruijn). Separator: newline *)
 let pr_context_unlimited env sigma =
