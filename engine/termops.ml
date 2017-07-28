@@ -1279,12 +1279,12 @@ let align_prod_letin sigma c a =
 (* using some heuristics for let-ins; if [n] > 0 tells how many *)
 (* binders to extract *)
 
-let decompose_prod_lam_n_assum_gen n sigma c t =
+let decompose_prod_lam_n_assum_gen nondepalso n sigma c t =
   let open Context.Rel.Declaration in
   let open EConstr in
   let rec aux n l c t =
   match EConstr.kind sigma c, EConstr.kind sigma t with
-    | Lambda (na,t,c), Prod (na',t',c') ->
+    | Lambda (na,t,c), Prod (na',t',c') when nondepalso || dependent sigma (mkRel 1) c ->
         aux (n-1) (Context.Rel.add (LocalAssum (Nameops.Name.pick na na',t)) l) c c'
     | LetIn (na,b,t,c), _ when n > 0 ->
         aux n (Context.Rel.add (LocalDef (na,b,t)) l) c (Vars.lift 1 t)
@@ -1302,10 +1302,13 @@ let decompose_prod_lam_n_assum_gen n sigma c t =
 
 let decompose_prod_lam_n_assum n =
   if n < 0 then invalid_arg "decompose_prod_lam_n_assum: integer parameter must be positive";
-  decompose_prod_lam_n_assum_gen n
+  decompose_prod_lam_n_assum_gen true n
 
 let decompose_prod_lam_assum =
-  decompose_prod_lam_n_assum 0
+  decompose_prod_lam_n_assum_gen true 0
+
+let decompose_non_dep_prod_lam_assum =
+  decompose_prod_lam_n_assum_gen false 0
 
 (* We reduce a series of head eta-redex or nothing at all   *)
 (* [x1:c1;...;xn:cn]@(f;a1...an;x1;...;xn) --> @(f;a1...an) *)
