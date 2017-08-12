@@ -115,3 +115,7 @@ where
      : nat * (nat * nat)
 {0, 1, 2, 3}
      : nat * (nat * (nat * nat))
+{{ 1 | 1 // 1 }}
+     : nat
+!!! _ _ : nat, True
+     : (nat -> Prop) * ((nat -> Prop) * Prop)
