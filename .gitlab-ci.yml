@@ -21,7 +21,7 @@ variables:
   COMPILER_BLEEDING_EDGE: "4.05.0"
   CAMLP5_VER_BLEEDING_EDGE: "7.01"
 
-  TEST_PACKAGES: "time python"
+  TIMING_PACKAGES: "time python"
 
   COQIDE_PACKAGES: "libgtk2.0-dev libgtksourceview2.0-dev"
   #COQIDE_PACKAGES_32BIT: "libgtk2.0-dev:i386 libgtksourceview2.0-dev:i386"
@@ -110,7 +110,11 @@ before_script:
     - cd test-suite
     - make clean
     # careful with the ending /
-    - make -j ${NJOBS} BIN=$(readlink -f ../install/bin)/ LIB=$(readlink -f ../install/lib/coq)/ all
+    - BIN=$(readlink -f ../install/bin)/
+    - LIB=$(readlink -f ../install/lib/coq)/
+    # stupid find looks in install/ ...
+    - ACCEPT_ALIEN="ACCEPT_ALIEN_VO=1 ACCEPT_ALIEN_OBJ=1"
+    - make -j ${NJOBS} BIN="$BIN" LIB="$LIB" $ACCEPT_ALIEN all
   artifacts:
     name: "$CI_JOB_NAME.logs"
     when: on_failure
@@ -138,10 +142,12 @@ before_script:
     - DOCVFILES=$(find "$LIB/" -name '*.v' -printf "%p ")
     - DOCLIGHTDIRS="$LIB/theories/Init/ $LIB/theories/Logic/ $LIB/theories/Unicode/ $LIB/theories/Arith/"
     - DOCLIGHTVOFILES=$(find $DOCLIGHTDIRS -name '*.vo' -printf "%p ")
+    # stupid find looks in install/ ...
+    - ACCEPT_ALIEN="ACCEPT_ALIEN_VO=1 ACCEPT_ALIEN_OBJ=1"
 
-    - make doc QUICK=true COQDOC_NOBOOT=true COQTEX="$INSTALLDIR/bin/coq-tex" COQDOC="$INSTALLDIR/bin/coqdoc" VFILES="$DOCVFILES" THEORIESLIGHTVO="$DOCLIGHTVOFILES"
+    - make doc QUICK=true COQDOC_NOBOOT=true COQTEX="$INSTALLDIR/bin/coq-tex" COQDOC="$INSTALLDIR/bin/coqdoc" VFILES="$DOCVFILES" THEORIESLIGHTVO="$DOCLIGHTVOFILES" $ACCEPT_ALIEN
 
-    - make install-doc
+    - make install-doc $ACCEPT_ALIEN
   artifacts:
     name: "$CI_JOB_NAME"
     paths:
@@ -160,6 +166,7 @@ before_script:
     - build
   variables: &ci-template-vars
     TEST_TARGET: "$CI_JOB_NAME"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES"
 
 build:
   <<: *build-template
@@ -201,7 +208,7 @@ test-suite:
   dependencies:
     - build
   variables:
-    EXTRA_PACKAGES: "$TEST_PACKAGES"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES"
 
 test-suite:32bit:
   <<: *test-suite-template
@@ -209,7 +216,7 @@ test-suite:32bit:
     - build:32bit
   variables:
     COMPILER: "$COMPILER_32BIT"
-    EXTRA_PACKAGES: "gcc-multilib $TEST_PACKAGES"
+    EXTRA_PACKAGES: "gcc-multilib $TIMING_PACKAGES"
 
 test-suite:bleeding-edge:
   <<: *test-suite-template
@@ -218,7 +225,7 @@ test-suite:bleeding-edge:
   variables:
     COMPILER: "$COMPILER_BLEEDING_EDGE"
     CAMLP5_VER: "$CAMLP5_VER_BLEEDING_EDGE"
-    EXTRA_PACKAGES: "$TEST_PACKAGES"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES"
 
 documentation:
   <<: *documentation-template
@@ -258,7 +265,7 @@ ci-color:
   <<: *ci-template
   variables:
     <<: *ci-template-vars
-    EXTRA_PACKAGES: "subversion"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES subversion"
 
 ci-compcert:
   <<: *ci-template
@@ -268,14 +275,14 @@ ci-coq-dpdgraph:
   variables:
     <<: *ci-template-vars
     EXTRA_OPAM: "ocamlgraph"
-    EXTRA_PACKAGES: "autoconf"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES autoconf"
   allow_failure: true
 
 ci-coquelicot:
   <<: *ci-template
   variables:
     <<: *ci-template-vars
-    EXTRA_PACKAGES: "autoconf"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES autoconf"
 
 ci-geocoq:
   <<: *ci-template
@@ -290,13 +297,13 @@ ci-fiat-parsers:
   <<: *ci-template
   variables:
     <<: *ci-template-vars
-    EXTRA_PACKAGES: "python"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES"
 
 ci-flocq:
   <<: *ci-template
   variables:
     <<: *ci-template-vars
-    EXTRA_PACKAGES: "autoconf"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES autoconf"
 
 ci-formal-topology:
   <<: *ci-template
@@ -305,7 +312,7 @@ ci-hott:
   <<: *ci-template
   variables:
     <<: *ci-template-vars
-    EXTRA_PACKAGES: "autoconf"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES autoconf"
 
 ci-iris-coq:
   <<: *ci-template
@@ -320,7 +327,7 @@ ci-sf:
   <<: *ci-template
   variables:
     <<: *ci-template-vars
-    EXTRA_PACKAGES: "wget"
+    EXTRA_PACKAGES: "$TIMING_PACKAGES wget"
 
 ci-unimath:
   <<: *ci-template
