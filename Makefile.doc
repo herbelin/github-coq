@@ -391,8 +391,10 @@ install-doc-meta:
 
 install-doc-html: 
 	$(MKDIR) $(addprefix $(FULLDOCDIR)/html/, refman stdlib faq)
-	$(INSTALLLIB) doc/refman/html/* $(FULLDOCDIR)/html/refman 
-	$(INSTALLLIB) doc/stdlib/html/* $(FULLDOCDIR)/html/stdlib 
+	(for f in `cd doc/refman/html; find . -type f`; do \
+		$(INSTALLLIB) -D doc/refman/html/$$f $(FULLDOCDIR)/html/refman/$$f;\
+	done)
+	$(INSTALLLIB) doc/stdlib/html/* $(FULLDOCDIR)/html/stdlib
 	$(INSTALLLIB) doc/RecTutorial/RecTutorial.html $(FULLDOCDIR)/html/RecTutorial.html
 	$(INSTALLLIB) doc/faq/html/* $(FULLDOCDIR)/html/faq
 	$(INSTALLLIB) doc/tutorial/Tutorial.v.html $(FULLDOCDIR)/html/Tutorial.html
