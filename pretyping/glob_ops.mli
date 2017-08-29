@@ -32,6 +32,8 @@ val alias_of_pat : 'a cases_pattern_g -> Name.t
 
 val set_pat_alias : Id.t -> 'a cases_pattern_g -> 'a cases_pattern_g
 
+val alias_of_pat : cases_pattern -> Name.t
+
 val cast_type_eq : ('a -> 'a -> bool) ->
   'a cast_type -> 'a cast_type -> bool
 
