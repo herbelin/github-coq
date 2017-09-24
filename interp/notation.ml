@@ -791,6 +791,7 @@ let declare_ref_arguments_scope ref =
   let (scs,cls as o) = compute_arguments_scope_full t in
   declare_arguments_scope_gen ArgsScopeAuto ref (List.length scs) o
 
+let _ = Declare.set_declare_ref_arguments_scope declare_ref_arguments_scope
 
 (********************************)
 (* Encoding notations as string *)

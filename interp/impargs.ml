@@ -645,6 +645,10 @@ let declare_mib_implicits kn =
     add_anonymous_leaf
       (inImplicits (ImplMutualInductive (kn,flags),List.flatten imps))
 
+let _ = Declare.set_declare_mib_implicits declare_mib_implicits
+let _ = Declare.set_declare_constant_implicits declare_constant_implicits
+let _ = Declare.set_declare_var_implicits declare_var_implicits
+
 (* Declare manual implicits *)
 type manual_explicitation = Constrexpr.explicitation * (bool * bool * bool)
 

@@ -54,11 +54,6 @@ val declare_definition :
   ?local:bool -> ?poly:polymorphic -> Id.t -> ?types:constr -> 
   constr Univ.in_universe_context_set -> constant
 
-(** Since transparent constants' side effects are globally declared, we
- *  need that *)
-val set_declare_scheme :
-  (string -> (inductive * constant) array -> unit) -> unit
-
 (** [declare_mind me] declares a block of inductive types with
    their constructors in the current section; it returns the path of
    the whole block and a boolean indicating if it is a primitive record. *)
@@ -85,3 +80,21 @@ val do_universe : polymorphic -> Id.t Loc.located list -> unit
 val do_constraint : polymorphic ->
   (Misctypes.glob_level * Univ.constraint_type * Misctypes.glob_level) list ->
   unit
+
+(** Since transparent constants' side effects are globally declared, we
+ *  need that *)
+val set_declare_scheme :
+  (string -> (inductive * constant) array -> unit) -> unit
+
+(* Other forward references *)
+val set_declare_mib_implicits :
+  (mutual_inductive -> unit) -> unit
+
+val set_declare_var_implicits :
+  (variable -> unit) -> unit
+
+val set_declare_constant_implicits :
+  (constant -> unit) -> unit
+
+val set_declare_ref_arguments_scope :
+  (Globnames.global_reference -> unit) -> unit

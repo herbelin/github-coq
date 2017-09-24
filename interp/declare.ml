@@ -20,12 +20,25 @@ open Declarations
 open Entries
 open Libobject
 open Lib
-open Impargs
 open Safe_typing
 open Cooking
 open Decls
 open Decl_kinds
 
+let declare_scheme = ref (fun _ _ -> assert false)
+let set_declare_scheme f = declare_scheme := f
+
+let declare_var_implicits = ref (fun _ -> assert false)
+let set_declare_var_implicits f = declare_var_implicits := f
+
+let declare_constant_implicits = ref (fun _ -> assert false)
+let set_declare_constant_implicits f = declare_constant_implicits := f
+
+let declare_mib_implicits = ref (fun _ -> assert false)
+let set_declare_mib_implicits f = declare_mib_implicits := f
+
+let declare_ref_arguments_scope = ref (fun _ -> assert false)
+let set_declare_ref_arguments_scope f = declare_ref_arguments_scope := f
 
 (** Declaration of section variables and local definitions *)
 
@@ -79,8 +92,8 @@ let inVariable : variable_obj -> obj =
 (* for initial declaration *)
 let declare_variable id obj =
   let oname = add_leaf id (inVariable (Inr (id,obj))) in
-  declare_var_implicits id;
-  Notation.declare_ref_arguments_scope (VarRef id);
+  !declare_var_implicits id;
+  !declare_ref_arguments_scope (VarRef id);
   Heads.declare_head (EvalVarRef id);
   oname
 
@@ -183,13 +196,10 @@ let (inConstant : constant_obj -> obj) =
     subst_function = ident_subst_function;
     discharge_function = discharge_constant }
 
-let declare_scheme = ref (fun _ _ -> assert false)
-let set_declare_scheme f = declare_scheme := f
-
 let update_tables c =
-  declare_constant_implicits c;
+  !declare_constant_implicits c;
   Heads.declare_head (EvalConstRef c);
-  Notation.declare_ref_arguments_scope (ConstRef c)
+  !declare_ref_arguments_scope (ConstRef c)
 
 let declare_constant_common id cst =
   let o = inConstant cst in
@@ -268,9 +278,9 @@ let declare_definition
 
 let declare_inductive_argument_scopes kn mie =
   List.iteri (fun i {mind_entry_consnames=lc} ->
-    Notation.declare_ref_arguments_scope (IndRef (kn,i));
+    !declare_ref_arguments_scope (IndRef (kn,i));
     for j=1 to List.length lc do
-      Notation.declare_ref_arguments_scope (ConstructRef ((kn,i),j));
+      !declare_ref_arguments_scope (ConstructRef ((kn,i),j));
     done) mie.mind_entry_inds
 
 let inductive_names sp kn mie =
@@ -391,7 +401,7 @@ let declare_mind mie =
   let (sp,kn as oname) = add_leaf id (inInductive ([],mie)) in
   let mind = Global.mind_of_delta_kn kn in
   let isrecord,isprim = declare_projections mind in
-  declare_mib_implicits mind;
+  !declare_mib_implicits mind;
   declare_inductive_argument_scopes mind mie;
   oname, isprim
 
