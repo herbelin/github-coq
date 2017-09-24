@@ -8,7 +8,6 @@
 
 open Term
 open Names
-open Declare
 
 (** This module provides support for registering inductive scheme builders,
    declaring schemes and generating schemes on demand *)
@@ -18,6 +17,12 @@ open Declare
 type mutual
 type individual
 type 'a scheme_kind
+
+(** flag for internal message display *)
+type internal_flag =
+  | UserAutomaticRequest (* kernel action, a message is displayed *)
+  | InternalTacticRequest  (* kernel action, no message is displayed *)
+  | UserIndividualRequest   (* user action, a message is displayed *)
 
 type mutual_scheme_object_function =
   internal_flag -> mutual_inductive -> constr array Evd.in_evar_universe_context * Safe_typing.private_constants

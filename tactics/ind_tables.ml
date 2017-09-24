@@ -20,13 +20,18 @@ open Declarations
 open Term
 open CErrors
 open Util
-open Declare
 open Entries
 open Decl_kinds
 open Pp
 
 (**********************************************************************)
 (* Registering schemes in the environment *)
+
+(** flag for internal message display *)
+type internal_flag =
+  | UserAutomaticRequest (* kernel action, a message is displayed *)
+  | InternalTacticRequest  (* kernel action, no message is displayed *)
+  | UserIndividualRequest   (* user action, a message is displayed *)
 
 type mutual_scheme_object_function =
   internal_flag -> mutual_inductive -> constr array Evd.in_evar_universe_context * Safe_typing.private_constants
@@ -118,7 +123,6 @@ let compute_name internal id =
       Namegen.next_ident_away_from (add_prefix "internal_" id) is_visible_name
 
 let define internal id c p univs =
-  let fd = declare_constant ~internal in
   let id = compute_name internal id in
   let ctx = Evd.normalize_evar_universe_context univs in
   let c = Vars.subst_univs_fn_constr 
@@ -139,10 +143,10 @@ let define internal id c p univs =
     const_entry_inline_code = false;
     const_entry_feedback = None;
   } in
-  let kn = fd id (DefinitionEntry entry, Decl_kinds.IsDefinition Scheme) in
+  let kn = Declare.declare_constant id (DefinitionEntry entry, Decl_kinds.IsDefinition Scheme) in
   let () = match internal with
     | InternalTacticRequest -> ()
-    | _-> definition_message id
+    | _-> Declare.definition_message id
   in
   kn
 

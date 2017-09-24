@@ -203,7 +203,7 @@ let new_instance ?(abstract=false) ?(global=false) ?(refine= !refine_instance) p
 	in
 	Pretyping.check_evars env Evd.empty !evars (EConstr.of_constr termtype);
 	let pl, ctx = Evd.universe_context ?names:pl !evars in
-	let cst = Declare.declare_constant ~internal:Declare.InternalTacticRequest id
+	let cst = Declare.declare_constant id
 	  (ParameterEntry 
             (None,poly,(termtype,ctx),None), Decl_kinds.IsAssumption Decl_kinds.Logical)
 	in
@@ -393,7 +393,7 @@ let context poly l =
         let entry = Declare.definition_entry ~poly ~univs:ctx ~types:t b in
         (DefinitionEntry entry, IsAssumption Logical)
       in
-      let cst = Declare.declare_constant ~internal:Declare.InternalTacticRequest id decl in
+      let cst = Declare.declare_constant id decl in
 	match class_of_constr !evars (EConstr.of_constr t) with
 	| Some (rels, ((tc,_), args) as _cl) ->
 	    add_instance (Typeclasses.new_instance tc Hints.empty_hint_info false (*FIXME*)

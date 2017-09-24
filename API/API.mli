@@ -4305,11 +4305,6 @@ end
 
 module Declare :
 sig
-  type internal_flag =
-    | UserAutomaticRequest
-    | InternalTacticRequest
-    | UserIndividualRequest
-
   type constant_declaration = Safe_typing.private_constants Entries.constant_entry * Decl_kinds.logical_kind
 
   type section_variable_entry =
@@ -4319,12 +4314,12 @@ sig
   type variable_declaration = Names.DirPath.t * section_variable_entry * Decl_kinds.logical_kind
 
   val declare_constant :
-    ?internal:internal_flag -> ?local:bool -> Names.Id.t -> ?export_seff:bool -> constant_declaration -> Names.Constant.t
+    ?local:bool -> Names.Id.t -> ?export_seff:bool -> constant_declaration -> Names.Constant.t
 
   val declare_universe_context : Decl_kinds.polymorphic -> Univ.ContextSet.t -> unit
 
   val declare_definition :
-    ?internal:internal_flag -> ?opaque:bool -> ?kind:Decl_kinds.definition_object_kind ->
+    ?opaque:bool -> ?kind:Decl_kinds.definition_object_kind ->
     ?local:bool -> ?poly:Decl_kinds.polymorphic -> Names.Id.t -> ?types:Constr.t ->
     Constr.t Univ.in_universe_context_set -> Names.Constant.t
   val definition_entry : ?fix_exn:Future.fix_exn ->
@@ -5064,8 +5059,13 @@ sig
   type individual
   type 'a scheme_kind
 
+  type internal_flag =
+    | UserAutomaticRequest
+    | InternalTacticRequest
+    | UserIndividualRequest
+
   val check_scheme : 'a scheme_kind -> Names.inductive -> bool
-  val find_scheme : ?mode:Declare.internal_flag -> 'a scheme_kind -> Names.inductive -> Names.Constant.t * Safe_typing.private_constants
+  val find_scheme : ?mode:internal_flag -> 'a scheme_kind -> Names.inductive -> Names.Constant.t * Safe_typing.private_constants
   val pr_scheme_kind : 'a scheme_kind -> Pp.t
 end
 

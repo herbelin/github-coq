@@ -26,11 +26,6 @@ open Cooking
 open Decls
 open Decl_kinds
 
-(** flag for internal message display *)
-type internal_flag =
-  | UserAutomaticRequest (* kernel action, a message is displayed *)
-  | InternalTacticRequest  (* kernel action, no message is displayed *)
-  | UserIndividualRequest   (* user action, a message is displayed *)
 
 (** Declaration of section variables and local definitions *)
 
@@ -218,7 +213,7 @@ let definition_entry ?fix_exn ?(opaque=false) ?(inline=false) ?types
     const_entry_feedback = None;
     const_entry_inline_code = inline}
 
-let declare_constant ?(internal = UserIndividualRequest) ?(local = false) id ?(export_seff=false) (cd, kind) =
+let declare_constant ?(local = false) id ?(export_seff=false) (cd, kind) =
   let is_poly de = match de.const_entry_universes with
   | Monomorphic_const_entry _ -> false
   | Polymorphic_const_entry _ -> true
@@ -260,13 +255,13 @@ let declare_constant ?(internal = UserIndividualRequest) ?(local = false) id ?(e
   } in
   declare_constant_common id cst
 
-let declare_definition ?(internal=UserIndividualRequest)
+let declare_definition
   ?(opaque=false) ?(kind=Decl_kinds.Definition) ?(local = false)
   ?(poly=false) id ?types (body,ctx) =
   let cb =
     definition_entry ?types ~poly ~univs:(Univ.ContextSet.to_context ctx) ~opaque body
   in
-    declare_constant ~internal ~local id
+    declare_constant ~local id
       (Entries.DefinitionEntry cb, Decl_kinds.IsDefinition kind)
 
 (** Declaration of inductive blocks *)
