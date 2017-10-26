@@ -745,7 +745,7 @@ let tag_var = tag Tag.variable
 
   let transf env c =
     if !Flags.beautify_file then
-      let r = Constrintern.for_grammar (Constrintern.intern_constr env Id.Set.empty) c in
+      let r = Constrintern.for_grammar (Constrintern.intern_constr env) c in
       Constrextern.extern_glob_constr (Termops.vars_of_env env) r
     else c
 

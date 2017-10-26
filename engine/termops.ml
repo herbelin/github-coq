@@ -213,7 +213,7 @@ let pr_evar_source = function
 let pr_evar_info evi =
   let open Evd in
   let print_constr = print_kconstr in
-  let private_ids = evar_private_ids evi in
+  let private_ids = named_context_private_ids (named_context_val (evar_filtered_env evi)) in
   let phyps =
     try
       let decls = match Filter.repr (evar_filter evi) with
@@ -457,7 +457,7 @@ let pr_rel_decl env decl =
 
 let print_named_context env =
   hv 0 (fold_named_context
-	  (fun env d pps ->
+	  (fun env d _ pps ->
 	    pps ++ ws 2 ++ pr_var_decl env d)
           env ~init:(mt ()))
 
@@ -469,7 +469,7 @@ let print_rel_context env =
 let print_env env =
   let sign_env =
     fold_named_context
-      (fun env d pps ->
+      (fun env d _ pps ->
          let pidt =  pr_var_decl env d in
 	 (pps ++ fnl () ++ pidt))
       env ~init:(mt ())
@@ -511,7 +511,7 @@ let push_named_rec_types (lna,typarray,_) env =
 	   | Anonymous -> anomaly (Pp.str "Fix declarations must be named."))
       lna typarray in
   Array.fold_left
-    (fun e assum -> push_named assum e) env ctxt
+    (fun e assum -> push_named assum false e) env ctxt
 
 let lookup_rel_id id sign =
   let open RelDecl in

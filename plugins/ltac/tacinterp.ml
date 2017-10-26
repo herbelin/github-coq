@@ -1116,7 +1116,7 @@ let rec read_match_rule lfun ist env sigma = function
 
 (* Fully evaluate an untyped constr *)
 let type_uconstr ?(flags = {(constr_flags ()) with use_hook = None })
-  ?(expected_type = WithoutTypeConstraint) ?(private_ids=Names.Id.Set.empty) ist c =
+  ?(expected_type = WithoutTypeConstraint) ist c =
   begin fun env sigma ->
   let { closure; term } = c in
   let vars = {
@@ -1125,7 +1125,7 @@ let type_uconstr ?(flags = {(constr_flags ()) with use_hook = None })
     ltac_idents = closure.idents;
     ltac_genargs = Id.Map.empty;
   } in
-  understand_ltac flags env sigma private_ids vars expected_type term
+  understand_ltac flags env sigma vars expected_type term
   end
 
 let warn_deprecated_info =

@@ -427,8 +427,7 @@ module V82 = struct
           CList.nth evl (n-1)
       in
       let env = Evd.evar_filtered_env evi in
-      let private_ids = Evd.evar_private_ids evi in
-      let rawc = Constrintern.intern_constr env private_ids com in
+      let rawc = Constrintern.intern_constr env com in
       let ltac_vars = Glob_ops.empty_lvar in
       let sigma = Evar_refiner.w_refine (evk, evi) (ltac_vars, rawc) sigma in
       Proofview.Unsafe.tclEVARS sigma

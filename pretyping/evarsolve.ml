@@ -683,8 +683,8 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
   let private_ids1 = evar_private_ids evi1 in
   let inst_in_sign = List.map mkVar (Filter.filter_list filter1 ids1) in
   let open Context.Rel.Declaration in
-  let (sign2,filter2,inst2_in_env,inst2_in_sign,_,evd,_,private_ids2) =
-    List.fold_right (fun d (sign,filter,inst_in_env,inst_in_sign,env,evd,avoid,private_ids) ->
+  let (sign2,filter2,inst2_in_env,inst2_in_sign,_,evd,_) =
+    List.fold_right (fun d (sign,filter,inst_in_env,inst_in_sign,env,evd,avoid) ->
       let LocalAssum (na,t_in_env) | LocalDef (na,_,t_in_env) = d in
       let id = next_name_away na avoid in
       let isprivate = Id.Set.mem id private_ids1 in
@@ -703,10 +703,9 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
       (push_named_context_val d' isprivate sign, Filter.extend 1 filter,
        (mkRel 1)::(List.map (lift 1) inst_in_env),
        (mkRel 1)::(List.map (lift 1) inst_in_sign),
-       push_rel d env,evd,Id.Set.add id avoid,
-       if Name.equal (Name id) na then private_ids else Id.Set.add id private_ids))
+       push_rel d env,evd,Id.Set.add id avoid))
       rel_sign
-      (sign1,filter1,Array.to_list args1,inst_in_sign,env1,evd,avoid,private_ids1)
+      (sign1,filter1,Array.to_list args1,inst_in_sign,env1,evd,avoid)
   in
   let evd,ev2ty_in_sign =
     let s = Retyping.get_sort_of env evd ty_in_env in
@@ -715,7 +714,7 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
     define_evar_from_virtual_equation define_fun env evd src ty_in_env
       ty_t_in_sign sign2 filter2 inst2_in_env in
   let (evd, ev2_in_sign) =
-    new_evar_instance sign2 evd ev2ty_in_sign ~filter:filter2 ~src ~private_ids:private_ids2 inst2_in_sign in
+    new_evar_instance sign2 evd ev2ty_in_sign ~filter:filter2 ~src inst2_in_sign in
   let ev2_in_env = (fst (destEvar evd ev2_in_sign), Array.of_list inst2_in_env) in
   (evd, ev2_in_sign, ev2_in_env)
 

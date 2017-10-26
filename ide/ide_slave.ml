@@ -130,13 +130,14 @@ let annotate phrase =
 
 (** Goal display *)
 
-let string_of_id_with_privacy env private_ids id =
+let string_of_id_with_privacy env id =
+  let private_ids = Environ.named_context_private_ids (Environ.named_context_val env) in
   if Names.Id.Set.mem id private_ids then "~" ^ Names.Id.to_string id else Names.Id.to_string id
 
-let hyp_next_tac sigma env private_ids decl =
+let hyp_next_tac sigma env decl =
   let id = NamedDecl.get_id decl in
   let ast = NamedDecl.get_type decl in
-  let id_s = string_of_id_with_privacy env private_ids id in
+  let id_s = string_of_id_with_privacy env id in
   let type_s = string_of_ppcmds (pr_ltype_env env sigma ast) in
   [
     ("clear "^id_s),("clear "^id_s^".");
@@ -185,7 +186,7 @@ let concl_next_tac sigma concl =
 
 let process_goal sigma g =
   let env = Goal.V82.env sigma g in
-  let private_ids = Goal.V82.private_ids sigma g in
+  let private_ids = Environ.named_context_private_ids (Environ.named_context_val env) in
   let min_env = Environ.reset_context env in
   let id = Goal.uid g in
   let ccl =
@@ -193,7 +194,9 @@ let process_goal sigma g =
   in
   let process_hyp d (env,l) =
     let d' = CompactedDecl.to_named_context d in
-    let env = List.fold_right Environ.push_named d' env in
+    let is_private d = Names.Id.Set.mem (Context.Named.Declaration.get_id d) private_ids in
+    let env = List.fold_right (fun d -> Environ.push_named d (is_private d)) d' env in
+    let private_ids = Environ.named_context_private_ids (Environ.named_context_val env) in
     (env, (pr_compacted_decl env sigma private_ids d) :: l) in
   let (_env, hyps) =
     Context.Compacted.fold process_hyp
@@ -236,9 +239,8 @@ let hints () =
     | [] -> None
     | g :: _ ->
       let env = Goal.V82.env sigma g in
-      let private_ids = Goal.V82.private_ids sigma g in
       let hint_goal = concl_next_tac sigma g in
-      let get_hint_hyp env d accu = hyp_next_tac sigma env private_ids d :: accu in
+      let get_hint_hyp env d _ accu = hyp_next_tac sigma env d :: accu in
       let hint_hyps = List.rev (Environ.fold_named_context get_hint_hyp env ~init: []) in
       Some (hint_hyps, hint_goal)
   with Proof_global.NoCurrentProof -> None
@@ -289,7 +291,7 @@ let pattern_of_string ?env s =
     | Some e -> e
   in
   let constr = Pcoq.parse_string Pcoq.Constr.lconstr_pattern s in
-  let (_, pat) = Constrintern.intern_constr_pattern env Names.Id.Set.empty constr in
+  let (_, pat) = Constrintern.intern_constr_pattern env constr in
   pat
 
 let dirpath_of_string_list s =
