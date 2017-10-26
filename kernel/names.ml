@@ -76,13 +76,6 @@ struct
 
 end
 
-module TrackedId =
-struct
-  include Id
-  let id id = id
-  let inject id = id
-end
-
 (** Representation and operations on identifiers that are allowed to be anonymous
     (i.e. "_" in concrete syntax). *)
 module Name =

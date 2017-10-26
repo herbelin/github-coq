@@ -207,9 +207,9 @@ val destCoFix : constr -> cofixpoint
 val mkArrow : types -> types -> constr
 
 (** Named version of the functions from [Term]. *)
-val mkNamedLambda : TrackedId.t -> types -> constr -> constr
-val mkNamedLetIn : TrackedId.t -> constr -> types -> constr -> constr
-val mkNamedProd : TrackedId.t -> types -> types -> types
+val mkNamedLambda : Id.t -> types -> constr -> constr
+val mkNamedLetIn : Id.t -> constr -> types -> constr -> constr
+val mkNamedProd : Id.t -> types -> types -> types
 
 (** Constructs either [(x:t)c] or [[x=b:t]c] *)
 val mkProd_or_LetIn : Context.Rel.Declaration.t -> types -> types

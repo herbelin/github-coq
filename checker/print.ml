@@ -25,7 +25,7 @@ let print_pure_constr csr =
       print_string "::"; (term_display t); print_string ")"; close_box()
   | Prod (Name(id),t,c) ->
       open_hovbox 1;
-      print_string"("; print_string (TrackedId.to_string id);
+      print_string"("; print_string (Id.to_string id);
       print_string ":"; box_display t;
       print_string ")"; print_cut();
       box_display c; close_box()
@@ -113,7 +113,7 @@ let print_pure_constr csr =
     | Type u -> print_string "Type("; chk_pp (Univ.pr_uni u); print_string ")"
 
   and name_display = function
-    | Name id -> print_string (TrackedId.to_string id)
+    | Name id -> print_string (Id.to_string id)
     | Anonymous -> print_string "_"
 (* Remove the top names for library and Scratch to avoid long names *)
   and sp_display sp =

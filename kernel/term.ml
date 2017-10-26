@@ -349,9 +349,9 @@ let decompose_appvect c =
 (* Other term constructors *)
 (***************************)
 
-let mkNamedProd id typ c = mkProd (Name id, typ, subst_var (TrackedId.id id) c)
-let mkNamedLambda id typ c = mkLambda (Name id, typ, subst_var (TrackedId.id id) c)
-let mkNamedLetIn id c1 t c2 = mkLetIn (Name id, c1, t, subst_var (TrackedId.id id) c2)
+let mkNamedProd id typ c = mkProd (Name id, typ, subst_var id c)
+let mkNamedLambda id typ c = mkLambda (Name id, typ, subst_var id c)
+let mkNamedLetIn id c1 t c2 = mkLetIn (Name id, c1, t, subst_var id c2)
 
 (* Constructs either [(x:t)c] or [[x=b:t]c] *)
 let mkProd_or_LetIn decl c =
@@ -377,7 +377,7 @@ let mkNamedProd_wo_LetIn decl c =
   let open Context.Named.Declaration in
   match decl with
     | LocalAssum (id,t) -> mkNamedProd id t c
-    | LocalDef (id,b,t) -> subst1 b (subst_var (TrackedId.id id) c)
+    | LocalDef (id,b,t) -> subst1 b (subst_var id c)
 
 (* non-dependent product t1 -> t2 *)
 let mkArrow t1 t2 = mkProd (Anonymous, t1, t2)

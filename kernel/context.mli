@@ -148,22 +148,22 @@ sig
   module Declaration :
   sig
     type ('constr, 'types) pt =
-      | LocalAssum of TrackedId.t * 'types             (** identifier, type *)
-      | LocalDef of TrackedId.t * 'constr * 'types    (** identifier, value, type *)
+      | LocalAssum of Id.t * 'types             (** identifier, type *)
+      | LocalDef of Id.t * 'constr * 'types    (** identifier, value, type *)
 
     type t = (Constr.constr, Constr.types) pt
 
     (** Return the identifier bound by a given declaration. *)
-    val get_id : ('c, 't) pt -> TrackedId.t
-
-    (** Return the pure identifier bound by a given declaration. *)
-    val get_pure_id : ('c, 't) pt -> Id.t
+    val get_id : ('c, 't) pt -> Id.t
 
     (** Return [Some value] for local-declarations and [None] for local-assumptions. *)
     val get_value : ('c, 't) pt -> 'c option
 
     (** Return the type of the name bound by a given declaration. *)
     val get_type : ('c, 't) pt -> 't
+
+    (** Set the identifier that is bound by a given declaration. *)
+    val set_id : Id.t -> ('c, 't) pt -> ('c, 't) pt
 
     (** Set the type of the bound variable in a given declaration. *)
     val set_type : 't -> ('c, 't) pt -> ('c, 't) pt
@@ -184,118 +184,7 @@ sig
     val equal : ('c -> 'c -> bool) -> ('c, 'c) pt -> ('c, 'c) pt -> bool
 
     (** Map the identifier bound by a given declaration. *)
-    val map_id : (TrackedId.t -> TrackedId.t) -> ('c, 't) pt -> ('c, 't) pt
-
-    (** For local assumptions, this function returns the original local assumptions.
-        For local definitions, this function maps the value in the local definition. *)
-    val map_value : ('c -> 'c) -> ('c, 't) pt -> ('c, 't) pt
-
-    (** Map the type of the name bound by a given declaration. *)
-    val map_type : ('t -> 't) -> ('c, 't) pt -> ('c, 't) pt
-
-    (** Map all terms in a given declaration. *)
-    val map_constr : ('c -> 'c) -> ('c, 'c) pt -> ('c, 'c) pt
-
-    (** Perform a given action on all terms in a given declaration. *)
-    val iter_constr : ('c -> unit) -> ('c, 'c) pt -> unit
-
-    (** Reduce all terms in a given declaration to a single value. *)
-    val fold_constr : ('c -> 'a -> 'a) -> ('c, 'c) pt -> 'a -> 'a
-
-    val to_tuple : ('c, 't) pt -> TrackedId.t * 'c option * 't
-    val of_tuple : TrackedId.t * 'c option * 't -> ('c, 't) pt
-
-    (** Convert [Rel.Declaration.t] value to the corresponding [Named.Declaration.t] value.
-        The function provided as the first parameter determines how to translate "names" to "ids". *)
-    val of_rel_decl : (Name.t -> TrackedId.t) -> ('c, 't) Rel.Declaration.pt -> ('c, 't) pt
-
-    (** Convert [Named.Declaration.t] value to the corresponding [Rel.Declaration.t] value. *)
-    (* TODO: Move this function to [Rel.Declaration] module and rename it to [of_named]. *)
-    val to_rel_decl : ('c, 't) pt -> ('c, 't) Rel.Declaration.pt
-  end
-
-  (** Named-context is represented as a list of declarations.
-      Inner-most declarations are at the beginning of the list.
-      Outer-most declarations are at the end of the list. *)
-  type ('constr, 'types) pt = ('constr, 'types) Declaration.pt list
-  type t = Declaration.t list
-
-  (** empty named-context *)
-  val empty : ('c, 't) pt
-
-  (** Return a new named-context enriched by with a given inner-most declaration. *)
-  val add : ('c, 't) Declaration.pt -> ('c, 't) pt -> ('c, 't) pt
-
-  (** Return the number of {e local declarations} in a given named-context. *)
-  val length : ('c, 't) pt -> int
-
-  (** Return a declaration designated by an identifier of the variable bound in that declaration.
-      @raise Not_found if the designated identifier is not bound in a given named-context. *)
-  val lookup : Id.t -> ('c, 't) pt -> ('c, 't) Declaration.pt
-
-  (** Check whether given two named-contexts are equal. *)
-  val equal : ('c -> 'c -> bool) -> ('c, 'c) pt -> ('c, 'c) pt -> bool
-
-  (** Map all terms in a given named-context. *)
-  val map : ('c -> 'c) -> ('c, 'c) pt -> ('c, 'c) pt
-
-  (** Perform a given action on every declaration in a given named-context. *)
-  val iter : ('c -> unit) -> ('c, 'c) pt -> unit
-
-  (** Reduce all terms in a given named-context to a single value.
-      Innermost declarations are processed first. *)
-  val fold_inside : ('a -> ('c, 't) Declaration.pt -> 'a) -> init:'a -> ('c, 't) pt -> 'a
-
-  (** Reduce all terms in a given named-context to a single value.
-      Outermost declarations are processed first. *)
-  val fold_outside : (('c, 't) Declaration.pt -> 'a -> 'a) -> ('c, 't) pt -> init:'a -> 'a
-
-  (** [to_instance Ω] builds an instance [args] such
-      that [Ω ⊢ args:Ω] where [Ω] is a named-context and with the local
-      definitions of [Ω] skipped. Example: for [id1:T,id2:=c,id3:U], it
-      gives [Var id1, Var id3]. All [idj] are supposed distinct. *)
-  val to_instance : (Id.t -> 'r) -> ('c, 't) pt -> 'r list
-end
-
-(** This module represents contexts that can capture non-anonymous variables.
-    Individual declarations are then designated by the identifiers they bind. *)
-module SecVar :
-sig
-  (** Representation of {e local declarations}. *)
-  module Declaration :
-  sig
-    type ('constr, 'types) pt =
-      | LocalAssum of Id.t * 'types             (** identifier, type *)
-      | LocalDef of Id.t * 'constr * 'types    (** identifier, value, type *)
-
-    type t = (Constr.constr, Constr.types) pt
-
-    (** Return the identifier bound by a given declaration. *)
-    val get_id : ('c, 't) pt -> Id.t
-
-    (** Return [Some value] for local-declarations and [None] for local-assumptions. *)
-    val get_value : ('c, 't) pt -> 'c option
-
-    (** Return the type of the name bound by a given declaration. *)
-    val get_type : ('c, 't) pt -> 't
-
-    (** Set the type of the bound variable in a given declaration. *)
-    val set_type : 't -> ('c, 't) pt -> ('c, 't) pt
-
-    (** Return [true] iff a given declaration is a local assumption. *)
-    val is_local_assum : ('c, 't) pt -> bool
-
-    (** Return [true] iff a given declaration is a local definition. *)
-    val is_local_def : ('c, 't) pt -> bool
-
-    (** Check whether any term in a given declaration satisfies a given predicate. *)
-    val exists : ('c -> bool) -> ('c, 'c) pt -> bool
-
-    (** Check whether all terms in a given declaration satisfy a given predicate. *)
-    val for_all : ('c -> bool) -> ('c, 'c) pt -> bool
-
-    (** Check whether the two given declarations are equal. *)
-    val equal : ('c -> 'c -> bool) -> ('c, 'c) pt -> ('c, 'c) pt -> bool
+    val map_id : (Id.t -> Id.t) -> ('c, 't) pt -> ('c, 't) pt
 
     (** For local assumptions, this function returns the original local assumptions.
         For local definitions, this function maps the value in the local definition. *)
@@ -319,6 +208,10 @@ sig
     (** Convert [Rel.Declaration.t] value to the corresponding [Named.Declaration.t] value.
         The function provided as the first parameter determines how to translate "names" to "ids". *)
     val of_rel_decl : (Name.t -> Id.t) -> ('c, 't) Rel.Declaration.pt -> ('c, 't) pt
+
+    (** Convert [Named.Declaration.t] value to the corresponding [Rel.Declaration.t] value. *)
+    (* TODO: Move this function to [Rel.Declaration] module and rename it to [of_named]. *)
+    val to_rel_decl : ('c, 't) pt -> ('c, 't) Rel.Declaration.pt
   end
 
   (** Named-context is represented as a list of declarations.
@@ -372,8 +265,8 @@ sig
   module Declaration :
   sig
     type ('constr, 'types) pt =
-      | LocalAssum of TrackedId.t list * 'types
-      | LocalDef of TrackedId.t list * 'constr * 'types
+      | LocalAssum of Id.t list * 'types
+      | LocalDef of Id.t list * 'constr * 'types
 
     type t = (Constr.constr, Constr.types) pt
 
