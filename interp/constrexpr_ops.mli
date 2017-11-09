@@ -97,6 +97,8 @@ val map_constr_expr_with_binders :
   (Id.t -> 'a -> 'a) -> ('a -> constr_expr -> constr_expr) ->
       'a -> constr_expr -> constr_expr
 
+(** {6 Miscellaneous}*)
+
 val replace_vars_constr_expr :
   Id.t Id.Map.t -> constr_expr -> constr_expr
 
@@ -110,6 +112,8 @@ val split_at_annot : local_binder_expr list -> Id.t located option -> local_bind
 
 val ntn_loc : ?loc:Loc.t -> constr_notation_substitution -> string -> (int * int) list
 val patntn_loc : ?loc:Loc.t -> cases_pattern_notation_substitution -> string -> (int * int) list
+
+val is_sort_cast : constr_expr cast_type -> bool
 
 (** For cases pattern parsing errors *)
 val error_invalid_pattern_notation : ?loc:Loc.t -> unit -> 'a

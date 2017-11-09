@@ -604,6 +604,10 @@ let coerce_to_name = function
   | { CAst.loc; _ } -> CErrors.user_err ?loc ~hdr:"coerce_to_name"
                          (str "This expression should be a name.")
 
+let is_sort_cast = function
+  | CastCoerce -> false
+  | CastConv a | CastVM a | CastNative a -> match a.CAst.v with Constrexpr.CSort _ -> true | _ -> false
+
 let asymmetric_patterns = ref (false)
 let _ = Goptions.declare_bool_option {
   Goptions.optdepr = false;
