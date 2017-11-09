@@ -3,3 +3,10 @@ Check nat * nat : Type.
 Check 0 * 0 : nat.
 Require Import ZArith.
 Check 0 * 0 : Z.
+
+Definition b := {x:bool|x=true}.
+Notation "{ x ; y }" := (exist _ x y) : b_scope.
+Require Import Utf8.
+Fail Check λ '({x;y}:b), x.
+Bind Scope b_scope with b.
+Check λ '({x;y}:b), x.

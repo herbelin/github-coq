@@ -4,3 +4,7 @@ nat * nat : Type
      : nat
 0 * 0 : Z
      : Z
+The command has indeed failed with message:
+Unknown interpretation for notation "{ _ ; _ }".
+λ '(exist _ x _), x
+     : b → bool

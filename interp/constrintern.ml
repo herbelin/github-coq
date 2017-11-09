@@ -415,18 +415,20 @@ let intern_generalized_binder ?(global_level=false) intern_type lvar
     | _ -> na
   in (push_name_env ~global_level lvar (impls_type_list ty')(*?*) env' (loc,na)), (loc,(na,b',ty')) :: List.rev bl
 
+let intern_non_generalized_assumption lvar env k nal ty =
+  check_capture ty nal;
+  let impls = impls_type_list ty in
+  List.fold_left
+    (fun (env, bl) (loc, na as locna) ->
+      (push_name_env lvar impls env locna,
+       (Loc.tag ?loc (na,k,locate_if_hole ?loc na ty))::bl))
+    (env, []) nal
+
 let intern_assumption intern lvar env nal bk ty =
   let intern_type env = intern (set_type_scope env) in
   match bk with
   | Default k ->
-      let ty = intern_type env ty in
-      check_capture ty nal;
-      let impls = impls_type_list ty in
-      List.fold_left
-	(fun (env, bl) (loc, na as locna) ->
-          (push_name_env lvar impls env locna,
-           (Loc.tag ?loc (na,k,locate_if_hole ?loc na ty))::bl))
-	(env, []) nal
+     intern_non_generalized_assumption lvar env k nal (intern_type env ty)
   | Generalized (b,b',t) ->
      let env, b = intern_generalized_binder intern_type lvar env (List.hd nal) b b' t ty in
      env, b
@@ -454,13 +456,14 @@ let intern_local_binder_aux ?(global_level=false) intern lvar (env,bl) = functio
       (push_name_env lvar (impls_term_list term) env locna,
        (DAst.make ?loc @@ GLocalDef (na,Explicit,term,ty)) :: bl)
   | CLocalPattern (loc,(p,ty)) ->
-      let tyc =
+      let ty =
         match ty with
-        | Some ty -> ty
         | None -> CAst.make ?loc @@ CHole(None,Misctypes.IntroAnonymous,None)
-      in
+        | Some ty -> ty in
+      let tyc = intern (set_type_scope env) ty in
+      let sc = Notation.compute_glob_type_scope tyc in
       let il,cp =
-        match !intern_cases_pattern_fwd (None,env.scopes) p with
+        match !intern_cases_pattern_fwd (sc,env.scopes) p with
         | (il, [(subst,cp)]) ->
            if not (Id.Map.equal Id.equal subst Id.Map.empty) then
              user_err ?loc (str "Unsupported nested \"as\" clause.");
@@ -470,8 +473,8 @@ let intern_local_binder_aux ?(global_level=false) intern lvar (env,bl) = functio
       let env = {env with ids = List.fold_right Id.Set.add il env.ids} in
       let id = Namegen.next_ident_away (Id.of_string "pat") env.ids in
       let na = (loc, Name id) in
-      let bk = Default Explicit in
-      let _, bl' = intern_assumption intern lvar env [na] bk tyc in
+      let _, bl' = intern_non_generalized_assumption lvar env Explicit [na] tyc in
+      assert (List.length bl' = 1);
       let _,(_,bk,t) = List.hd bl' in
       (env, (DAst.make ?loc @@ GLocalPattern((cp,il),id,bk,t)) :: bl)
 
