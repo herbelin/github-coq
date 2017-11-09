@@ -1864,9 +1864,12 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
 	DAst.make ?loc @@
 	GSort s
     | CCast (c1, c2) ->
-        let c1 = if is_sort_cast c2 then intern_type env c1 else intern env c1 in
+        let c2 = Miscops.map_cast_type (intern_type env) c2 in
+        let sc = Option.compose (Miscops.get_type_of_cast c2) Notation.compute_glob_type_scope in
+        let env' = {env with tmp_scope = sc} in
+        let c1 = intern env' c1 in
 	DAst.make ?loc @@
-        GCast (c1, Miscops.map_cast_type (intern_type env) c2)
+        GCast (c1, c2)
   )
   and intern_type env = intern (set_type_scope env)
 

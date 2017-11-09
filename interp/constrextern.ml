@@ -906,8 +906,9 @@ let rec extern inctx scopes vars r =
   | GHole (e,naming,_) -> CHole (Some e, naming, None) (** TODO: extern tactics. *)
 
   | GCast (c, c') ->
+      let sc = Option.compose (Miscops.get_type_of_cast c') Notation.compute_glob_type_scope in
       let c' = Miscops.map_cast_type (extern_typ scopes vars) c' in
-      let c = if is_sort_cast c' then extern_typ scopes vars c else sub_extern true scopes vars c in
+      let c = extern true (sc,snd scopes) vars c in
       CCast (c, c')
   ) r'
 

@@ -18,6 +18,10 @@ let map_cast_type f = function
   | CastCoerce -> CastCoerce
   | CastNative a -> CastNative (f a)
 
+let get_type_of_cast = function
+  | CastConv a | CastVM a | CastNative a -> Some a
+  | CastCoerce -> None
+
 let smartmap_cast_type f c =
   match c with
     | CastConv a -> let a' = f a in if a' == a then c else CastConv a'

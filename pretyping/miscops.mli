@@ -14,6 +14,10 @@ open Genredexpr
 val map_cast_type : ('a -> 'b) -> 'a cast_type -> 'b cast_type
 val smartmap_cast_type : ('a -> 'a) -> 'a cast_type -> 'a cast_type
 
+(** Extracting [cast_type] *)
+
+val get_type_of_cast : 'a cast_type -> 'a option
+
 (** Equalities on [glob_sort] *)
 
 val glob_sort_eq : glob_sort -> glob_sort -> bool
