@@ -126,15 +126,6 @@ Open Scope boolean_if_scope.
 Delimit Scope form_scope with FORM.
 Open Scope form_scope.
 
-(* Allow the casual use of notations like nat * nat for explicit Type         *)
-(* declarations. Note that (nat * nat : Type) is NOT equivalent to            *)
-(* (nat * nat)%type, whose inferred type is legacy type "Set".                *)
-Notation "T : 'Type'" := (T%type : Type)
-  (at level 100, only parsing) : core_scope.
-(* Allow similarly Prop annotation for, e.g., rewrite multirules.             *)
-Notation "P : 'Prop'" := (P%type : Prop)
-  (at level 100, only parsing) : core_scope.
-
 (* Constants for abstract: and [: name ] intro pattern *)
 Definition abstract_lock := unit.
 Definition abstract_key := tt.
