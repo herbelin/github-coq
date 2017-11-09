@@ -41,6 +41,9 @@ val get : 'a option -> 'a
 (** [make x] returns [Some x]. *)
 val make : 'a -> 'a option
 
+(** [compose] is the monadic bind *)
+val compose : 'a option -> ('a -> 'b option) -> 'b option
+
 (** [init b x] returns [Some x] if [b] is [true] and [None] otherwise. *)
 val init : bool -> 'a -> 'a option
 

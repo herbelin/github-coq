@@ -50,6 +50,11 @@ let get = function
 (** [make x] returns [Some x]. *)
 let make x = Some x
 
+(** [compose] is the monadic bind *)
+let compose x f = match x with
+  | None -> None
+  | Some x -> f x
+
 (** [init b x] returns [Some x] if [b] is [true] and [None] otherwise. *)
 let init b x =
   if b then
