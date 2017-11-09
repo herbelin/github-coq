@@ -203,6 +203,17 @@ let find_class_type sigma t =
     | Sort _ -> CL_SORT, EInstance.empty, []
     |  _ -> raise Not_found
 
+let class_of_global_reference = function
+  | VarRef id -> CL_SECVAR id
+  | ConstRef kn -> CL_CONST kn
+  | IndRef ind -> CL_IND ind
+  | ConstructRef _ -> raise Not_found
+
+let find_class_glob_type c = match DAst.get c with
+  | Glob_term.GRef (ref,_) -> class_of_global_reference ref
+  | Glob_term.GProd _ -> CL_FUN
+  | Glob_term.GSort _ -> CL_SORT
+  |  _ -> raise Not_found
 
 let subst_cl_typ subst ct = match ct with
     CL_SORT
