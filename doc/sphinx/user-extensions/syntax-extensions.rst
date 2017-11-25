@@ -687,6 +687,116 @@ side. E.g.:
    Notation "'apply_id' f a1 .. an" := (.. (f a1) .. an)
      (at level 10, f ident, a1, an at level 9).
 
+Custom entries
+~~~~~~~~~~~~~~
+
+New term and pattern grammar entries, called *custom entries*, can be
+declared using the ``Declare Custom Entry`` `ident` command and later
+referred to using the entry name ``custom`` `ident`. For instance, we
+may want to define an ad hoc parser for arithmetical operations and
+proceed as follows:
+
+.. coqtop:: all
+
+   Inductive Expr :=
+   | One : Expr
+   | Mul : Expr -> Expr -> Expr
+   | Add : Expr -> Expr -> Expr.
+
+   Declare Custom Entry expr.
+   Notation "[ e ]" := e (e custom expr at level 2).
+   Notation "1" := One (in custom expr at level 0).
+   Notation "x y" := (Mul x y) (in custom expr at level 1, left associativity).
+   Notation "x + y" := (Add x y) (in custom expr at level 2, left associativity).
+   Notation "( x )" := x (in custom expr, x at level 2).
+   Notation "{ x }" := x (in custom expr, x constr).
+   Notation "x" := x (in custom expr at level 0, x ident).
+
+   Axiom f : nat -> Expr.
+   Check fun x y z => [1 + y z + {f x}].
+   Unset Printing Notations.
+   Check fun x y z => [1 + y z + {f x}].
+   Set Printing Notations.
+   Check fun e => match e with
+   | [1 + 1] => [1]
+   | [x y + z] => [x + y z]
+   | y => [y + e]
+   end.
+
+Custom entries have levels, like the main grammar of terms and grammar
+of patterns have. The lower level is 0 and this is the level used by
+default to put rules delimited with tokens on both ends. The level is
+left to be inferred by Coq when using ``in custom foo`` where ``foo``
+is the name of the entry. The level is otherwise given explicitly by
+using ``in custom foo at level n``, where ``n`` is the level.
+
+Levels are cumulative: a notation at level ``n`` of which the left end
+is a term shall use rules at level less than ``n`` to parse this
+sub-term. More precisely, it shall use rules at level strictly less
+than ``n`` if the rule is declared with ``right associativity`` and
+rules at level less or equal than ``n`` if the rule is declared with
+``left associativity``. Similarly, a notation at level ``n`` of which
+the right end is a term shall use by default rules at level strictly
+less than ``n`` to parse this sub-term if the rule is declared left
+associative and rules at level less or equal than ``n`` if the rule is
+declared right associative. This is what happens for instance in the
+rule ``Notation "x + y" := (Add x y) (in custom expr at level 2, left
+associativity)`` where ``x`` is any expression parsed in entry
+``expr`` at level less or equal than ``2`` (including, recursively,
+the given rule) and ``y`` is any expression parsed in entry ``expr``
+at level strictly less than ``2``.
+
+Rules associated to an entry can refer different sub-entries. The
+grammar entry name ``constr`` can be used to refer to the main grammar
+of term as in the rule ``Notation "{ x }" := x (in custom expr at
+level 0, x constr)`` which indicates that the subterm ``x`` should be
+parsed using the main grammar. If not indicated, the level is computed
+as for notations in ``constr``, e.g. using 200 as default level for
+inner sub-expressions. The level can otherwise be indicated explicitly
+by using ``constr at level n`` for some ``n``, or ``constr at next
+level``.
+
+Conversely, custom entries can be used to parse sub-expressions of the
+main grammar, or from another custom entry as is the case in
+``Notation "[ e ]" := e (e custom expr at level 2)`` to indicate that
+``e`` has to be parsed at level ``2`` of the grammar associated to the
+custom entry ``expr``. The level can be omitted, as in ``Notation "[ e
+]" := e (e custom expr)``, in which case Coq tries to infer it.
+
+In the absence of an explicit entry for parsing or printing a
+sub-expression of a notation in a custom entry, the default is to
+consider that this sub-expression is parsed or printed in the same
+custom entry where the notation is defined. In particular, if ``x at
+level n`` is used for a sub-expression of a notation defined in custom
+entry ``foo``, it shall be understood the same as ``x custom foo at
+level n``.
+
+In general, rules are required to be *productive* on the right-hand
+side, i.e. that they are bound to an expression which is not
+reduced to a single variable. If the rule is not productive on the
+right-hand side, as it is the case above for ``Notation "( x )" := x
+(in custom expr at level 0, x at level 2)`` and ``Notation "{ x }" :=
+x (in custom expr at level 0, x constr)``, it is used as a *grammar
+coercion* which means that it is used to parse or print an expression
+which is not available in the current grammar at the current level of
+parsing or printing for this grammar but which is available in another
+grammar or in another level of the current grammar. For instance,
+``Notation "( x )" := x (in custom expr at level 0, x at level 2)``
+tells that parentheses can be inserted to parse or print an expression
+declared at level ``2`` of ``expr`` whenever this expression is
+expected to be used as a subterm at level 0 or 1.  This allows for
+instance to parse and print ``Add x y`` as a subterm of ``Mul (Add
+x y) z`` using the syntax ``(x + y) z``. Similarly, ``Notation "{ x }"
+:= x (in custom expr at level 0, x constr)`` gives a way to let any
+arbitrary expression which is not in handled by the custom entry
+``expr`` be parsed or printed by the main grammar of term up to the
+insertion of a pair of curly brackets.
+
+.. cmd:: Print Grammar foo.
+
+   This displays the state of the grammar for terms and grammar for
+   patterns associated to the custom entry ``foo``.
+
 Summary
 ~~~~~~~
 
@@ -703,22 +813,32 @@ following figure. The optional :token:`scope` is described in the Section 12.2.
                  : | CoInductive `ind_body` [`decl_notation`] with … with `ind_body` [`decl_notation`].
                  : | Fixpoint `fix_body` [`decl_notation`] with … with `fix_body` [`decl_notation`].
                  : | CoFixpoint `cofix_body` [`decl_notation`] with … with `cofix_body` [`decl_notation`].
+                 : | [Local] Declare Custom Entry `ident`.
    decl_notation : [where `string` := `term` [: `scope`] and … and `string` := `term` [: `scope`]].
    modifiers     : at level `natural`
+                 : in custom `ident`
+                 : in custom `ident` at level `natural`
                  : | `ident` , … , `ident` at level `natural` [`binderinterp`]
                  : | `ident` , … , `ident` at next level [`binderinterp`]
-                 : | `ident` ident
-                 : | `ident` global
-                 : | `ident` bigint
-                 : | `ident` [strict] pattern [at level `natural`]
-                 : | `ident` binder
-                 : | `ident` closed binder
+                 : | `ident` `explicit_subentry`
                  : | left associativity
                  : | right associativity
                  : | no associativity
                  : | only parsing
                  : | only printing
                  : | format `string`
+   explicit_subentry : ident
+                 : | global
+                 : | bigint
+                 : | [strict] pattern [at level `natural`]
+                 : | binder
+                 : | closed binder
+                 : | constr [`binderinterp`]
+                 : | constr at level `natural` [`binderinterp`]
+                 : | constr at next level [`binderinterp`]
+                 : | custom [`binderinterp`]
+                 : | custom at level `natural` [`binderinterp`]
+                 : | custom at next level [`binderinterp`]
    binderinterp  : as ident
                  : | as pattern
                  : | as strict pattern
@@ -745,12 +865,17 @@ following figure. The optional :token:`scope` is described in the Section 12.2.
 
 **Persistence of notations**
 
-Notations do not survive the end of sections.
+Neither notations nor custom entries survive the end of sections.
 
 .. cmd:: Local Notation @notation
 
    Notations survive modules unless the command ``Local Notation`` is used instead
    of ``Notation``.
+
+.. cmd:: Local Declare Custom Entry @ident
+
+   Custom entries survive modules unless the command ``Local Declare
+   Custom Entry`` is used instead of ``Declare Custom Entry``.
 
 .. _Scopes:
 
