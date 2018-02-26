@@ -78,17 +78,17 @@ let eq () = UnivGen.constr_of_monomorphic_global (Coqlib.lib_ref "core.eq.type")
 let sumbool () = UnivGen.constr_of_monomorphic_global (Coqlib.lib_ref "core.sumbool.type")
 let andb = fun _ -> UnivGen.constr_of_monomorphic_global (Coqlib.lib_ref "core.bool.andb")
 
-let induct_on  c = induction false None c None None
-let destruct_on c = destruct false None c None None
+let induct_on  c = induction ~dep:(GivenDependency true) false None c None None
+let destruct_on c = destruct ~dep:(GivenDependency true) false None c None None
 
 let destruct_on_using c id =
-  destruct false None c
+  destruct ~dep:(GivenDependency true) false None c
     (Some (CAst.make @@ IntroOrPattern [[CAst.make @@ IntroNaming IntroAnonymous];
                [CAst.make @@ IntroNaming (IntroIdentifier id)]]))
     None
 
 let destruct_on_as c l =
-  destruct false None c (Some (CAst.make l)) None
+  destruct ~dep:(GivenDependency true) false None c (Some (CAst.make l)) None
 
 let inj_flags = Some {
     Equality.keep_proof_equalities = true; (* necessary *)

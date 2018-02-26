@@ -119,7 +119,7 @@ let contradiction_term (c,lbind as cl) =
     let _, ccl = splay_prod env sigma typ in
     if is_empty_type env sigma ccl then
       Tacticals.New.tclTHEN
-        (elim false None cl None)
+        (default_elim ~dep:(GivenDependency false) false None cl)
         (Tacticals.New.tclTRY assumption)
     else
       Proofview.tclORELSE
