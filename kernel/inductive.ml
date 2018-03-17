@@ -317,16 +317,21 @@ let check_allowed_sort ksort specif =
 
 let is_correct_arity env c pj ind specif params =
   let arsign,_ = get_instantiated_arity ind specif params in
-  let rec srec env pt ar =
-    let pt' = whd_all env pt in
-    match kind pt', ar with
-      | Prod (na1,a1,t), (LocalAssum (_,a1'))::ar' ->
+  (* Invariant: products in pt follow lambdas in pv but with let's expanded *)
+  let rec srec env pv pt ar =
+    match kind pv, kind pt, ar with
+      | Lambda (na1,a1,p), Prod (_,_,t), (LocalAssum (_,a1'))::ar' ->
           let () =
             try conv env a1 a1'
             with NotConvertible -> raise (LocalArity None) in
-          srec (push_rel (LocalAssum (na1,a1)) env) t ar'
+          srec (push_rel (LocalAssum (na1,a1)) env) p t ar'
+      | LetIn (na1,b1,a1,p), _, (LocalDef (_,b1',a1'))::ar' ->
+          let () =
+            try conv env b1 b1'; conv env a1 a1'
+            with NotConvertible -> raise (LocalArity None) in
+          srec (push_rel (LocalDef (na1,b1,a1)) env) p pt ar'
       (* The last Prod domain is the type of the scrutinee *)
-      | Prod (na1,a1,a2), [] -> (* whnf of t was not needed here! *)
+      | Lambda (na1,a1,_), Prod (_,_,a2), [] ->
 	 let env' = push_rel (LocalAssum (na1,a1)) env in
 	 let ksort = match kind (whd_all env' a2) with
 	 | Sort s -> Sorts.family s
@@ -336,12 +341,10 @@ let is_correct_arity env c pj ind specif params =
            try conv env a1 dep_ind
            with NotConvertible -> raise (LocalArity None) in
 	   check_allowed_sort ksort specif
-      | _, (LocalDef _ as d)::ar' ->
-	  srec (push_rel d env) (lift 1 pt') ar'
       | _ ->
 	  raise (LocalArity None)
   in
-  try srec env pj.uj_type (List.rev arsign) 
+  try srec env pj.uj_val pj.uj_type (List.rev arsign)
   with LocalArity kinds ->
     error_elim_arity env ind (elim_sorts specif) c pj kinds
 
