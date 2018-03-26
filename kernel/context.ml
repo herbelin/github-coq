@@ -195,6 +195,15 @@ struct
   (** Map all terms in a given rel-context. *)
   let map f = List.Smart.map (Declaration.map_constr f)
 
+  (** Map all terms in a given rel-context; the number of declarations
+      already seen is passed as argument *)
+  let map_with_binders f n sign =
+    let rec aux k = function
+      | d::sign -> Declaration.map_constr (f k) d :: aux (k-1) sign
+      | [] -> []
+    in
+    aux (length sign + n) sign
+
   (** Perform a given action on every declaration in a given rel-context. *)
   let iter f = List.iter (Declaration.iter_constr f)
 

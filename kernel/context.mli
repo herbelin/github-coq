@@ -117,6 +117,10 @@ sig
   (** Map all terms in a given rel-context. *)
   val map : ('c -> 'c) -> ('c, 'c) pt -> ('c, 'c) pt
 
+  (** Map all terms in a given rel-context; the number of declarations
+      already seen is passed as argument *)
+  val map_with_binders : (int -> 'c -> 'c) -> int -> ('c, 'c) pt -> ('c, 'c) pt
+
   (** Perform a given action on every declaration in a given rel-context. *)
   val iter : ('c -> unit) -> ('c, 'c) pt -> unit
 
