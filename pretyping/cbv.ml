@@ -393,6 +393,13 @@ and cbv_stack_value info env = function
     (* definitely a value *)
     | (head,stk) -> mkSTACK(head, stk)
 
+let map_predicate f info ci env p =
+  let open Context.Rel.Declaration in
+  let g d env = match d with
+    | LocalAssum (_,t) -> subs_lift env
+    | LocalDef (_,b,_) -> subs_shift_cons (1,env,[|cbv_stack_term info TOP env b|]) in
+  let n = List.length ci.ci_pp_info.ind_tags in
+  map_under_context_with_full_binders g (f info) env n p
 
 (* When we are sure t will never produce a redex with its stack, we
  * normalize (even under binders) the applied terms and we build the
@@ -404,7 +411,7 @@ let rec apply_stack info t = function
       apply_stack info (mkApp(t,Array.map (cbv_norm_value info) args)) st
   | CASE (ty,br,ci,env,st) ->
       apply_stack info
-        (mkCase (ci, cbv_norm_term info env ty, t,
+        (mkCase (ci, map_predicate cbv_norm_term info ci env ty, t,
 		    Array.map (cbv_norm_term info env) br))
         st
   | PROJ (p, st) ->
