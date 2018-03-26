@@ -43,6 +43,12 @@ val liftn : int -> int -> constr -> constr
 (** [lift n c] lifts by [n] the positive indexes in [c] *)
 val lift : int -> constr -> constr
 
+(** [liftn n k sign] lifts by [n] indexes above or equal to [k] in [sign] *)
+val liftn_rel_context : int -> int -> rel_context -> rel_context
+
+(** [lift n sign] lifts [sign] by [n] *)
+val lift_rel_context : int -> rel_context -> rel_context
+
 (** The type [substl] is the type of substitutions [u₁..un] of type
     some context Δ and defined in some environment Γ. Typing of
     substitutions is defined by:

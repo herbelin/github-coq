@@ -94,6 +94,14 @@ let liftn n k c =
 
 let lift n = liftn n 1
 
+(** [liftn n k sign] lifts by [n] indexes above or equal to [k] in [sign] *)
+let liftn_rel_context n k =
+  Context.Rel.map_with_binders (liftn n) (k - 1)
+
+(** [lift n sign] lifts [sign] by [n] *)
+let lift_rel_context n =
+  liftn_rel_context n 1
+
 (*********************)
 (*   Substituting    *)
 (*********************)
