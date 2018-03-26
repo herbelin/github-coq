@@ -589,6 +589,37 @@ let mk_clos_deep clos_fun env t =
 (* A better mk_clos? *)
 let mk_clos2 = mk_clos_deep mk_clos
 
+(* Combinators to work on terms-in-context with both a lift and a subst *)
+(*
+let map_under_context f n lfts env p =
+  let open Context.Rel.Declaration in
+  let g d (lfts,env) = match d with
+    | LocalAssum (_,t) -> (el_lift lfts, subs_lift env)
+    | LocalDef (_,b,_) -> (el_lift lfts, subs_shift_cons(1,env,[|mk_clos env b|])) in
+  let f (lfts,env) c = f lfts (mk_clos env c) in
+  map_under_context_with_full_binders g f (lfts,env) n p
+
+let map_predicate f ci lfts env p =
+  map_under_context f (List.length ci.ci_pp_info.ind_tags) lfts env p
+
+let map_branch f lfts env tag b =
+  map_under_context f (List.length tag) lfts env b
+
+let map_branches f ci lfts env br =
+  Array.map2 (map_branch f lfts env) ci.ci_pp_info.cstr_tags br
+*)
+let map_under_context f n subst p =
+  map_under_context_with_binders Esubst.subs_lift f subst n p
+
+let map_predicate f ci subst p =
+  map_under_context f (List.length ci.ci_pp_info.ind_tags) subst p
+
+let map_branch f subst tag b =
+  map_under_context f (List.length tag) subst b
+
+let map_branches f ci subst br =
+  Array.map2 (map_branch f subst) ci.ci_pp_info.cstr_tags br
+
 (* The inverse of mk_clos_deep: move back to constr *)
 let rec to_constr lfts v =
   match v.term with
@@ -606,9 +637,9 @@ let rec to_constr lfts v =
         mkCase (ci, p, to_constr lfts c, ve)
       else
         let subs = comp_subs lfts env in
-        mkCase (ci, subst_constr subs p,
+        mkCase (ci, map_predicate subst_constr ci subs p,
             to_constr lfts c,
-            Array.map (fun b -> subst_constr subs b) ve)
+            map_branches subst_constr ci subs ve)
     | FFix ((op,(lna,tys,bds)) as fx, e) ->
       if is_subs_id e && is_lift_id lfts then
         mkFix fx
@@ -1001,16 +1032,32 @@ let kh info tab v stk = fapp_stack(kni info tab v stk)
 
 (************************************************************************)
 
+(* Combinators to work on terms-in-context with both a subst *)
+
+let map_under_context f n env p =
+  let open Context.Rel.Declaration in
+  let g d env = match d with
+    | LocalAssum (_,t) -> subs_lift env
+    | LocalDef (_,b,_) -> subs_shift_cons (1,env,[|mk_clos env b|]) in
+  let f env c = f (mk_clos env c) in
+  map_under_context_with_full_binders g f env n p
+
+let map_predicate f ci env p =
+  map_under_context f (List.length ci.ci_pp_info.ind_tags) env p
+
+let map_branch f env tag b =
+  map_under_context f (List.length tag) env b
+
+let map_branches f ci env br =
+  Array.map2 (map_branch f env) ci.ci_pp_info.cstr_tags br
+
 let rec zip_term zfun m stk =
   match stk with
     | [] -> m
     | Zapp args :: s ->
         zip_term zfun (mkApp(m, Array.map zfun args)) s
     | ZcaseT(ci,p,br,e)::s ->
-        let br =
-          Constr.map_branches_with_binders subs_lift
-            (fun e b -> zfun (mk_clos e b)) e ci br in
-        let t = mkCase(ci, zfun (mk_clos e p), m, br) in
+        let t = mkCase(ci, map_predicate zfun ci e p, m, map_branches zfun ci e br) in
         zip_term zfun t s
     | Zproj p::s ->
         let t = mkProj (Projection.make p true, m) in
