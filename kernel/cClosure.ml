@@ -1007,8 +1007,10 @@ let rec zip_term zfun m stk =
     | Zapp args :: s ->
         zip_term zfun (mkApp(m, Array.map zfun args)) s
     | ZcaseT(ci,p,br,e)::s ->
-        let t = mkCase(ci, zfun (mk_clos e p), m,
-		       Array.map (fun b -> zfun (mk_clos e b)) br) in
+        let br =
+          Constr.map_branches_with_binders subs_lift
+            (fun e b -> zfun (mk_clos e b)) e ci br in
+        let t = mkCase(ci, zfun (mk_clos e p), m, br) in
         zip_term zfun t s
     | Zproj p::s ->
         let t = mkProj (Projection.make p true, m) in
