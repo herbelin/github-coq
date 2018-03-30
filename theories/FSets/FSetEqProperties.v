@@ -496,7 +496,7 @@ Qed.
 Section Fold.
 Variables (A:Type)(eqA:A->A->Prop)(st:Equivalence eqA).
 Variables (f:elt->A->A)(Comp:compat_op E.eq eqA f)(Ass:transpose eqA f).
-Variables (i:A).
+Variable (i:A).
 Variables (s s':t)(x:elt).
 
 Lemma fold_empty: (fold f empty i) = i.

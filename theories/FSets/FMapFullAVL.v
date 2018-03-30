@@ -460,9 +460,9 @@ Module IntMake (I:Int)(X: OrderedType) <: S with Module E := X.
  Section Elt.
  Variable elt elt' elt'': Type.
 
- Implicit Types m : t elt.
+ Implicit Type m : t elt.
  Implicit Types x y : key.
- Implicit Types e : elt.
+ Implicit Type e : elt.
 
  Definition empty : t elt := Bbst (empty_bst elt) (empty_avl elt).
  Definition is_empty m : bool := is_empty m.(this).

@@ -15,7 +15,7 @@ Require Import NZAxioms NZMulOrder.
 (** Interface of a power function, then its specification on naturals *)
 
 Module Type Pow (Import A : Typ).
- Parameters Inline pow : t -> t -> t.
+ Parameter Inline pow : t -> t -> t.
 End Pow.
 
 Module Type PowNotation (A : Typ)(Import B : Pow A).

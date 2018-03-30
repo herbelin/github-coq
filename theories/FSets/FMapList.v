@@ -1031,9 +1031,9 @@ Definition t (elt:Type) : Type := slist elt.
 Section Elt.
  Variable elt elt' elt'':Type.
 
- Implicit Types m : t elt.
+ Implicit Type m : t elt.
  Implicit Types x y : key.
- Implicit Types e : elt.
+ Implicit Type e : elt.
 
  Definition empty : t elt := Build_slist (Raw.empty_sorted elt).
  Definition is_empty m : bool := Raw.is_empty m.(this).

@@ -1077,7 +1077,7 @@ Notation xrelU := (fun (r1 r2 : rel _) x y => r1 x y || r2 x y).
 
 Section Predicates.
 
-Variables T : Type.
+Variable T : Type.
 
 Definition subpred (p1 p2 : pred T) := forall x, p1 x -> p2 x.
 

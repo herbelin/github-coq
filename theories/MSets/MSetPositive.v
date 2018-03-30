@@ -158,7 +158,7 @@ Module PositiveSet <: S with Module E:=PositiveOrderedTypeBits.
 
   Section Fold.
 
-    Variables B : Type.
+    Variable B : Type.
     Variable f : positive -> B -> B.
 
     (** the additional argument, [i], records the current path, in
