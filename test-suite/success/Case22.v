@@ -89,3 +89,18 @@ Check fun x:Ind bool nat =>
   match x in Ind _ X Y Z return Z with
   | y => (true,0)
   end.
+
+(* Test lazy iota on inductive types with let-ins *)
+
+Inductive IND3 (a:nat) (b:=a+0) (c:b=a) (d:=(c,c)) (e:d=d) :
+ forall (a':nat) (b':=(a+a')%nat) (c':b'=a) (e':c=c), Type :=
+CONSTR3 : forall (a'':nat) (b'':=(a+a'')%nat) (c'':b''=a) (e'':c''=c''), IND3 a c e a'' c'' eq_refl.
+
+Goal match CONSTR3 0 eq_refl eq_refl 0 eq_refl eq_refl return _ * _ * _ with
+     CONSTR3 _ _ _ x y z => (x,y,z)
+     end = (0,eq_refl,eq_refl).
+lazy iota.
+match goal with
+|- (0,eq_refl,eq_refl) = (0,eq_refl,eq_refl) => reflexivity
+end.
+Qed.

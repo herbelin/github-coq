@@ -888,6 +888,21 @@ let rec project_nth_arg n argstk =
   | _ -> assert false
       (* After drop_parameters we have a purely applicative stack *)
 
+let contract_branch n br args e =
+  if n = 0 then (br,e) else
+  let allargs = Array.make n (project_nth_arg 0 args) in
+  let rec aux p q br =
+    if p = n then (br,subs_cons (allargs, e)) else
+    match kind br with
+    | Lambda (_,_,br) ->
+       allargs.(p) <- project_nth_arg q args;
+       aux (p+1) (q+1) br
+    | LetIn (_,b,_,br) ->
+       let e' = subs_cons (Array.sub allargs 0 p,e) in
+       allargs.(p) <- mk_clos2 e' b;
+       aux (p+1) q br
+    | _ -> anomaly (str "Ill-formed branch.")
+  in aux 0 0 br
 
 (* Fix reduction: expansion of a fixpoint.
  * Given a fixpoint and a substitution, returns the corresponding
@@ -991,7 +1006,8 @@ let rec knr info tab m stk =
         | (depth, args, ZcaseT(ci,_,br,e)::s) when use_match ->
             assert (ci.ci_npar>=0);
             let rargs = drop_parameters depth ci.ci_npar args in
-            knit info tab e br.(c-1) (rargs@s)
+            let br,e = contract_branch (List.length ci.ci_pp_info.cstr_tags.(c-1)) br.(c-1) rargs e in
+            knit info tab e br s
         | (_, cargs, Zfix(fx,par)::s) when use_fix ->
             let rarg = fapp_stack(m,cargs) in
             let stk' = par @ append_stack [|rarg|] s in
