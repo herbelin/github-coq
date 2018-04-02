@@ -814,7 +814,7 @@ let rec eta_expand_stack = function
   | [] ->
       [Zshift 1; Zapp [|{norm=Norm; term= FRel 1}|]]
 
-(* Iota reduction: extract the arguments to be passed to the Case
+(* Match reduction: extract the arguments to be passed to the Case
    branches *)
 let rec reloc_rargs_rec depth stk =
   match stk with
@@ -889,7 +889,7 @@ let rec project_nth_arg n argstk =
       (* After drop_parameters we have a purely applicative stack *)
 
 
-(* Iota reduction: expansion of a fixpoint.
+(* Fix reduction: expansion of a fixpoint.
  * Given a fixpoint and a substitution, returns the corresponding
  * fixpoint body, and the substitution in which it should be
  * evaluated: its first variables are the fixpoint bodies
