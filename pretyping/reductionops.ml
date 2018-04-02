@@ -778,6 +778,18 @@ let reduce_mind_case sigma mia =
 	mkCase (mia.mci, mia.mP, applist(cofix_def,mia.mcargs), mia.mlf)
     | _ -> assert false
 
+let contract_branch sigma n br args =
+  if n = 0 then br else
+  let rec aux p allargs rest br =
+    if p = n then substl allargs br else
+    match kind sigma br, rest with
+    | Lambda (_,_,br), a :: rest ->
+       aux (p+1) (a::allargs) rest br
+    | LetIn (_,b,_,br), rest ->
+       aux (p+1) (substl allargs b :: allargs) rest br
+    | _ -> CErrors.anomaly (Pp.str "Ill-formed branch.")
+  in aux 0 [] args br
+
 (* contracts fix==FIX[nl;i](A1...Ak;[F1...Fk]{B1....Bk}) to produce
    Bi[Fj --> FIX[nl;j](A1...Ak;[F1...Fk]{B1...Bk})] *)
 
@@ -1116,8 +1128,10 @@ let local_whd_state_gen flags sigma =
       if use_match || use_fix then
 	match Stack.strip_app stack with
 	|args, (Stack.Case(ci, _, lf,_)::s') when use_match ->
-	  whrec (lf.(c-1), (Stack.tail ci.ci_npar args) @ s')
-        |args, (Stack.Proj (p,_) :: s') when use_match ->
+          let cargs = Option.get (Stack.list_of_app_stack (Stack.tail ci.ci_npar args)) in
+          let ndecls = List.length ci.ci_pp_info.cstr_tags.(c-1) in
+          whrec (contract_branch sigma ndecls lf.(c-1) cargs, s')
+	|args, (Stack.Proj (p,_) :: s') when use_match ->
           whrec (Stack.nth args (Projection.npars p + Projection.arg p), s')
 	|args, (Stack.Fix (f,s',cst)::s'') when use_fix ->
 	  let x' = Stack.zip sigma (x,args) in

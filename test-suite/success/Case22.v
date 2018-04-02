@@ -115,3 +115,14 @@ match goal with
 |- (0,eq_refl,eq_refl) = (0,eq_refl,eq_refl) => reflexivity
 end.
 Qed.
+
+(* Test cbn iota on inductive types with let-ins *)
+
+Goal match CONSTR3 0 eq_refl eq_refl 0 eq_refl eq_refl return _ * _ * _ with
+     CONSTR3 _ _ _ x y z => (x,y,z)
+     end = (0,eq_refl,eq_refl).
+lazy iota.
+match goal with
+|- (0,eq_refl,eq_refl) = (0,eq_refl,eq_refl) => reflexivity
+end.
+Qed.
