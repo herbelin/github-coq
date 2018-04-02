@@ -109,6 +109,22 @@ let contract_cofixp env (i,(_,_,bds as bodies)) =
   let n = Array.length bds in
   subs_cons(Array.init n make_body, env), bds.(i)
 
+let contract_branch mk_clos env n br args =
+  if n = 0 then (env, br) else
+  let allargs = Array.make n args.(0) in
+  let rec aux p q br =
+    if p = n then (subs_cons (allargs, env), br) else
+    match kind br with
+    | Lambda (_,_,br) ->
+       allargs.(p) <- args.(q);
+       aux (p+1) (q+1) br
+    | LetIn (_,b,_,br) ->
+       let e' = subs_cons (Array.sub allargs 0 p,env) in
+       allargs.(p) <- mk_clos e' b;
+       aux (p+1) q br
+    | _ -> CErrors.anomaly (Pp.str "Ill-formed branch.")
+  in aux 0 0 br
+
 let make_constr_ref n = function
   | RelKey p -> mkRel (n+p)
   | VarKey id -> mkVar id
@@ -372,7 +388,9 @@ and cbv_stack_value info env = function
             when red_set (info_flags info.infos) fMATCH ->
 	let cargs =
           Array.sub args ci.ci_npar (Array.length args - ci.ci_npar) in
-        cbv_stack_term info (stack_app cargs stk) env br.(n-1)
+        let ndecls = List.length ci.ci_pp_info.cstr_tags.(n-1) in
+        let (envbr,br) = contract_branch (cbv_stack_term info TOP) env ndecls br.(n-1) cargs in
+        cbv_stack_term info stk envbr br
 
     (* constructor of arity 0 in a Case -> IOTA *)
     | (CONSTR(((_,n),u),[||]), CASE(_,br,_,env,stk))
