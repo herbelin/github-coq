@@ -623,6 +623,8 @@ let adjust_app_array_size f1 l1 f2 l2 =
     let extras,restl1 = Array.chop (len1-len2) l1 in
     (mkApp (f1,extras), restl1, f2, l2)
 
+(** Map *)
+
 (* [map_constr_with_binders_left_to_right g f n c] maps [f n] on the
    immediate subterms of [c]; it carries an extra data [n] (typically
    a lift index) which is processed by [g] (which typically add 1 to
@@ -800,6 +802,36 @@ let map_constr_with_full_binders sigma g f =
 let map_constr_with_full_binders_user_view sigma g f =
   map_constr_with_full_binders_gen true sigma g f
 
+(** Fold *)
+
+let rec fold_under_context_with_full_binders g f l acc n d =
+  if n = 0 then f l acc d else
+  match kind d with
+  | LetIn (na,b,t,c) ->
+     let acc = f l acc b in
+     let acc = f l acc t in
+     let l = g (Context.Rel.Declaration.LocalDef (na,b,t)) l in
+     fold_under_context_with_full_binders g f l acc (n-1) c
+  | Lambda (na,t,b) ->
+     let acc = f l acc t in
+     let l = g (Context.Rel.Declaration.LocalDef (na,b,t)) l in
+     fold_under_context_with_full_binders g f l acc (n-1) b
+  | _ -> CErrors.anomaly (Pp.str "Ill-formed context")
+
+let fold_under_context_with_full_binders g f l acc n d =
+  let open EConstr in
+  let f l acc c = f l acc (of_constr c) in
+  let g d l  = g (of_rel_decl d) l in
+  let d = Unsafe.to_constr d in
+  fold_under_context_with_full_binders g f l acc n d
+
+let fold_branches_with_full_binders g f l ci acc bl =
+  let nl = Array.map List.length ci.ci_pp_info.cstr_tags in
+  Array.fold_left2 (fold_under_context_with_full_binders g f l) acc nl bl
+
+let fold_return_predicate_with_full_binders g f l ci acc p =
+  fold_under_context_with_full_binders g f l acc (List.length ci.ci_pp_info.ind_tags) p
+
 (* [fold_constr_with_binders g f n acc c] folds [f n] on the immediate
    subterms of [c] starting from [acc] and proceeding from left to
    right according to the usual representation of the constructions as
@@ -816,6 +848,36 @@ let fold_constr_with_full_binders sigma g f n acc c =
 
 let fold_constr_with_binders sigma g f n acc c =
   fold_constr_with_full_binders sigma (fun _ x -> g x) f n acc c
+
+(** Iter *)
+
+let rec iter_under_context_with_full_binders g f l n d =
+  if n = 0 then f l d else
+  match kind d with
+  | LetIn (na,b,t,c) ->
+     f l b;
+     f l t;
+     let l = g (Context.Rel.Declaration.LocalDef (na,b,t)) l in
+     iter_under_context_with_full_binders g f l (n-1) c;
+  | Lambda (na,t,b) ->
+     f l t;
+     let l = g (Context.Rel.Declaration.LocalAssum (na,t)) l in
+     iter_under_context_with_full_binders g f l (n-1) b
+  | _ -> CErrors.anomaly (Pp.str "Ill-formed context")
+
+let iter_under_context_with_full_binders g f l n d =
+  let open EConstr in
+  let f l c = f l (of_constr c) in
+  let g d l  = g (of_rel_decl d) l in
+  let d = Unsafe.to_constr d in
+  iter_under_context_with_full_binders g f l n d
+
+let iter_branches_with_full_binders g f l ci bl =
+  let nl = Array.map List.length ci.ci_pp_info.cstr_tags in
+  CArray.Fun1.iter2 (iter_under_context_with_full_binders g f) l nl bl
+
+let iter_return_predicate_with_full_binders g f l ci p =
+  iter_under_context_with_full_binders g f l (List.length ci.ci_pp_info.ind_tags) p
 
 (* [iter_constr_with_full_binders g f acc c] iters [f acc] on the immediate
    subterms of [c]; it carries an extra data [acc] which is processed by [g] at

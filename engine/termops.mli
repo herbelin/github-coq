@@ -68,6 +68,18 @@ val map_constr_with_full_binders_user_view :
   (rel_declaration -> 'a -> 'a) ->
   ('a -> constr -> constr) -> 'a -> constr -> constr
 
+val fold_under_context_with_full_binders :
+  (rel_declaration -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
+    'a -> 'b -> int -> constr -> 'b
+
+val fold_branches_with_full_binders :
+  (rel_declaration -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
+    'a -> case_info -> 'b -> constr array -> 'b
+
+val fold_return_predicate_with_full_binders :
+  (rel_declaration -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
+    'a -> case_info -> 'b -> constr -> 'b
+
 (** [fold_constr_with_binders g f n acc c] folds [f n] on the immediate
    subterms of [c] starting from [acc] and proceeding from left to
    right according to the usual representation of the constructions as
@@ -82,6 +94,18 @@ val fold_constr_with_full_binders : Evd.evar_map ->
   (rel_declaration -> 'a -> 'a) ->
   ('a -> 'b -> constr -> 'b) ->
   'a -> 'b -> constr -> 'b
+
+val iter_under_context_with_full_binders :
+  (rel_declaration -> 'a -> 'a) -> ('a -> constr -> unit) ->
+    'a -> int -> constr -> unit
+
+val iter_branches_with_full_binders :
+  (rel_declaration -> 'a -> 'a) -> ('a -> constr -> unit) ->
+    'a -> case_info -> constr array -> unit
+
+val iter_return_predicate_with_full_binders :
+  (rel_declaration -> 'a -> 'a) -> ('a -> constr -> unit) ->
+    'a -> case_info -> constr -> unit
 
 val iter_constr_with_full_binders : Evd.evar_map ->
   (rel_declaration -> 'a -> 'a) ->

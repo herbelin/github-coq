@@ -409,6 +409,22 @@ let decompose_appvect c =
 (*              Functions to recur through subterms                         *)
 (****************************************************************************)
 
+(** Fold *)
+
+let rec fold_under_context f acc n d =
+  if n = 0 then f acc d else
+  match kind d with
+  | LetIn (na,b,t,c) -> fold_under_context f (f (f acc b) t) (n-1) c;
+  | Lambda (na,t,b) -> fold_under_context f (f acc t) (n-1) b
+  | _ -> CErrors.anomaly (Pp.str "Ill-formed context")
+
+let fold_branches f ci acc bl =
+  let nl = Array.map List.length ci.ci_pp_info.cstr_tags in
+  Array.fold_left2 (fold_under_context f) acc nl bl
+
+let fold_return_predicate f ci acc p =
+  fold_under_context f acc (List.length ci.ci_pp_info.ind_tags) p
+
 (* [fold f acc c] folds [f] on the immediate subterms of [c]
    starting from [acc] and proceeding from left to right according to
    the usual representation of the constructions; it is not recursive *)
@@ -450,6 +466,36 @@ let fold_with_full_binders g f n acc c =
       let fd = Array.map2 (fun t b -> (t,b)) tl bl in
       Array.fold_left (fun acc (t,b) -> f n' (f n acc t) b) acc fd
 
+(** Iter *)
+
+let rec iter_under_context f n d =
+  if n = 0 then f d else
+  match kind d with
+  | LetIn (na,b,t,c) -> f b; f t; iter_under_context f (n-1) c;
+  | Lambda (na,t,b) -> f t; iter_under_context f (n-1) b
+  | _ -> CErrors.anomaly (Pp.str "Ill-formed context")
+
+let iter_branches f ci bl =
+  let nl = Array.map List.length ci.ci_pp_info.cstr_tags in
+  Array.iter2 (iter_under_context f) nl bl
+
+let iter_return_predicate f ci p =
+  iter_under_context f (List.length ci.ci_pp_info.ind_tags) p
+
+let rec iter_under_context_with_binders g f k n d =
+  if n = 0 then f k d else
+  match kind d with
+  | LetIn (na,b,t,c) -> f k b; f k t; iter_under_context_with_binders g f (g k) (n-1) c;
+  | Lambda (na,t,b) -> f k t; iter_under_context_with_binders g f (g k) (n-1) b
+  | _ -> CErrors.anomaly (Pp.str "Ill-formed context")
+
+let iter_branches_with_binders g f k ci bl =
+  let nl = Array.map List.length ci.ci_pp_info.cstr_tags in
+  CArray.Fun1.iter2 (iter_under_context_with_binders g f) k nl bl
+
+let iter_return_predicate_with_binders g f k ci p =
+  iter_under_context_with_binders g f k (List.length ci.ci_pp_info.ind_tags) p
+
 (* [iter f c] iters [f] on the immediate subterms of [c]; it is
    not recursive and the order with which subterms are processed is
    not specified *)
@@ -468,7 +514,7 @@ let iter f c = match kind c with
   | Fix (_,(_,tl,bl)) -> Array.iter f tl; Array.iter f bl
   | CoFix (_,(_,tl,bl)) -> Array.iter f tl; Array.iter f bl
 
-(* [iter_with_binders g f n c] iters [f n] on the immediate
+(** [iter_with_binders g f n c] iters [f n] on the immediate
    subterms of [c]; it carries an extra data [n] (typically a lift
    index) which is processed by [g] (which typically add 1 to [n]) at
    each binder traversal; it is not recursive and the order with which
@@ -520,9 +566,7 @@ let fold_constr_with_binders g f n acc c =
       let fd = Array.map2 (fun t b -> (t,b)) tl bl in
       Array.fold_left (fun acc (t,b) -> f n' (f n acc t) b) acc fd
 
-(* [map f c] maps [f] on the immediate subterms of [c]; it is
-   not recursive and the order with which subterms are processed is
-   not specified *)
+(** Map *)
 
 let rec map_under_context f n d =
   if n = 0 then f d else
@@ -596,6 +640,10 @@ let map_branches_with_full_binders g f l ci bl =
 let map_return_predicate_with_full_binders g f l ci p =
   map_under_context_with_full_binders g f l (List.length ci.ci_pp_info.ind_tags) p
 
+(* [map f c] maps [f] on the immediate subterms of [c]; it is
+   not recursive and the order with which subterms are processed is
+   not specified *)
+
 let map_gen userview f c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
     | Construct _) -> c
@@ -659,7 +707,30 @@ let map_gen userview f c = match kind c with
 let map_user_view = map_gen true
 let map = map_gen false
 
-(* Like {!map} but with an accumulator. *)
+(** Like {!map} but with an accumulator. *)
+
+let rec fold_map_under_context f acc n d =
+  if n = 0 then (acc,d) else
+  match kind d with
+  | LetIn (na,b,t,c) ->
+      let acc, b' = f acc b in
+      let acc, t' = f acc t in
+      let acc, c' = fold_map_under_context f acc (n-1) c in
+      if b' == b && t' == t && c' == c then acc,d
+      else acc,mkLetIn (na,b',t',c')
+  | Lambda (na,t,b) ->
+      let acc, t' = f acc t in
+      let acc, b' = fold_map_under_context f acc (n-1) b in
+      if b' == b && t' == t then acc,d
+      else acc,mkLambda (na,t',b')
+  | _ -> CErrors.anomaly (Pp.str "Ill-formed context")
+
+let fold_map_branches f ci acc bl =
+  let nl = Array.map List.length ci.ci_pp_info.cstr_tags in
+  Array.Smart.fold_left2_map (fold_map_under_context f) acc nl bl
+
+let fold_map_return_predicate f ci acc p =
+  fold_map_under_context f acc (List.length ci.ci_pp_info.ind_tags) p
 
 let fold_map f acc c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
