@@ -661,59 +661,59 @@ let map = map_gen false
 
 (* Like {!map} but with an accumulator. *)
 
-let fold_map f accu c = match kind c with
+let fold_map f acc c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
-    | Construct _) -> accu, c
+    | Construct _) -> acc, c
   | Cast (b,k,t) ->
-      let accu, b' = f accu b in
-      let accu, t' = f accu t in
-      if b'==b && t' == t then accu, c
-      else accu, mkCast (b', k, t')
+      let acc, b' = f acc b in
+      let acc, t' = f acc t in
+      if b'==b && t' == t then acc, c
+      else acc, mkCast (b', k, t')
   | Prod (na,t,b) ->
-      let accu, b' = f accu b in
-      let accu, t' = f accu t in
-      if b'==b && t' == t then accu, c
-      else accu, mkProd (na, t', b')
+      let acc, b' = f acc b in
+      let acc, t' = f acc t in
+      if b'==b && t' == t then acc, c
+      else acc, mkProd (na, t', b')
   | Lambda (na,t,b) ->
-      let accu, b' = f accu b in
-      let accu, t' = f accu t in
-      if b'==b && t' == t then accu, c
-      else accu, mkLambda (na, t', b')
+      let acc, b' = f acc b in
+      let acc, t' = f acc t in
+      if b'==b && t' == t then acc, c
+      else acc, mkLambda (na, t', b')
   | LetIn (na,b,t,k) ->
-      let accu, b' = f accu b in
-      let accu, t' = f accu t in
-      let accu, k' = f accu k in
-      if b'==b && t' == t && k'==k then accu, c
-      else accu, mkLetIn (na, b', t', k')
+      let acc, b' = f acc b in
+      let acc, t' = f acc t in
+      let acc, k' = f acc k in
+      if b'==b && t' == t && k'==k then acc, c
+      else acc, mkLetIn (na, b', t', k')
   | App (b,l) ->
-      let accu, b' = f accu b in
-      let accu, l' = Array.Smart.fold_left_map f accu l in
-      if b'==b && l'==l then accu, c
-      else accu, mkApp (b', l')
+      let acc, b' = f acc b in
+      let acc, l' = Array.Smart.fold_left_map f acc l in
+      if b'==b && l'==l then acc, c
+      else acc, mkApp (b', l')
   | Proj (p,t) ->
-      let accu, t' = f accu t in
-      if t' == t then accu, c
-      else accu, mkProj (p, t')
+      let acc, t' = f acc t in
+      if t' == t then acc, c
+      else acc, mkProj (p, t')
   | Evar (e,l) ->
-      let accu, l' = Array.Smart.fold_left_map f accu l in
-      if l'==l then accu, c
-      else accu, mkEvar (e, l')
+      let acc, l' = Array.Smart.fold_left_map f acc l in
+      if l'==l then acc, c
+      else acc, mkEvar (e, l')
   | Case (ci,p,b,bl) ->
-      let accu, b' = f accu b in
-      let accu, p' = f accu p in
-      let accu, bl' = Array.Smart.fold_left_map f accu bl in
-      if b'==b && p'==p && bl'==bl then accu, c
-      else accu, mkCase (ci, p', b', bl')
+      let acc, b' = f acc b in
+      let acc, p' = f acc p in
+      let acc, bl' = Array.Smart.fold_left_map f acc bl in
+      if b'==b && p'==p && bl'==bl then acc, c
+      else acc, mkCase (ci, p', b', bl')
   | Fix (ln,(lna,tl,bl)) ->
-      let accu, tl' = Array.Smart.fold_left_map f accu tl in
-      let accu, bl' = Array.Smart.fold_left_map f accu bl in
-      if tl'==tl && bl'==bl then accu, c
-      else accu, mkFix (ln,(lna,tl',bl'))
+      let acc, tl' = Array.Smart.fold_left_map f acc tl in
+      let acc, bl' = Array.Smart.fold_left_map f acc bl in
+      if tl'==tl && bl'==bl then acc, c
+      else acc, mkFix (ln,(lna,tl',bl'))
   | CoFix(ln,(lna,tl,bl)) ->
-      let accu, tl' = Array.Smart.fold_left_map f accu tl in
-      let accu, bl' = Array.Smart.fold_left_map f accu bl in
-      if tl'==tl && bl'==bl then accu, c
-      else accu, mkCoFix (ln,(lna,tl',bl'))
+      let acc, tl' = Array.Smart.fold_left_map f acc tl in
+      let acc, bl' = Array.Smart.fold_left_map f acc bl in
+      if tl'==tl && bl'==bl then acc, c
+      else acc, mkCoFix (ln,(lna,tl',bl'))
 
 (* [map_with_binders g f n c] maps [f n] on the immediate
    subterms of [c]; it carries an extra data [n] (typically a lift
@@ -1174,7 +1174,7 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
 	let bl,hbl = hash_term_array bl in
 	let tl,htl = hash_term_array tl in
         let () = Array.iteri (fun i x -> Array.unsafe_set lna i (sh_na x)) lna in
-        let fold accu na = combine (Name.hash na) accu in
+        let fold acc na = combine (Name.hash na) acc in
         let hna = Array.fold_left fold 0 lna in
         let h = combine3 hna hbl htl in
 	(Fix (ln,(lna,tl,bl)), combinesmall 13 h)
@@ -1182,7 +1182,7 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
 	let bl,hbl = hash_term_array bl in
 	let tl,htl = hash_term_array tl in
         let () = Array.iteri (fun i x -> Array.unsafe_set lna i (sh_na x)) lna in
-        let fold accu na = combine (Name.hash na) accu in
+        let fold acc na = combine (Name.hash na) acc in
         let hna = Array.fold_left fold 0 lna in
         let h = combine3 hna hbl htl in
 	(CoFix (ln,(lna,tl,bl)), combinesmall 14 h)
@@ -1200,14 +1200,14 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
   (* Note : During hash-cons of arrays, we modify them *in place* *)
 
   and hash_term_array t =
-    let accu = ref 0 in
+    let acc = ref 0 in
     for i = 0 to Array.length t - 1 do
       let x, h = sh_rec (Array.unsafe_get t i) in
-      accu := combine !accu h;
+      acc := combine !acc h;
       Array.unsafe_set t i x
     done;
     (* [h] must be positive. *)
-    let h = !accu land 0x3FFFFFFF in
+    let h = !acc land 0x3FFFFFFF in
     (HashsetTermArray.repr h t term_array_table, h)
 
   in
