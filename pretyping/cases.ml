@@ -1717,7 +1717,7 @@ let abstract_tycon ?loc env evdref subst tycon extenv t =
 	List.map (fun d -> local_occur_var !evdref (NamedDecl.get_id d) u)
 	  (named_context extenv) in
       let filter = Filter.make (rel_filter @ named_filter) in
-      let candidates = u :: List.map mkRel vl in
+      let candidates = List.rev (u :: List.map mkRel vl) in
       let ev = e_new_evar extenv evdref ~src ~filter ~candidates ty in
       lift k ev
   in
