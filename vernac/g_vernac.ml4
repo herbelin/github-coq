@@ -1143,7 +1143,7 @@ GEXTEND Gram
     ] ]
   ;
   syntax_extension_type:
-    [ [ IDENT "ident" -> ETName | IDENT "global" -> ETReference
+    [ [ IDENT "ident" -> ETIdent | IDENT "global" -> ETGlobal
       | IDENT "bigint" -> ETBigint
       | IDENT "binder" -> ETBinder true
       | IDENT "constr" -> ETConstr (InConstrEntry,None,None)
