@@ -106,7 +106,7 @@ is 100, for example 85 for disjunction and 80 for conjunction [#and_or_levels]_.
 Similarly, an associativity is needed to decide whether :g:`True /\ False /\ False`
 defaults to :g:`True /\ (False /\ False)` (right associativity) or to
 :g:`(True /\ False) /\ False` (left associativity). We may even consider that the
-expression is not well- formed and that parentheses are mandatory (this is a “no
+expression is not well-formed and that parentheses are mandatory (this is a “no
 associativity”) [#no_associativity]_. We do not know of a special convention of
 the associativity of disjunction and conjunction, so let us apply for instance a
 right associativity (which is the choice of Coq).
@@ -146,7 +146,7 @@ expected to be inferred at typing time.
    Notation "x = y" := (@eq _ x y) (at level 70, no associativity).
 
 One can define *closed* notations whose both sides are symbols. In this case,
-the default precedence level for the inner subexpression is 200, and the default
+the default precedence level for the inner sub-expression is 200, and the default
 level for the notation itself is 0.
 
 .. coqtop:: in
@@ -185,7 +185,7 @@ rules. Some simple left factorization work has to be done. Here is an example.
    Notation "x < y" := (lt x y) (at level 70).
    Notation "x < y < z" := (x < y /\ y < z) (at level 70).
 
-In order to factorize the left part of the rules, the subexpression
+In order to factorize the left part of the rules, the sub-expression
 referred by y has to be at the same level in both rules. However the
 default behavior puts y at the next level below 70 in the first rule
 (no associativity is the default), and at the level 200 in the second
@@ -209,7 +209,7 @@ predefined notations can be found in Chapter :ref:`thecoqlibrary`.
 .. cmd:: Print Grammar pattern.
 
    This displays the state of the subparser of patterns (the parser used in the
-   grammar of the match with constructions).
+   grammar of the ``match with`` constructions).
 
 
 Displaying symbolic notations
@@ -517,7 +517,7 @@ is just an identifier, one could have said
 ``p at level 99 as strict pattern``.
 
 Note also that in the absence of a ``as ident``, ``as strict pattern`` or
-``as pattern`` modifiers, the default is to consider subexpressions occurring
+``as pattern`` modifiers, the default is to consider sub-expressions occurring
 in binding position and parsed as terms to be ``as ident``.
 
 .. _NotationsWithBinders:
