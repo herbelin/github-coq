@@ -1245,6 +1245,76 @@ limits parse failures due to stack overflow.  For example
 
    Check 90000.
 
+Error messages:
+
+.. exn:: Cannot interpret this number as a value of type :g:`ty`
+
+  The numeral notation registered for :g:`ty` does not support the
+  given numeral.  This error is given when the interpretation function
+  returns :g:`None`, or if the interpretation is registered for only
+  non-negative integers, and the given numeral is negative.
+
+.. exn:: :g:`f` should go from :g:`Decimal.int` to :g:`ty` or
+         :g:`(option ty)`.  Instead of :g:`int`, the the types
+         :g:`uint` or :g:`Z` could be used[ (load :g:`Z` first)].
+
+  The parsing function given to the :g:`Numeral Notation` function is
+  not the right type.
+
+.. exn:: :g:`g` should go from :g:`ty` to `Decimal.int` or :g:`(option
+         int)`.  Instead of :g:`int`, the the types :g:`uint` or
+         :g:`Z` could be used[ (load :g:`Z` first)].
+
+  The printing function given to the :g:`Numeral Notation` function is
+  not the right type.
+
+.. exn:: :g:`ty` is not an inductive type
+
+  Numeral notations can only be declared for inductive types with no
+  arguments.
+
+.. exn:: The inductive type :g:`ty` cannot be polymorphic here for the
+         moment
+
+  Numeral notations do not currently support polymorphic inductive
+  types.  Ensure that all types involved in numeral notations are
+  declared with :g:`Unset Universe Polymorphism`, or with the
+  :g:`Monomorphic` attribute.
+
+.. exn:: :g:`f` cannot be polymorphic for the moment
+
+  Numeral notations do not currently support polymorphic functions for
+  printing and parsing.  Ensure that both functions passed to
+  :g:`Numeral Notation` are defined with :g:`Unset Universe
+  Polymorphism`, or with the :g:`Monomorphic` attribute.
+
+.. exn:: Unexpected term while parsing a numeral notation
+
+  Parsing functions must always return ground terms, made up of
+  applications of constructors and inductive types.  Parsing functions
+  may not return terms containing axioms, bare (co)fixpoints, lambdas,
+  etc.
+
+.. exn:: Unexpected non-option term while parsing a numeral notation
+
+  Parsing functions expected to return an :g:`option` must always
+  return a concrete :g:`Some` or :g:`None` when applied to a concrete
+  numeral expressed as a decimal.  They may not return opaque
+  constants.
+
+.. exn:: Syntax error: `[prim:reference]` expected after
+         ':g:`Notation`' (in `[vernac:command]`).
+
+  The type passed to :g:`Numeral Notation` must be a single
+  identifier.
+
+.. exn:: Syntax error: `[prim:reference]` expected after
+         `[prim:reference]` (in `[vernac:command]`).
+
+  Both functions passed to :g:`Numeral Notation` must be single
+  identifiers.
+
+
 .. _TacticNotation:
 
 Tactic Notations
