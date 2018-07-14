@@ -234,7 +234,10 @@ let rec glob_of_constr ?loc c = match Constr.kind c with
   | Const (c, _) -> DAst.make ?loc (Glob_term.GRef (ConstRef c, None))
   | Ind (ind, _) -> DAst.make ?loc (Glob_term.GRef (IndRef ind, None))
   | Var id -> DAst.make ?loc (Glob_term.GRef (VarRef id, None))
-  | _ -> CErrors.anomaly (str "Numeral.interp: unexpected constr")
+  | _ -> let (sigma, env) = Pfedit.get_current_context () in
+         CErrors.user_err ?loc
+          (str "Unexpected term while parsing a numeral notation:" ++ fnl () ++
+           Printer.pr_constr_env env sigma c)
 
 let no_such_number ?loc ty =
   CErrors.user_err ?loc
@@ -245,7 +248,10 @@ let interp_option ty ?loc c =
   match Constr.kind c with
   | App (_Some, [| _; c |]) -> glob_of_constr ?loc c
   | App (_None, [| _ |]) -> no_such_number ?loc ty
-  | x -> CErrors.anomaly (str "Numeral.interp: option expected")
+  | x -> let (sigma, env) = Pfedit.get_current_context () in
+         CErrors.user_err ?loc
+          (str "Unexpected non-option term while parsing a numeral notation:" ++ fnl () ++
+           Printer.pr_constr_env env sigma c)
 
 let uninterp_option c =
   match Constr.kind c with
