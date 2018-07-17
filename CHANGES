@@ -43,6 +43,12 @@ Tactics
   may need to add `Require Import Lra` to your developments. For compatibility,
   we now define `fourier` as a deprecated alias of `lra`.
 
+Standard Library
+
+- The scopes `int_scope` and `uint_scope` have been renamed to
+  `dec_int_scope` and `dec_uint_scope`, to clash less with ssreflect
+  and other packages.  They are still delimited by `%int` and `%uint`.
+
 Tools
 
 - Coq_makefile lets one override or extend the following variables from
@@ -78,6 +84,8 @@ Vernacular Commands
 - The `Set SsrHave NoTCResolution` command no longer has special global
   scope. If you want the previous behavior, use `Global Set SsrHave
   NoTCResolution`.
+- Added the `Numeral Notation` command for registering decimal numeral
+  notations for custom types
 
 Coq binaries and process model
 
@@ -105,7 +113,7 @@ SSReflect
   In particular rule 3 lets one write {x}/v even if v uses the variable x:
   indeed the view is executed before the renaming.
 
-- An empty clear switch is now accepted in intro patterns before a 
+- An empty clear switch is now accepted in intro patterns before a
   view application whenever the view is a variable.
   One can now write {}/v to mean {v}/v.  Remark that {}/x is very similar
   to the idiom {}e for the rewrite tactic (the equation e is used for
