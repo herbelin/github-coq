@@ -1255,33 +1255,38 @@ Error messages:
   non-negative integers, and the given numeral is negative.
 
 .. exn:: :g:`f` should go from :g:`Decimal.int` to :g:`ty` or
-         :g:`(option ty)`.  Instead of :g:`int`, the the types
-         :g:`uint` or :g:`Z` could be used[ (load :g:`Z` first)].
+         :g:`(option ty)`.  Instead of :g:`Decimal.int`, the types
+         :g:`Decimal.uint` or :g:`Z` could be used[ (require
+         :g:`BinNums` first)].
 
   The parsing function given to the :g:`Numeral Notation` function is
-  not the right type.
+  not of the right type.
 
 .. exn:: :g:`g` should go from :g:`ty` to `Decimal.int` or :g:`(option
-         int)`.  Instead of :g:`int`, the the types :g:`uint` or
-         :g:`Z` could be used[ (load :g:`Z` first)].
+         Decimal.int)`.  Instead of :g:`Decimal.int`, the the types
+         :g:`Decimal.uint` or :g:`Z` could be used[ (require
+         :g:`BinNums` first)].
 
   The printing function given to the :g:`Numeral Notation` function is
-  not the right type.
+  not of the right type.
 
 .. exn:: :g:`ty` is not an inductive type
 
   Numeral notations can only be declared for inductive types with no
   arguments.
 
-.. exn:: The inductive type :g:`ty` cannot be polymorphic here for the
-         moment
+.. exn:: The inductive type :g:`ty` cannot be used in numeral
+         notations because support for polymorphic inductive types is
+         not yet implemented
 
   Numeral notations do not currently support polymorphic inductive
   types.  Ensure that all types involved in numeral notations are
   declared with :g:`Unset Universe Polymorphism`, or with the
   :g:`Monomorphic` attribute.
 
-.. exn:: :g:`f` cannot be polymorphic for the moment
+.. exn:: The function :g:`f` cannot be used in numeral notations
+         because support for polymorphic printing and parsing
+         functions is not yet implemented.
 
   Numeral notations do not currently support polymorphic functions for
   printing and parsing.  Ensure that both functions passed to

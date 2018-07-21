@@ -392,15 +392,15 @@ let type_error_to f ty loadZ =
   CErrors.user_err
     (pr_qualid f ++ str " should go from Decimal.int to " ++
      pr_qualid ty ++ str " or (option " ++ pr_qualid ty ++ str ")." ++
-     fnl () ++ str "Instead of int, the types uint or Z could be used" ++
-     (if loadZ then str " (load Z first)." else str "."))
+     fnl () ++ str "Instead of Decimal.int, the types Decimal.uint or Z could be used" ++
+     (if loadZ then str " (require BinNums first)." else str "."))
 
 let type_error_of g ty loadZ =
   CErrors.user_err
     (pr_qualid g ++ str " should go from " ++ pr_qualid ty ++
-     str " to Decimal.int or (option int)." ++ fnl () ++
-     str "Instead of int, the types uint or Z could be used" ++
-     (if loadZ then str " (load Z first)." else str "."))
+     str " to Decimal.int or (option Decimal.int)." ++ fnl () ++
+     str "Instead of Decimal.int, the types Decimal.uint or Z could be used" ++
+     (if loadZ then str " (require BinNums first)." else str "."))
 
 let vernac_numeral_notation ty f g scope opts =
   let int_ty = locate_int () in
@@ -426,7 +426,8 @@ let vernac_numeral_notation ty f g scope opts =
     | IndRef _ ->
        CErrors.user_err
          (str "The inductive type " ++ pr_qualid ty ++
-          str " cannot be polymorphic here for the moment")
+          str " cannot be used in numeral notations because" ++
+          str " support for polymorphic inductive types is not yet implemented")
     | ConstRef _ | ConstructRef _ | VarRef _ ->
        CErrors.user_err
         (pr_qualid ty ++ str " is not an inductive type")
@@ -435,7 +436,9 @@ let vernac_numeral_notation ty f g scope opts =
   let to_kind =
     if Global.is_polymorphic (Nametab.global f) then
       CErrors.user_err
-        (pr_qualid f ++ str " cannot be polymorphic for the moment")
+        (str "The function " ++ pr_qualid f ++ str " cannot be used" ++
+         str " in numeral notations because support for polymorphic" ++
+         str " printing and parsing functions is not yet implemented.")
     else if has_type f (arrow cint cty) then Int int_ty, Direct
     else if has_type f (arrow cint (opt cty)) then Int int_ty, Option
     else if has_type f (arrow cuint cty) then UInt int_ty.uint, Direct
