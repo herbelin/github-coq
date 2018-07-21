@@ -45,9 +45,11 @@ let evar_list sigma c =
     | _ -> EConstr.fold sigma evrec acc c in
   evrec [] c
 
-let instantiate_tac n c ido =
+(* [c] is expected to be in the context of the current goal *)
+let instantiate_tac n (ist,rawc) ido =
   Proofview.V82.tactic begin fun gl ->
   let sigma = gl.sigma in
+  let env = pf_env gl in
   let evl =
     match ido with
 	ConclLocation () -> evar_list sigma (pf_concl gl)
@@ -67,10 +69,18 @@ let instantiate_tac n c ido =
   if List.length evl < n then
     user_err Pp.(str "Not enough uninstantiated existential variables.");
   if n <= 0 then user_err Pp.(str "Incorrect existential variable index.");
-  let evk,_ = List.nth evl (n-1) in
-  instantiate_evar evk c sigma gl
+  let ev = List.nth evl (n-1) in
+  let typ = Retyping.get_type_of env sigma (EConstr.mkEvar ev) in
+  let expected_type = Pretyping.OfType typ in
+  let sigma,c = Tacinterp.interp_open_constr_with_classes ~expected_type ist env sigma (rawc,None) in
+  let conv = Evarconv.evar_conv_x Names.full_transparent_state in
+  let sigma = match Evarsolve.solve_simple_eqn conv env sigma (None,ev,c) with
+  | Evarsolve.UnifFailure (sigma,e) -> raise (Evarconv.UnableToUnify (sigma,e))
+  | Evarsolve.Success sigma -> sigma in
+  tclEVARS sigma gl
   end
 
+(* [c] is expected to be in the context of the evar [id] *)
 let instantiate_tac_by_name id c =
   Proofview.V82.tactic begin fun gl ->
   let sigma = gl.sigma in
