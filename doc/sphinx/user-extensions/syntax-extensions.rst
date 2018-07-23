@@ -1244,11 +1244,7 @@ the way numeral literals are parsed and printed:
     more compact representation of literals in types such as :g:`nat`,
     and limits parse failures due to stack overflow.  Note that a
     warning will be emitted when an integer larger than :token:`num`
-    is parsed.  For example
-
-    .. coqtop:: all
-
-       Check 90000.
+    is parsed.
 
   .. exn:: Cannot interpret this number as a value of type @type
 
@@ -1324,6 +1320,12 @@ the way numeral literals are parsed and printed:
     Typically, this indicates that the fully computed representation
     of numerals can be so large that non-tail-recursive OCaml
     functions run out of stack space when trying to walk them.
+
+    For example
+
+    .. coqtop:: all
+
+       Check 90000.
 
 
 .. _TacticNotation:
