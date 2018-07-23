@@ -1310,6 +1310,21 @@ the way numeral literals are parsed and printed:
     Both functions passed to :cmd:`Numeral Notation` must be single
     identifiers.
 
+  .. warn:: Stack overflow or segmentation fault happens when working with large numbers in @type (threshold may vary depending on your system limits and on the command executed).
+
+    When a :cmd:`Numeral Notation` is registered in the current scope
+    with :n:`(warning after @num)`, this warning is emitted when
+    parsing a numeral greater than or equal to :token:`num`.
+
+  .. warn:: To avoid stack overflow, large numbers in @type are interpreted as applications of @ident__2.
+
+    When a :cmd:`Numeral Notation` is registered in the current scope
+    with :n:`(abstract after @num)`, this warning is emitted when
+    parsing a numeral greater than or equal to :token:`num`.
+    Typically, this indicates that the fully computed representation
+    of numerals can be so large that non-tail-recursive OCaml
+    functions run out of stack space when trying to walk them.
+
 
 .. _TacticNotation:
 
