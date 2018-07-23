@@ -1205,118 +1205,110 @@ the way numeral literals are parsed and printed:
 
 .. cmd:: Numeral Notation @ident__1 @ident__2 @ident__3 : @scope.
 
-In the previous line, :token:`ident__1` should be the name of an
-inductive type, while :token:`ident__2` and :token:`ident__3` should
-be the names of the parsing and printing functions, respectively.  The
-parsing function :token:`ident__2` should have one of the following
-types:
+  In the previous line, :n:`@ident__1` should be the name of an
+  inductive type, while :n:`@ident__2` and :n:`@ident__3` should be
+  the names of the parsing and printing functions, respectively.  The
+  parsing function :n:`@ident__2` should have one of the following
+  types:
 
-  * :n:`Decimal.int -> @ident__1`
-  * :n:`Decimal.int -> option @ident__1`
-  * :n:`Decimal.uint -> @ident__1`
-  * :n:`Decimal.uint -> option @ident__1`
-  * :n:`Z -> @ident__1`
-  * :n:`Z -> option @ident__1`
+    * :n:`Decimal.int -> @ident__1`
+    * :n:`Decimal.int -> option @ident__1`
+    * :n:`Decimal.uint -> @ident__1`
+    * :n:`Decimal.uint -> option @ident__1`
+    * :n:`Z -> @ident__1`
+    * :n:`Z -> option @ident__1`
 
-And the printing function :token:`ident__3` should have one of the
-following types:
+  And the printing function :n:`@ident__3` should have one of the
+  following types:
 
-  * :n:`@ident__1 -> Decimal.int`
-  * :n:`@ident__1 -> option Decimal.int`
-  * :n:`@ident__1 -> Decimal.uint`
-  * :n:`@ident__1 -> option Decimal.uint`
-  * :n:`@ident__1 -> Z`
-  * :n:`@ident__1 -> option Z`
+    * :n:`@ident__1 -> Decimal.int`
+    * :n:`@ident__1 -> option Decimal.int`
+    * :n:`@ident__1 -> Decimal.uint`
+    * :n:`@ident__1 -> option Decimal.uint`
+    * :n:`@ident__1 -> Z`
+    * :n:`@ident__1 -> option Z`
 
-.. cmdv:: Numeral Notation @ident__1 @ident__2 @ident__3 : @scope (warning after @num).
+  .. cmdv:: Numeral Notation @ident__1 @ident__2 @ident__3 : @scope (warning after @num).
 
-When a literal larger than :token:`num` is parsed, a warning message about
-possible stack overflow, resulting from evaluating :token:`ident__2`, will be
-displayed.
+    When a literal larger than :token:`num` is parsed, a warning
+    message about possible stack overflow, resulting from evaluating
+    :n:`@ident__2`, will be displayed.
 
-.. cmdv:: Numeral Notation @ident__1 @ident__2 @ident__3 : @scope (abstract after @num).
+  .. cmdv:: Numeral Notation @ident__1 @ident__2 @ident__3 : @scope (abstract after @num).
 
-When a literal :g:`m` larger than :token:`num` is parsed, the result
-will be :n:`(@ident__2 m)`, without reduction of this application to a
-normal form.  Here :g:`m` will be a :g:`Decimal.int` or
-:g:`Decimal.uint` or :g:`Z`, depending on the type of the parsing
-function :token:`ident__2`. This allows for a more compact
-representation of literals in types such as :g:`nat`, and limits parse
-failures due to stack overflow.  For example
+    When a literal :g:`m` larger than :token:`num` is parsed, the
+    result will be :n:`(@ident__2 m)`, without reduction of this
+    application to a normal form.  Here :g:`m` will be a
+    :g:`Decimal.int` or :g:`Decimal.uint` or :g:`Z`, depending on the
+    type of the parsing function :n:`@ident__2`. This allows for a
+    more compact representation of literals in types such as :g:`nat`,
+    and limits parse failures due to stack overflow.  Note that a
+    warning will be emitted when an integer larger than :token:`num`
+    is parsed.  For example
 
-.. coqtop:: all
+    .. coqtop:: all
 
-   Check 90000.
+       Check 90000.
 
-.. exn:: Cannot interpret this number as a value of type @type
+  .. exn:: Cannot interpret this number as a value of type @type
 
-  The numeral notation registered for :g:`ty` does not support the
-  given numeral.  This error is given when the interpretation function
-  returns :g:`None`, or if the interpretation is registered for only
-  non-negative integers, and the given numeral is negative.
+    The numeral notation registered for :g:`ty` does not support the
+    given numeral.  This error is given when the interpretation
+    function returns :g:`None`, or if the interpretation is registered
+    for only non-negative integers, and the given numeral is negative.
 
-.. exn:: @ident should go from Decimal.int to @type or (option @type).
-         Instead of Decimal.int, the types Decimal.uint or Z could be
-         used{? (require BinNums first)}.
+  .. exn:: @ident should go from Decimal.int to @type or (option @type). Instead of Decimal.int, the types Decimal.uint or Z could be used{? (require BinNums first)}.
 
-  The parsing function given to the :g:`Numeral Notation` vernacular
-  is not of the right type.
+    The parsing function given to the :cmd:`Numeral Notation`
+    vernacular is not of the right type.
 
-.. exn:: @ident should go from @type to Decimal.int or (option
-         Decimal.int).  Instead of Decimal.int, the the types
-         Decimal.uint or Z could be used{? (require BinNums first)}.
+  .. exn:: @ident should go from @type to Decimal.int or (option Decimal.int).  Instead of Decimal.int, the the types Decimal.uint or Z could be used{? (require BinNums first)}.
 
-  The printing function given to the :g:`Numeral Notation` vernacular
-  is not of the right type.
+    The printing function given to the :cmd:`Numeral Notation`
+    vernacular is not of the right type.
 
-.. exn:: @type is not an inductive type
+  .. exn:: @type is not an inductive type
 
-  Numeral notations can only be declared for inductive types with no
-  arguments.
+    Numeral notations can only be declared for inductive types with no
+    arguments.
 
-.. exn:: The inductive type @type cannot be used in numeral notations
-         because support for polymorphic inductive types is not yet
-         implemented
+  .. exn:: The inductive type @type cannot be used in numeral notations because support for polymorphic inductive types is not yet implemented.
 
-  Numeral notations do not currently support polymorphic inductive
-  types.  Ensure that all types involved in numeral notations are
-  declared with :g:`Unset Universe Polymorphism`, or with the
-  :g:`Monomorphic` attribute.
+    Numeral notations do not currently support polymorphic inductive
+    types.  Ensure that all types involved in numeral notations are
+    declared with :g:`Unset Universe Polymorphism`, or with the
+    :g:`Monomorphic` attribute.
 
-.. exn:: The function @ident cannot be used in numeral notations
-         because support for polymorphic printing and parsing
-         functions is not yet implemented.
+  .. exn:: The function @ident cannot be used in numeral notations because support for polymorphic printing and parsing functions is not yet implemented.
 
-  Numeral notations do not currently support polymorphic functions for
-  printing and parsing.  Ensure that both functions passed to
-  :g:`Numeral Notation` are defined with :g:`Unset Universe
-  Polymorphism`, or with the :g:`Monomorphic` attribute.
+    Numeral notations do not currently support polymorphic functions
+    for printing and parsing.  Ensure that both functions passed to
+    :cmd:`Numeral Notation` are defined with :g:`Unset Universe
+    Polymorphism`, or with the :g:`Monomorphic` attribute.
 
-.. exn:: Unexpected term while parsing a numeral notation
+  .. exn:: Unexpected term while parsing a numeral notation
 
-  Parsing functions must always return ground terms, made up of
-  applications of constructors and inductive types.  Parsing functions
-  may not return terms containing axioms, bare (co)fixpoints, lambdas,
-  etc.
+    Parsing functions must always return ground terms, made up of
+    applications of constructors and inductive types.  Parsing
+    functions may not return terms containing axioms, bare
+    (co)fixpoints, lambdas, etc.
 
-.. exn:: Unexpected non-option term while parsing a numeral notation
+  .. exn:: Unexpected non-option term while parsing a numeral notation
 
-  Parsing functions expected to return an :g:`option` must always
-  return a concrete :g:`Some` or :g:`None` when applied to a concrete
-  numeral expressed as a decimal.  They may not return opaque
-  constants.
+    Parsing functions expected to return an :g:`option` must always
+    return a concrete :g:`Some` or :g:`None` when applied to a
+    concrete numeral expressed as a decimal.  They may not return
+    opaque constants.
 
-.. exn:: Syntax error: [prim:reference] expected after 'Notation' (in
-         [vernac:command]).
+  .. exn:: Syntax error: [prim:reference] expected after 'Notation' (in [vernac:command]).
 
-  The type passed to :g:`Numeral Notation` must be a single
-  identifier.
+    The type passed to :cmd:`Numeral Notation` must be a single
+    identifier.
 
-.. exn:: Syntax error: [prim:reference] expected after
-         [prim:reference] (in [vernac:command]).
+  .. exn:: Syntax error: [prim:reference] expected after [prim:reference] (in [vernac:command]).
 
-  Both functions passed to :g:`Numeral Notation` must be single
-  identifiers.
+    Both functions passed to :cmd:`Numeral Notation` must be single
+    identifiers.
 
 
 .. _TacticNotation:
