@@ -122,7 +122,7 @@ analysis on inductive or co-inductive objects (see :ref:`variants`).
    .. insertprodn induction_clause induction_arg
 
    .. prodn::
-      induction_clause ::= @induction_arg {? as @or_and_intropattern } {? eqn : @naming_intropattern } {? @occurrences }
+      induction_clause ::= @induction_arg {? as @or_and_intropattern } {* gen:@ident} {? eqn : @naming_intropattern } {? @occurrences }
       induction_arg ::= @one_term_with_bindings
       | @natural
 
@@ -172,6 +172,17 @@ analysis on inductive or co-inductive objects (see :ref:`variants`).
       the term being case-analyzed and the associated constructor (applied to
       its arguments).  The name of the new item may be specified in the
       :n:`@naming_intropattern`.
+
+   :n:`gen : @ident`
+      Generalizes the induction hypothesis over hypothesis named :n:`@ident`. For instance:
+
+      .. example::
+
+         .. coqtop:: reset all
+
+            Lemma comm x y : x + y = y + x.
+            induction y gen:x.
+            Show 2.
 
    :n:`with @bindings`  (in :n:`@one_term_with_bindings`)
       Provides explicit instances for
