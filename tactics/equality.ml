@@ -546,9 +546,9 @@ let apply_special_clear_request clear_flag f =
       e when catchable_exception e -> tclIDTAC
   end
 
-type multi =
-  | Precisely of int
-  | UpTo of int
+type 'a multi =
+  | Precisely of 'a
+  | UpTo of 'a
   | RepeatStar
   | RepeatPlus
 

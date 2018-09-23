@@ -32,9 +32,9 @@ type quantified_hypothesis = Tactypes.quantified_hypothesis =
   | NamedHyp of Id.t [@ocaml.deprecated "Use version in [Tactypes]"]
 [@@ocaml.deprecated "use [Tactypes.quantified_hypothesis]"]
 
-type multi = Equality.multi =
-  | Precisely of int [@ocaml.deprecated "use version in [Equality]"]
-  | UpTo of int [@ocaml.deprecated "use version in [Equality]"]
+type 'a multi = 'a Equality.multi =
+  | Precisely of 'a [@ocaml.deprecated "use version in [Equality]"]
+  | UpTo of 'a [@ocaml.deprecated "use version in [Equality]"]
   | RepeatStar [@ocaml.deprecated "use version in [Equality]"]
   | RepeatPlus [@ocaml.deprecated "use version in [Equality]"]
 [@@ocaml.deprecated "use [Equality.multi]"]

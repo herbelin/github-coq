@@ -397,6 +397,12 @@ let interp_clause ist env sigma { onhyps=ol; concl_occs=occs } : clause =
   { onhyps=Option.map (interp_hyp_location_list ist env sigma) ol;
     concl_occs=interp_occurrences ist occs }
 
+let interp_multi ist m =
+  let open Equality in match m with
+  | Precisely n -> Precisely (interp_int_or_var ist n)
+  | UpTo n -> UpTo (interp_int_or_var ist n)
+  | RepeatStar | RepeatPlus as x -> x
+
 (* Interpretation of constructions *)
 
 (* Extract the constr list from lfun *)
@@ -1775,7 +1781,6 @@ and interp_atomic ist tac : unit Proofview.tactic =
       end
       end
 
-
   (* Equality and inversion *)
   | TacRewrite (ev,l,cl,by) ->
       Proofview.Goal.enter begin fun gl ->
@@ -1783,6 +1788,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
           let f env sigma =
             interp_open_constr_with_bindings ist env sigma c
           in
+          let m = interp_multi ist m in
 	  (b,m,keep,f)) l in
         let env = Proofview.Goal.env gl in
         let sigma = project gl in

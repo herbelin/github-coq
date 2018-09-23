@@ -213,6 +213,14 @@ let warn_deprecated_eqn_syntax =
   CWarnings.create ~name:"deprecated-eqn-syntax" ~category:"deprecated"
          (fun arg -> strbrk (Printf.sprintf "Syntax \"_eqn:%s\" is deprecated. Please use \"eqn:%s\" instead." arg arg))
 
+let coerce_constr_with_bindings_to_int_or_var = function
+  | (None,(c,NoBindings)) ->
+     (match c.CAst.v with 
+      | CRef (qid,None) when qualid_is_ident qid -> ArgVar (CAst.make ?loc:qid.CAst.loc (qualid_basename qid))
+      | CPrim (Numeral (n,true)) -> let n = int_of_string n in if n < 0 then err () else ArgArg n
+      | _ -> err ())
+  | _ -> err ()
+
 (* Auxiliary grammar rules *)
 
 open Pvernac.Vernac_
@@ -501,10 +509,10 @@ GRAMMAR EXTEND Gram
   rewriter :
     [ [ "!"; c = constr_with_bindings_arg -> { (Equality.RepeatPlus,c) }
       | ["?" -> { () } | LEFTQMARK -> { () } ]; c = constr_with_bindings_arg -> { (Equality.RepeatStar,c) }
-      | n = natural; "!"; c = constr_with_bindings_arg -> { (Equality.Precisely n,c) }
-      |	n = natural; ["?" -> { () } | LEFTQMARK -> { () } ]; c = constr_with_bindings_arg -> { (Equality.UpTo n,c) }
-      | n = natural; c = constr_with_bindings_arg -> { (Equality.Precisely n,c) }
-      | c = constr_with_bindings_arg -> { (Equality.Precisely 1, c) }
+      | n = constr_with_bindings_arg; "!"; c = constr_with_bindings_arg -> { (Equality.Precisely (coerce_constr_with_bindings_to_int_or_var n),c) }
+      |	n = constr_with_bindings_arg; ["?" -> { () } | LEFTQMARK -> { () } ]; c = constr_with_bindings_arg -> { (Equality.UpTo (coerce_constr_with_bindings_to_int_or_var n),c) }
+      | n = constr_with_bindings_arg; c = constr_with_bindings_arg -> { (Equality.Precisely (coerce_constr_with_bindings_to_int_or_var n),c) }
+      | c = constr_with_bindings_arg -> { (Equality.Precisely (ArgArg 1), c) }
       ] ]
   ;
   oriented_rewriter :
