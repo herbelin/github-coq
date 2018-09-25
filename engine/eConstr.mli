@@ -224,7 +224,6 @@ val compare_constr : Evd.evar_map -> (t -> t -> bool) -> t -> t -> bool
 (** {6 Iterators} *)
 
 val map : Evd.evar_map -> (t -> t) -> t -> t
-val map_user_view : Evd.evar_map -> (t -> t) -> t -> t
 val map_with_binders : Evd.evar_map -> ('a -> 'a) -> ('a -> t -> t) -> 'a -> t -> t
 val map_under_context : (t -> t) -> int -> t -> t
 val map_branches : (t -> t) -> case_info -> t array -> t array

@@ -478,13 +478,6 @@ val fold_with_full_binders :
 
 val map : (constr -> constr) -> constr -> constr
 
-(** [map_user_view f c] maps [f] on the immediate subterms of [c]; it
-   differs from [map f c] in that the typing context and body of the
-   return predicate and of the branches of a [match] are considered as
-   immediate subterm of a [match] *)
-
-val map_user_view : (constr -> constr) -> constr -> constr
-
 (** Like {!map}, but also has an additional accumulator. *)
 
 val fold_map : ('a -> constr -> 'a * constr) -> 'a -> constr -> 'a * constr

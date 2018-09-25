@@ -439,7 +439,7 @@ let fold f acc c = match kind c with
   | App (c,l) -> Array.fold_left f (f acc c) l
   | Proj (p,c) -> f acc c
   | Evar (_,l) -> Array.fold_left f acc l
-  | Case (_,p,c,bl) -> Array.fold_left f (f (f acc p) c) bl
+  | Case (ci,p,c,bl) -> fold_branches f ci (f (fold_return_predicate f ci acc p) c) bl
   | Fix (_,(lna,tl,bl)) ->
     Array.fold_left2 (fun acc t b -> f (f acc t) b) acc tl bl
   | CoFix (_,(lna,tl,bl)) ->
@@ -510,7 +510,7 @@ let iter f c = match kind c with
   | App (c,l) -> f c; Array.iter f l
   | Proj (p,c) -> f c
   | Evar (_,l) -> Array.iter f l
-  | Case (_,p,c,bl) -> f p; f c; Array.iter f bl
+  | Case (ci,p,c,bl) -> iter_return_predicate f ci p; f c; iter_branches f ci bl
   | Fix (_,(_,tl,bl)) -> Array.iter f tl; Array.iter f bl
   | CoFix (_,(_,tl,bl)) -> Array.iter f tl; Array.iter f bl
 
@@ -529,7 +529,10 @@ let iter_with_binders g f n c = match kind c with
   | LetIn (_,b,t,c) -> f n b; f n t; f (g n) c
   | App (c,l) -> f n c; Array.Fun1.iter f n l
   | Evar (_,l) -> Array.Fun1.iter f n l
-  | Case (_,p,c,bl) -> f n p; f n c; Array.Fun1.iter f n bl
+  | Case (ci,p,c,bl) ->
+     iter_return_predicate_with_binders g f n ci p;
+     f n c;
+     iter_branches_with_binders g f n ci bl
   | Proj (p,c) -> f n c
   | Fix (_,(_,tl,bl)) ->
       Array.Fun1.iter f n tl;
@@ -644,7 +647,7 @@ let map_return_predicate_with_full_binders g f l ci p =
    not recursive and the order with which subterms are processed is
    not specified *)
 
-let map_gen userview f c = match kind c with
+let map f c = match kind c with
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _
     | Construct _) -> c
   | Cast (b,k,t) ->
@@ -681,16 +684,10 @@ let map_gen userview f c = match kind c with
       let l' = Array.Smart.map f l in
       if l'==l then c
       else mkEvar (e, l')
-  | Case (ci,p,b,bl) when userview ->
+  | Case (ci,p,b,bl) ->
       let b' = f b in
       let p' = map_return_predicate f ci p in
       let bl' = map_branches f ci bl in
-      if b'==b && p'==p && bl'==bl then c
-      else mkCase (ci, p', b', bl')
-  | Case (ci,p,b,bl) ->
-      let b' = f b in
-      let p' = f p in
-      let bl' = Array.Smart.map f bl in
       if b'==b && p'==p && bl'==bl then c
       else mkCase (ci, p', b', bl')
   | Fix (ln,(lna,tl,bl)) ->
@@ -703,9 +700,6 @@ let map_gen userview f c = match kind c with
       let bl' = Array.Smart.map f bl in
       if tl'==tl && bl'==bl then c
       else mkCoFix (ln,(lna,tl',bl'))
-
-let map_user_view = map_gen true
-let map = map_gen false
 
 (** Like {!map} but with an accumulator. *)
 
@@ -771,8 +765,8 @@ let fold_map f acc c = match kind c with
       else acc, mkEvar (e, l')
   | Case (ci,p,b,bl) ->
       let acc, b' = f acc b in
-      let acc, p' = f acc p in
-      let acc, bl' = Array.Smart.fold_left_map f acc bl in
+      let acc, p' = fold_map_return_predicate f ci acc p in
+      let acc, bl' = fold_map_branches f ci acc bl in
       if b'==b && p'==p && bl'==bl then acc, c
       else acc, mkCase (ci, p', b', bl')
   | Fix (ln,(lna,tl,bl)) ->
@@ -830,9 +824,9 @@ let map_with_binders g f l c0 = match kind c0 with
     if al' == al then c0
     else mkEvar (e, al')
   | Case (ci, p, c, bl) ->
-    let p' = f l p in
+    let p' = map_return_predicate_with_binders g f l ci p in
     let c' = f l c in
-    let bl' = Array.Fun1.Smart.map f l bl in
+    let bl' = map_branches_with_binders g f l ci bl in
     if p' == p && c' == c && bl' == bl then c0
     else mkCase (ci, p', c', bl')
   | Fix (ln, (lna, tl, bl)) ->

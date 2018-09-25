@@ -63,20 +63,19 @@ val map_constr_with_full_binders :
   Evd.evar_map ->
   (rel_declaration -> 'a -> 'a) ->
   ('a -> constr -> constr) -> 'a -> constr -> constr
-val map_constr_with_full_binders_user_view :
-  Evd.evar_map ->
-  (rel_declaration -> 'a -> 'a) ->
-  ('a -> constr -> constr) -> 'a -> constr -> constr
 
 val fold_under_context_with_full_binders :
+  Evd.evar_map ->
   (rel_declaration -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
     'a -> 'b -> int -> constr -> 'b
 
 val fold_branches_with_full_binders :
+  Evd.evar_map ->
   (rel_declaration -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
     'a -> case_info -> 'b -> constr array -> 'b
 
 val fold_return_predicate_with_full_binders :
+  Evd.evar_map ->
   (rel_declaration -> 'a -> 'a) -> ('a -> 'b -> constr -> 'b) ->
     'a -> case_info -> 'b -> constr -> 'b
 

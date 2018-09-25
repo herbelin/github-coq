@@ -643,12 +643,12 @@ let strong_with_flags whdfun flags env sigma t =
 
 let strong whdfun env sigma t =
   let rec strongrec env t =
-    map_constr_with_full_binders_user_view sigma push_rel strongrec env
+    map_constr_with_full_binders sigma push_rel strongrec env
       (whdfun env sigma t) in
   strongrec env t
 
 let local_strong whdfun sigma =
-  let rec strongrec t = map_user_view sigma strongrec (whdfun sigma t) in
+  let rec strongrec t = map sigma strongrec (whdfun sigma t) in
   strongrec
 
 let rec strong_prodspine redfun sigma c =
