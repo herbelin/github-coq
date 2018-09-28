@@ -430,4 +430,4 @@ let get_ltac_trace (_, info) =
   | None -> None
   | Some trace -> Some (extract_ltac_trace ?loc trace)
 
-let () = ExplainErr.register_additional_error_info get_ltac_trace
+let () = CErrors.register_additional_error_info get_ltac_trace

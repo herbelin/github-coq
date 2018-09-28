@@ -69,8 +69,9 @@ Even stranger, consider:*)
       pose z.
 
 (*This works fine.  But if I change the period to a semicolon, I get:*)
-
-      Fail let term := constr:(I) in
+(*Previously, this was giving Anomaly: Uncaught exception
+  Not_found. Please report. *)
+      let term := constr:(I) in
   let T := type of term in
   let x := constr:((_ : abstract_term term) : T) in
   let y := (eval cbv iota in (let v : T := x in v)) in
@@ -78,11 +79,12 @@ Even stranger, consider:*)
     let x' := fresh "x'" in
     pose x as x';
       let x := (eval cbv delta [x'] in x') in
-      pose x. (* Anomaly: Uncaught exception Not_found. Please report. *)
+      pose x.
  (* should succeed *)
-(*and if I use the second one instead of [pose x] (note that using [idtac] works fine), I get:*)
 
- Fail  let term := constr:(I) in
+(*and if I use the second one instead of [pose x] (note that using [idtac] works fine), this used to give: Error: Variable x should be bound to a term. *)
+
+  let term := constr:(I) in
   let T := type of term in
   let x := constr:((_ : abstract_term term) : T) in
   let y := (eval cbv iota in (let v : T := x in v)) in

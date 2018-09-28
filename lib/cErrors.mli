@@ -74,6 +74,8 @@ exception Unhandled
 
 val register_handler : (exn -> Pp.t) -> unit
 
+val register_additional_error_info : (Util.iexn -> (Pp.t option Loc.located) option) -> unit
+
 (** The standard exception printer *)
 val print : ?info:Exninfo.info -> exn -> Pp.t
 val iprint : Exninfo.iexn -> Pp.t

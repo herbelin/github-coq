@@ -54,18 +54,45 @@ exception Unhandled
 
 let register_handler h = handle_stack := h::!handle_stack
 
+(** Additional extractors of information *)
+
+let additional_error_info = ref []
+
+let register_additional_error_info f =
+  additional_error_info := f :: !additional_error_info
+
+(** *)
+
+let print_backtrace info = match Backtrace.get_backtrace info with
+| None -> mt ()
+| Some bt ->
+  let bt = Backtrace.repr bt in
+  let pr_frame f = str (Backtrace.print_frame f) in
+  let bt = prlist_with_sep fnl pr_frame bt in
+  fnl () ++ hov 0 bt
+
 (** [print_gen] is a general exception printer which tries successively
     all the handlers of a list, and finally a [bottom] handler if all
     others have failed *)
 
-let rec print_gen bottom stk e =
-  match stk with
+let print_gen bottom stk (e,info as ei) =
+  let rec aux e = function
   | [] -> bottom e
   | h::stk' ->
     try h e
     with
-    | Unhandled -> print_gen bottom stk' e
-    | any -> print_gen bottom stk' any
+    | Unhandled -> aux e stk'
+    | any -> aux any stk' in
+  let ei' =
+    try Some (CList.find_map (fun f -> f ei) !additional_error_info)
+    with _ -> None
+  in
+  let add_loc_opt ?loc info = Option.cata (fun l -> Loc.add_loc info l) info loc in
+  let msg, info = match ei' with
+  | None -> mt (), info
+  | Some (loc, None) -> mt (), add_loc_opt ?loc info
+  | Some (loc, Some msg) -> msg, add_loc_opt ?loc info in
+  msg ++ aux e stk ++ print_backtrace info
 
 (** Only anomalies should reach the bottom of the handler stack.
     In usual situation, the [handle_stack] is treated as it if was always
@@ -81,14 +108,6 @@ let raw_anomaly e = match e with
   | Assert_failure _ | Match_failure _ -> str (Printexc.to_string e) ++ str "."
   | _ -> str "Uncaught exception " ++ str (Printexc.to_string e) ++ str "."
 
-let print_backtrace e = match Backtrace.get_backtrace e with
-| None -> mt ()
-| Some bt ->
-  let bt = Backtrace.repr bt in
-  let pr_frame f = str (Backtrace.print_frame f) in
-  let bt = prlist_with_sep fnl pr_frame bt in
-  fnl () ++ hov 0 bt
-
 let print_anomaly askreport e =
   if askreport then
     hov 0 (str "Anomaly" ++ spc () ++ quote (raw_anomaly e)) ++ spc () ++
@@ -98,15 +117,16 @@ let print_anomaly askreport e =
 
 (** The standard exception printer *)
 let print ?(info = Exninfo.null) e =
-  print_gen (print_anomaly true) !handle_stack e ++ print_backtrace info
+  print_gen (print_anomaly true) !handle_stack (e,info)
 
 let iprint (e, info) = print ~info e
 
 (** Same as [print], except that the "Please report" part of an anomaly
     isn't printed (used in Ltac debugging). *)
-let print_no_report e = print_gen (print_anomaly false) !handle_stack e
-let iprint_no_report (e, info) =
-  print_gen (print_anomaly false) !handle_stack e ++ print_backtrace info
+let print_no_report e =
+  print_gen (print_anomaly false) !handle_stack (e,Exninfo.null)
+let iprint_no_report ei =
+  print_gen (print_anomaly false) !handle_stack ei
 
 (** Predefined handlers **)
 
@@ -135,5 +155,5 @@ exception Bottom
 
 let handled e =
   let bottom _ = raise Bottom in
-  try let _ = print_gen bottom !handle_stack e in true
+  try let _ = print_gen bottom !handle_stack (e,Exninfo.null) in true
   with Bottom -> false
