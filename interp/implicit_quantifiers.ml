@@ -230,7 +230,7 @@ let implicit_application env ?(allow_partial=true) f ty =
     | Some ({CAst.loc;v=(id, par, inst)}, gr) ->
 	let avoid = Id.Set.union env (ids_of_list (free_vars_of_constr_expr ty ~bound:env [])) in
 	let c, avoid =
-	  let c = class_info gr in
+          let c = class_info (Global.env ()) gr in
 	  let (ci, rd) = c.cl_context in
 	  if not allow_partial then
 	    begin

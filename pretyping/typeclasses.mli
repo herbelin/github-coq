@@ -56,7 +56,7 @@ type typeclass = {
 
 type instance
 
-val instances : GlobRef.t -> instance list
+val instances : env -> GlobRef.t -> instance list
 val typeclasses : unit -> typeclass list
 val all_instances : unit -> instance list
 
@@ -66,7 +66,7 @@ val new_instance : typeclass -> hint_info -> bool -> GlobRef.t -> instance
 val add_instance : instance -> unit
 val remove_instance : instance -> unit
 
-val class_info : GlobRef.t -> typeclass (** raises a UserError if not a class *)
+val class_info : env -> GlobRef.t -> typeclass (** raises a UserError if not a class *)
 
 
 (** These raise a UserError if not a class.
@@ -78,8 +78,8 @@ val dest_class_app : env -> evar_map -> EConstr.constr -> (typeclass * EConstr.E
 val typeclass_univ_instance : typeclass Univ.puniverses -> typeclass
 
 (** Just return None if not a class *)
-val class_of_constr : evar_map -> EConstr.constr -> (EConstr.rel_context * ((typeclass * EConstr.EInstance.t) * constr list)) option
-
+val class_of_constr : env -> evar_map -> EConstr.constr -> (EConstr.rel_context * ((typeclass * EConstr.EInstance.t) * constr list)) option
+  
 val instance_impl : instance -> GlobRef.t
 
 val hint_priority : instance -> int option

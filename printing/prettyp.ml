@@ -952,5 +952,5 @@ let print_all_instances () =
 
 let print_instances r =
   let env = Global.env () in
-  let inst = instances r in
+  let inst = instances env r in
     prlist_with_sep fnl (pr_instance env) inst

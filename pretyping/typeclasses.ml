@@ -129,13 +129,13 @@ let typeclass_univ_instance (cl, u) =
     { cl with cl_context = on_snd subst_ctx cl.cl_context;
       cl_props = subst_ctx cl.cl_props}
 
-let class_info c =
+let class_info env c =
   try GlobRef.Map.find c !classes
-  with Not_found -> not_a_class (Global.env()) (EConstr.of_constr (printable_constr_of_global c))
+  with Not_found -> not_a_class env (EConstr.of_constr (printable_constr_of_global c))
 
 let global_class_of_constr env sigma c =
   try let gr, u = Termops.global_of_constr sigma c in
-	class_info gr, u
+        class_info env gr, u
   with Not_found -> not_a_class env c
 
 let dest_class_app env sigma c =
@@ -147,8 +147,8 @@ let dest_class_arity env sigma c =
   let rels, c = decompose_prod_assum sigma c in
     rels, dest_class_app env sigma c
 
-let class_of_constr sigma c =
-  try Some (dest_class_arity (Global.env ()) sigma c)
+let class_of_constr env sigma c =
+  try Some (dest_class_arity env sigma c)
   with e when CErrors.noncritical e -> None
 
 let is_class_constr sigma c = 
@@ -217,7 +217,7 @@ let discharge_class (_,cl) =
   let discharge_context ctx' subst (grs, ctx) =
     let grs' =
       let newgrs = List.map (fun decl ->
-			     match decl |> RelDecl.get_type |> EConstr.of_constr |> class_of_constr Evd.empty with
+                             match decl |> RelDecl.get_type |> EConstr.of_constr |> class_of_constr (Global.env()) Evd.empty with
 			     | None -> None
                              | Some (_, ((tc,_), _)) -> Some tc.cl_impl)
 			    ctx'
@@ -243,7 +243,7 @@ let discharge_class (_,cl) =
   with Not_found -> (* not defined in the current section *)
     cl
 
-let rebuild_class cl = 
+let rebuild_class cl =
   try 
     let cst = Tacred.evaluable_of_global_reference (Global.env ()) cl.cl_impl in
       set_typeclass_transparency cst false false; cl
@@ -285,7 +285,7 @@ let build_subclasses ~check env sigma glob { hint_priority = pri } =
   let ty = EConstr.of_constr ty in
   let sigma = Evd.merge_context_set Evd.univ_rigid sigma ctx in
   let rec aux pri c ty path =
-      match class_of_constr sigma ty with
+      match class_of_constr env sigma ty with
       | None -> []
       | Some (rels, ((tc,u), args)) ->
 	let instapp = 
@@ -420,9 +420,10 @@ let remove_instance i =
   remove_instance_hint i.is_impl
 
 let declare_instance info local glob =
-  let ty, _ = Global.type_of_global_in_context (Global.env ()) glob in
+  let env = Global.env () in
+  let ty, _ = Global.type_of_global_in_context env glob in
   let info = Option.default {hint_priority = None; hint_pattern = None} info in
-    match class_of_constr Evd.empty (EConstr.of_constr ty) with
+    match class_of_constr env Evd.empty (EConstr.of_constr ty) with
     | Some (rels, ((tc,_), args) as _cl) ->
       assert (not (isVarRef glob) || local);
       add_instance (new_instance tc info (not local) glob)
@@ -435,7 +436,7 @@ let add_class cl =
 	     | Some (Backward, info) ->
 	       (match body with
 	       | None -> CErrors.user_err Pp.(str "Non-definable projection can not be declared as a subinstance")
-	       | Some b -> declare_instance (Some info) false (ConstRef b))
+               | Some b -> declare_instance (Some info) false (ConstRef b))
 	     | _ -> ())
   cl.cl_projs
 
@@ -475,8 +476,8 @@ let all_instances () =
     GlobRef.Map.fold (fun k v acc -> v :: acc) v acc)
     !instances []
 
-let instances r = 
-  let cl = class_info r in instances_of cl    
+let instances env r =
+  let cl = class_info env r in instances_of cl
 
 let is_class gr = 
   GlobRef.Map.exists (fun _ v -> GlobRef.equal v.cl_impl gr) !classes

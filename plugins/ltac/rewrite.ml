@@ -164,8 +164,8 @@ end) = struct
 
   let rewrite_relation_class = find_global relation_classes "RewriteRelation"
 
-  let proper_class = lazy (class_info (find_reference morphisms "Proper"))
-  let proper_proxy_class = lazy (class_info (find_reference morphisms "ProperProxy"))
+  let proper_class = lazy (class_info (Global.env()) (find_reference morphisms "Proper"))
+  let proper_proxy_class = lazy (class_info (Global.env()) (find_reference morphisms "ProperProxy"))
     
   let proper_proj = lazy (mkConst (Option.get (pi3 (List.hd (Lazy.force proper_class).cl_projs))))
     

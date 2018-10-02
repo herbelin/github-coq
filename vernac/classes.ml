@@ -71,7 +71,7 @@ let existing_instance glob g info =
   let info = intern_info info in
   let instance, _ = Global.type_of_global_in_context (Global.env ()) c in
   let _, r = Term.decompose_prod_assum instance in
-    match class_of_constr Evd.empty (EConstr.of_constr r) with
+    match class_of_constr (Global.env()) Evd.empty (EConstr.of_constr r) with
       | Some (_, ((tc,u), _)) -> add_instance (new_instance tc info glob c)
       | None -> user_err ?loc:g.CAst.loc
                          ~hdr:"declare_instance"
@@ -405,7 +405,7 @@ let context poly l =
         (DefinitionEntry entry, IsAssumption Logical)
       in
       let cst = Declare.declare_constant ~internal:Declare.InternalTacticRequest id decl in
-        match class_of_constr sigma (of_constr t) with
+        match class_of_constr env sigma (of_constr t) with
 	| Some (rels, ((tc,_), args) as _cl) ->
             add_instance (Typeclasses.new_instance tc Hints.empty_hint_info false (ConstRef cst));
             status
