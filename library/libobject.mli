@@ -74,7 +74,9 @@ type 'a object_declaration = {
   classify_function : 'a -> 'a substitutivity;
   subst_function :  substitution * 'a -> 'a;
   discharge_function : object_name * 'a -> 'a option;
-  rebuild_function : 'a -> 'a }
+  discharge_state_function : state:Summary.frozen -> object_name * 'a -> 'a option;
+  rebuild_function : 'a -> 'a;
+  rebuild_state_function : state:Summary.frozen -> 'a -> 'a }
 
 (** The default object is a "Keep" object with empty methods.
    Object creators are advised to use the construction

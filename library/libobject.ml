@@ -24,7 +24,9 @@ type 'a object_declaration = {
   classify_function : 'a -> 'a substitutivity;
   subst_function : Mod_subst.substitution * 'a -> 'a;
   discharge_function : object_name * 'a -> 'a option;
-  rebuild_function : 'a -> 'a }
+  discharge_state_function : state:Summary.frozen -> object_name * 'a -> 'a option;
+  rebuild_function : 'a -> 'a;
+  rebuild_state_function : state:Summary.frozen -> 'a -> 'a }
 
 let default_object s = {
   object_name = s;
@@ -35,7 +37,9 @@ let default_object s = {
     CErrors.anomaly (str "The object " ++ str s ++ str " does not know how to substitute!"));
   classify_function = (fun obj -> Keep obj);
   discharge_function = (fun _ -> None);
-  rebuild_function = (fun x -> x)}
+  discharge_state_function = (fun ~state _ -> None);
+  rebuild_function = (fun x -> x);
+  rebuild_state_function = (fun ~state x -> x)}
 
 
 (* The suggested object declaration is the following:
@@ -80,8 +84,16 @@ let declare_object_full odecl =
   | Keep obj -> Keep (infun obj)
   | Anticipate (obj) -> Anticipate (infun obj)
   and discharge (oname,lobj) =
-    Option.map infun (odecl.discharge_function (oname,outfun lobj))
-  and rebuild lobj = infun (odecl.rebuild_function (outfun lobj))
+    let state = Summary.freeze_summaries ~marshallable:`No in
+    Option.map infun
+      (let o = (oname,outfun lobj) in
+       match odecl.discharge_state_function ~state o with
+       | None -> odecl.discharge_function o
+       | x -> x)
+  and rebuild lobj =
+    let state = Summary.freeze_summaries ~marshallable:`No in
+    infun (odecl.rebuild_function
+             (odecl.rebuild_state_function ~state (outfun lobj)))
   in
   Hashtbl.add cache_tab na { dyn_cache_function = cacher;
 			     dyn_load_function = loader;

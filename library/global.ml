@@ -284,3 +284,7 @@ let set_reduction_sharing b =
   let flags = { flags with Declarations.share_reduction = b } in
   let env = Safe_typing.set_typing_flags flags env in
   GlobalSafeEnv.set_safe_env env
+
+let project_env state =
+  Safe_typing.env_of_safe_env
+    (Summary.project_from_summary state global_env_summary_tag)
