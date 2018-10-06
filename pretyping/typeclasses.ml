@@ -193,7 +193,8 @@ let subst_class (subst,cl) =
     cl_strict = cl.cl_strict;
     cl_unique = cl.cl_unique }
 
-let discharge_class (_,cl) =
+let discharge_class ~state (_,cl) =
+  let env = Global.project_env state in
   let repl = Lib.replacement_context () in
   let rel_of_variable_context ctx = List.fold_right
     ( fun (decl,_) (ctx', subst) ->
@@ -217,7 +218,7 @@ let discharge_class (_,cl) =
   let discharge_context ctx' subst (grs, ctx) =
     let grs' =
       let newgrs = List.map (fun decl ->
-                             match decl |> RelDecl.get_type |> EConstr.of_constr |> class_of_constr (Global.env()) Evd.empty with
+                             match decl |> RelDecl.get_type |> EConstr.of_constr |> class_of_constr env Evd.empty with
 			     | None -> None
                              | Some (_, ((tc,_), _)) -> Some tc.cl_impl)
 			    ctx'
@@ -243,9 +244,10 @@ let discharge_class (_,cl) =
   with Not_found -> (* not defined in the current section *)
     cl
 
-let rebuild_class cl =
+let rebuild_class ~state cl =
+  let env = Global.project_env state in
   try 
-    let cst = Tacred.evaluable_of_global_reference (Global.env ()) cl.cl_impl in
+    let cst = Tacred.evaluable_of_global_reference env cl.cl_impl in
       set_typeclass_transparency cst false false; cl
   with e when CErrors.noncritical e -> cl
 
@@ -256,8 +258,8 @@ let class_input : typeclass -> obj =
       load_function = (fun _ -> load_class);
       open_function = (fun _ -> load_class);
       classify_function = (fun x -> Substitute x);
-      discharge_function = (fun a -> Some (discharge_class a));
-      rebuild_function = rebuild_class;
+      discharge_state_function = (fun ~state a -> Some (discharge_class ~state a));
+      rebuild_state_function = rebuild_class;
       subst_function = subst_class }
 
 let add_class cl =
