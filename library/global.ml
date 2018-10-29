@@ -128,19 +128,7 @@ let exists_objlabel id = Safe_typing.exists_objlabel id (safe_env ())
 
 let opaque_tables () = Environ.opaque_tables (env ())
 
-let instantiate cb c =
-  let open Declarations in
-  match cb.const_universes with
-  | Monomorphic_const _ -> c, Univ.AUContext.empty
-  | Polymorphic_const ctx -> c, ctx
-
-let body_of_constant_body cb =
-  let open Declarations in
-  let otab = opaque_tables () in
-  match cb.const_body with
-  | Undef _ -> None
-  | Def c -> Some (instantiate cb (Mod_subst.force_constr c))
-  | OpaqueDef o -> Some (instantiate cb (Opaqueproof.force_proof otab o))
+let body_of_constant_body ce = body_of_constant_body (env ()) ce
 
 let body_of_constant cst = body_of_constant_body (lookup_constant cst)
 
