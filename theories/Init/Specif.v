@@ -755,7 +755,7 @@ Section Dependent_choice_lemmas.
 
   Lemma dependent_choice :
     (forall x:X, {y | R x y}) ->
-    forall x0, {f : nat -> X | f O = x0 /\ forall n, R (f n) (f (S n))}.
+    forall x0, {f : nat -> X | f O = x0 /\ (forall n, R (f n) (f (S n)))}.
   Proof.
     intros H x0.
     set (f:=fix f n := match n with O => x0 | S n' => proj1_sig (H (f n')) end).

@@ -675,7 +675,7 @@ Definition subrelation (A B : Type) (R R' : A->B->Prop) :=
   forall x y, R x y -> R' x y.
 
 Definition unique (A : Type) (P : A->Prop) (x:A) :=
-  P x /\ forall (x':A), P x' -> x=x'.
+  P x /\ (forall (x':A), P x' -> x=x').
 
 Definition uniqueness (A:Type) (P:A->Prop) := forall x y, P x -> P y -> x = y.
 

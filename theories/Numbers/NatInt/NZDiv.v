@@ -536,7 +536,7 @@ Qed.
 (** mod is related to divisibility *)
 
 Lemma mod_divides : forall a b, 0<=a -> 0<b ->
- (a mod b == 0 <-> exists c, a == b*c).
+ (a mod b == 0 <-> (exists c, a == b*c)).
 Proof.
  split.
  intros. exists (a/b). rewrite div_exact; auto.

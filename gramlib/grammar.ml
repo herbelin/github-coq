@@ -361,22 +361,28 @@ let continue entry bp a s son p1 (strm__ : _ Stream.t) =
   in
   Gramext.action (fun _ -> app act a)
 
-let do_recover parser_of_tree entry nlevn alevn bp a s son
+let restart_from_top = ref false
+
+let continue_on_failing_partially_consumed_rule = ref true
+
+let recover parser_of_tree entry nlevn alevn bp a s son
     (strm__ : _ Stream.t) =
-  try parser_of_tree entry nlevn alevn (top_tree entry son) strm__ with
+  try
+    if !restart_from_top then
+      parser_of_tree entry nlevn alevn (top_tree entry son) strm__
+    else
+      raise Stream.Failure
+  with
     Stream.Failure ->
       try
         skip_if_empty bp (fun (strm__ : _ Stream.t) -> raise Stream.Failure)
           strm__
       with Stream.Failure ->
-        continue entry bp a s son (parser_of_tree entry nlevn alevn son)
-          strm__
-
-let strict_parsing = ref false
-
-let recover parser_of_tree entry nlevn alevn bp a s son strm =
-  if !strict_parsing then raise (Stream.Error (tree_failed entry a s son))
-  else do_recover parser_of_tree entry nlevn alevn bp a s son strm
+        if !continue_on_failing_partially_consumed_rule then
+          raise (Stream.Error (tree_failed entry a s son))
+        else
+          continue entry bp a s son (parser_of_tree entry nlevn alevn son)
+            strm__
 
 let token_count = ref 0
 

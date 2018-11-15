@@ -314,7 +314,7 @@ Proof.
 Qed.
 
 Lemma sqrt_eq_succ_iff_square : forall a, 0<=a ->
- (√(S a) == S (√a) <-> exists b, 0<b /\ S a == b²).
+ (√(S a) == S (√a) <-> (exists b, 0<b /\ S a == b²)).
 Proof.
  intros a Ha. split.
  intros EQ. exists (S (√a)).
@@ -524,7 +524,7 @@ Proof.
 Qed.
 
 Lemma sqrt_sqrt_up_exact :
- forall a, 0<=a -> (√a == √°a <-> exists b, 0<=b /\ a == b²).
+ forall a, 0<=a -> (√a == √°a <-> (exists b, 0<=b /\ a == b²)).
 Proof.
  intros a Ha.
  split. intros. exists √a.
@@ -668,7 +668,7 @@ Proof.
 Qed.
 
 Lemma sqrt_up_eq_succ_iff_square : forall a, 0<=a ->
- (√°(S a) == S (√°a) <-> exists b, 0<=b /\ a == b²).
+ (√°(S a) == S (√°a) <-> (exists b, 0<=b /\ a == b²)).
 Proof.
  intros a Ha. split.
  intros EQ.

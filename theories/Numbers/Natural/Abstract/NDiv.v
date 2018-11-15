@@ -237,7 +237,7 @@ Proof. intros. apply div_mul_le; auto'. Qed.
 (** mod is related to divisibility *)
 
 Lemma mod_divides : forall a b, b~=0 ->
- (a mod b == 0 <-> exists c, a == b*c).
+ (a mod b == 0 <-> (exists c, a == b*c)).
 Proof. intros. apply mod_divides; auto'. Qed.
 
 End NDivProp.

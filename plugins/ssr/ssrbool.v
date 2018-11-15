@@ -479,14 +479,14 @@ Lemma ifN : ~~ b -> (if b then vT else vF) = vF. Proof. by move/negbTE->. Qed.
 Lemma if_same : (if b then vT else vT) = vT.
 Proof. by case b. Qed.
 
-Lemma if_neg : (if ~~ b then vT else vF) = if b then vF else vT.
+Lemma if_neg : (if ~~ b then vT else vF) = (if b then vF else vT).
 Proof. by case b. Qed.
 
-Lemma fun_if : f (if b then vT else vF) = if b then f vT else f vF.
+Lemma fun_if : f (if b then vT else vF) = (if b then f vT else f vF).
 Proof. by case b. Qed.
 
 Lemma if_arg (fT fF : A -> B) :
-  (if b then fT else fF) x = if b then fT x else fF x.
+  (if b then fT else fF) x = (if b then fT x else fF x).
 Proof. by case b. Qed.
 
 (**  Turning a boolean "if" form into an application.  **)

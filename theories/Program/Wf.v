@@ -65,8 +65,8 @@ Section Well_founded.
   Lemma fix_sub_eq :
     forall x : A,
       Fix_sub x =
-      let f_sub := F_sub in
-        f_sub x (fun y: {y : A | R y x} => Fix_sub (`y)).
+      (let f_sub := F_sub in
+        f_sub x (fun y: {y : A | R y x} => Fix_sub (`y))).
   Proof.
     exact Fix_eq.
   Qed.

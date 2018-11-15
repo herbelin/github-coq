@@ -355,7 +355,7 @@ Proof.
 Qed.
 
 Lemma log2_eq_succ_iff_pow2 : forall a, 0<a ->
- (log2 (S a) == S (log2 a) <-> exists b, S a == 2^b).
+ (log2 (S a) == S (log2 a) <-> (exists b, S a == 2^b)).
 Proof.
  intros a Ha.
  split. apply log2_eq_succ_is_pow2.
@@ -593,7 +593,7 @@ Proof.
 Qed.
 
 Lemma log2_log2_up_exact :
- forall a, 0<a -> (log2 a == log2_up a <-> exists b, a == 2^b).
+ forall a, 0<a -> (log2 a == log2_up a <-> (exists b, a == 2^b)).
 Proof.
  intros a Ha.
  split. intros. exists (log2 a).
@@ -821,7 +821,7 @@ Proof.
 Qed.
 
 Lemma log2_up_eq_succ_iff_pow2 : forall a, 0<a ->
- (log2_up (S a) == S (log2_up a) <-> exists b, a == 2^b).
+ (log2_up (S a) == S (log2_up a) <-> (exists b, a == 2^b)).
 Proof.
  intros a Ha.
  split. apply log2_up_eq_succ_is_pow2.

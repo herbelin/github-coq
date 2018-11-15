@@ -74,19 +74,19 @@ Qed.
 
 Ltac cases n := induction_maker n ltac:(apply case_analysis).
 
-Theorem neq_0 : ~ forall n, n == 0.
+Theorem neq_0 : ~ (forall n, n == 0).
 Proof.
 intro H; apply (neq_succ_0 0). apply H.
 Qed.
 
-Theorem neq_0_r : forall n, n ~= 0 <-> exists m, n == S m.
+Theorem neq_0_r : forall n, n ~= 0 <-> (exists m, n == S m).
 Proof.
 cases n. split; intro H;
 [now elim H | destruct H as [m H]; symmetry in H; false_hyp H neq_succ_0].
 intro n; split; intro H; [now exists n | apply neq_succ_0].
 Qed.
 
-Theorem zero_or_succ : forall n, n == 0 \/ exists m, n == S m.
+Theorem zero_or_succ : forall n, n == 0 \/ (exists m, n == S m).
 Proof.
 cases n.
 now left.

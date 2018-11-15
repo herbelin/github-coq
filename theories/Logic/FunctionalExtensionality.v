@@ -226,13 +226,13 @@ Tactic Notation "extensionality" "in" hyp(H) :=
 (** Eta expansion is built into Coq. *)
 
 Lemma eta_expansion_dep {A} {B : A -> Type} (f : forall x : A, B x) :
-  f = fun x => f x.
+  f = (fun x => f x).
 Proof.
   intros.
   reflexivity.
 Qed.
 
-Lemma eta_expansion {A B} (f : A -> B) : f = fun x => f x.
+Lemma eta_expansion {A B} (f : A -> B) : f = (fun x => f x).
 Proof.
   apply (eta_expansion_dep f).
 Qed.

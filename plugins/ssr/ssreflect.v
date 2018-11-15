@@ -266,8 +266,8 @@ Notation " #[# 'th' 'e' sT 'of' v : 'Type' #]#" := (@get Type sT v _ _)
  it uses phantom types (see below) and static unification; see fintype and
  ssralg for examples.                                                        **)
 
-Definition argumentType T P & forall x : T, P x := T.
-Definition dependentReturnType T P & forall x : T, P x := P.
+Definition argumentType T P & (forall x : T, P x) := T.
+Definition dependentReturnType T P & (forall x : T, P x) := P.
 Definition returnType aT rT & aT -> rT := rT.
 
 Notation "{ 'type' 'of' c 'for' s }" := (dependentReturnType c s)

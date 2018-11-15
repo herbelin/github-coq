@@ -17,7 +17,7 @@ Module Homomorphism (N1 N2 : NAxiomsRecSig).
 Local Notation "n == m" := (N2.eq n m) (at level 70, no associativity).
 
 Definition homomorphism (f : N1.t -> N2.t) : Prop :=
-  f N1.zero == N2.zero /\ forall n, f (N1.succ n) == N2.succ (f n).
+  f N1.zero == N2.zero /\ (forall n, f (N1.succ n) == N2.succ (f n)).
 
 Definition natural_isomorphism : N1.t -> N2.t :=
   N1.recursion N2.zero (fun (n : N1.t) (p : N2.t) => N2.succ p).
@@ -85,8 +85,8 @@ Local Notation h21 := Hom21.natural_isomorphism.
 
 Definition isomorphism (f1 : N1.t -> N2.t) (f2 : N2.t -> N1.t) : Prop :=
   Hom12.homomorphism f1 /\ Hom21.homomorphism f2 /\
-  forall n, N1.eq (f2 (f1 n)) n /\
-  forall n, N2.eq (f1 (f2 n)) n.
+  (forall n, N1.eq (f2 (f1 n)) n /\
+  (forall n, N2.eq (f1 (f2 n)) n)).
 
 Theorem iso_nat_iso : isomorphism h12 h21.
 Proof.
