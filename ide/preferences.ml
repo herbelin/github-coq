@@ -974,6 +974,7 @@ let configure ?(apply=(fun () -> ())) parent =
                    else library_url#get])
       library_url#get
   in
+(*
   let automatic_tactics =
     strings
       ~f:automatic_tactics#set
@@ -982,12 +983,14 @@ let configure ?(apply=(fun () -> ())) parent =
       automatic_tactics#get
 
   in
+*)
 
   let contextual_menus_on_goal = pbool "Contextual menus on goal" contextual_menus_on_goal in
 
   let misc = [contextual_menus_on_goal;stop_before;reset_on_tab_switch;
               vertical_tabs;opposite_tabs] in
 
+(*
   let add_user_query () =
     let input_string l v =
       match GToolbox.input_string ~title:l v with
@@ -1017,6 +1020,7 @@ let configure ?(apply=(fun () -> ())) parent =
       user_queries#get
 
   in
+*)
 
 (* ATTENTION !!!!! L'onglet Fonts doit etre en premier pour eviter un bug !!!!
    (shame on Benjamin) *)
@@ -1040,12 +1044,14 @@ let configure ?(apply=(fun () -> ())) parent =
      Section("Externals", None,
 	     [cmd_coqtop;cmd_coqc;cmd_make;cmd_coqmakefile; cmd_coqdoc;
 	      cmd_print;cmd_editor;cmd_browse;doc_url;library_url]);
+(*
      Section("Tactics Wizard", None,
 	     [automatic_tactics]);
+*)
      Section("Shortcuts", Some `PREFERENCES,
 	     [modifiers_valid; modifier_for_tactics;
         modifier_for_templates; modifier_for_display; modifier_for_navigation;
-        modifier_for_queries; user_queries]);
+        modifier_for_queries (*; user_queries *)]);
      Section("Misc", Some `ADD,
        misc)]
   in
