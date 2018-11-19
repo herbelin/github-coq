@@ -21,7 +21,7 @@ env:
   - COMPILER="4.07.0"
   - DUNE_VER=".1.2.1"
   - FINDLIB_VER=".1.8.0"
-  - LABLGTK="lablgtk.2.18.6 conf-gtksourceview.2"
+  - LABLGTK="lablgtk3 conf-gtksourceview3"
   - NATIVE_COMP="yes"
   - COQ_DEST="-local"
   - MAIN_TARGET="world"
