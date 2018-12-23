@@ -153,6 +153,7 @@ let numeric_prefix_list s =
   match string_split '.' (String.sub s 0 !i) with
   | [v] -> [v;"0";"0"]
   | [v1;v2] -> [v1;v2;"0"]
+  | [v1;v2;""] -> [v1;v2;"0"] (* e.g. because it ends with ".beta" *)
   | v -> v
 
 (** Combined existence and directory tests *)
@@ -753,7 +754,10 @@ let check_lablgtk_version src dir = match src with
 | OCamlFind ->
   let v, _ = tryrun camlexec.find ["query"; "-format"; "%v"; "lablgtk3"] in
   try
-    let vi = List.map s2i (numeric_prefix_list v) in
+    let vi = numeric_prefix_list v in
+    (* Temporary hack *)
+    if vi = ["3";"0";"beta3"] then (false, v) else
+    let vi = List.map s2i vi in
     if vi < [3; 0; 0] then
       (false, v)
     else
