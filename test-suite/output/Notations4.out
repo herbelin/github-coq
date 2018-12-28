@@ -107,3 +107,9 @@ Warning: The format modifier is irrelevant for only parsing rules.
 File "stdin", line 273, characters 0-63:
 Warning: The only parsing modifier has no effect in Reserved Notation.
 [irrelevant-reserved-notation-only-parsing,parsing]
+fun n : nat => myex n n
+     : nat -> Prop
+myex n n
+     : Prop
+The command has indeed failed with message:
+Invalid notation for pattern.

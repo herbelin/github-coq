@@ -273,3 +273,27 @@ Notation "###" := 0 (at level 0, only parsing, format "###").
 Reserved Notation "##" (at level 0, only parsing, format "##").
 
 End N.
+
+(* Some corner cases *)
+
+Module M.
+
+Notation myex a y := (a = 0 /\ ex (fun a => y = 0)).
+
+(* Using a binding variable both as itself as a binder name *)
+Check fun n : nat => myex n n.
+
+(* Can a section variable be used for itself and as a binding variable?
+   We accept it.
+ *)
+Section A.
+Variable n : nat.
+Check myex n n.
+End A.
+
+(* Can a qualified name be used for itself and as a binding variable?
+   We refuse it *)
+Axiom n : nat.
+Fail Check myex n n.
+
+End M.
