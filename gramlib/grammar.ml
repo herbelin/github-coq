@@ -1110,13 +1110,6 @@ let peek_nth n strm =
   in
   loop list n
 
-let item_skipped = ref false
-
-let call_and_push ps al strm =
-  item_skipped := false;
-  let a = ps strm in
-  let al = if !item_skipped then al else a :: al in item_skipped := false; al
-
 let token_ematch gram tok =
   let tematch = L.tok_match tok in
   fun tok -> tematch tok
@@ -1242,92 +1235,92 @@ and parser_of_symbol : type s tr a.
   fun entry nlevn ->
   function
   | Slist0 s ->
-      let ps = call_and_push (parser_of_symbol entry nlevn s) in
+      let ps = parser_of_symbol entry nlevn s in
       let rec loop al (strm__ : _ Stream.t) =
-        match try Some (ps al strm__) with Stream.Failure -> None with
-          Some al -> loop al strm__
+        match try Some (ps strm__) with Stream.Failure -> None with
+          Some a -> loop (a :: al) strm__
         | _ -> al
       in
       (fun (strm__ : _ Stream.t) ->
          let a = loop [] strm__ in List.rev a)
   | Slist0sep (symb, sep, false) ->
-      let ps = call_and_push (parser_of_symbol entry nlevn symb) in
+      let ps = parser_of_symbol entry nlevn symb in
       let pt = parser_of_symbol entry nlevn sep in
       let rec kont al (strm__ : _ Stream.t) =
         match try Some (pt strm__) with Stream.Failure -> None with
           Some v ->
-            let al =
-              try ps al strm__ with
+            let a =
+              try ps strm__ with
                 Stream.Failure ->
                   raise (Stream.Error (symb_failed entry v sep symb))
             in
-            kont al strm__
+            kont (a :: al) strm__
         | _ -> al
       in
       (fun (strm__ : _ Stream.t) ->
-         match try Some (ps [] strm__) with Stream.Failure -> None with
-           Some al -> let a = kont al strm__ in List.rev a
+         match try Some (ps strm__) with Stream.Failure -> None with
+           Some a -> let a = kont [a] strm__ in List.rev a
          | _ -> [])
   | Slist0sep (symb, sep, true) ->
-      let ps = call_and_push (parser_of_symbol entry nlevn symb) in
+      let ps = parser_of_symbol entry nlevn symb in
       let pt = parser_of_symbol entry nlevn sep in
       let rec kont al (strm__ : _ Stream.t) =
         match try Some (pt strm__) with Stream.Failure -> None with
           Some v ->
             begin match
-              (try Some (ps al strm__) with Stream.Failure -> None)
+              (try Some (ps strm__) with Stream.Failure -> None)
             with
-              Some al -> kont al strm__
+              Some a -> kont (a :: al) strm__
             | _ -> al
             end
         | _ -> al
       in
       (fun (strm__ : _ Stream.t) ->
-         match try Some (ps [] strm__) with Stream.Failure -> None with
-           Some al -> let a = kont al strm__ in List.rev a
+         match try Some (ps strm__) with Stream.Failure -> None with
+           Some a -> let a = kont [a] strm__ in List.rev a
          | _ -> [])
   | Slist1 s ->
-      let ps = call_and_push (parser_of_symbol entry nlevn s) in
+      let ps = parser_of_symbol entry nlevn s in
       let rec loop al (strm__ : _ Stream.t) =
-        match try Some (ps al strm__) with Stream.Failure -> None with
-          Some al -> loop al strm__
+        match try Some (ps strm__) with Stream.Failure -> None with
+          Some a -> loop (a :: al) strm__
         | _ -> al
       in
       (fun (strm__ : _ Stream.t) ->
-         let al = ps [] strm__ in
-         let a = loop al strm__ in List.rev a)
+         let a = ps strm__ in
+         let a = loop [a] strm__ in List.rev a)
   | Slist1sep (symb, sep, false) ->
-      let ps = call_and_push (parser_of_symbol entry nlevn symb) in
+      let ps = parser_of_symbol entry nlevn symb in
       let pt = parser_of_symbol entry nlevn sep in
       let rec kont al (strm__ : _ Stream.t) =
         match try Some (pt strm__) with Stream.Failure -> None with
           Some v ->
-            let al =
-              try ps al strm__ with
+            let a =
+              try ps strm__ with
                 Stream.Failure ->
                   let a =
                     try parse_top_symb entry symb strm__ with
                       Stream.Failure ->
                         raise (Stream.Error (symb_failed entry v sep symb))
                   in
-                  a :: al
+                  a
             in
-            kont al strm__
+            kont (a :: al) strm__
         | _ -> al
       in
       (fun (strm__ : _ Stream.t) ->
-         let al = ps [] strm__ in
-         let a = kont al strm__ in List.rev a)
+         let a = ps strm__ in
+         let a = kont [a] strm__ in List.rev a)
   | Slist1sep (symb, sep, true) ->
-      let ps = call_and_push (parser_of_symbol entry nlevn symb) in
+      let ps = parser_of_symbol entry nlevn symb in
       let pt = parser_of_symbol entry nlevn sep in
       let rec kont al (strm__ : _ Stream.t) =
         match try Some (pt strm__) with Stream.Failure -> None with
           Some v ->
             begin match
-              (try Some (ps al strm__) with Stream.Failure -> None)
+              (try Some (ps strm__) with Stream.Failure -> None)
             with
-              Some al -> kont al strm__
+              Some a -> kont (a :: al) strm__
             | _ ->
                 match
                   try Some (parse_top_symb entry symb strm__) with
@@ -1339,8 +1332,8 @@ and parser_of_symbol : type s tr a.
         | _ -> al
       in
       (fun (strm__ : _ Stream.t) ->
-         let al = ps [] strm__ in
-         let a = kont al strm__ in List.rev a)
+         let a = ps strm__ in
+         let a = kont [a] strm__ in List.rev a)
   | Sopt s ->
       let ps = parser_of_symbol entry nlevn s in
       (fun (strm__ : _ Stream.t) ->
