@@ -953,14 +953,16 @@ let rec tok_list_length : type a b. (a, b) tok_list -> int =
 
 let rec get_token_list : type s tr a r f.
   s ty_entry -> a pattern -> (r, f) tok_list -> (s, tr, a -> r) ty_tree -> (s, f) tok_tree option =
-  fun entry last_tok rev_tokl tree ->
+  fun last_tok rev_tokl tree ->
   match tree with
     Node (_, {node = Stoken tok; son = son; brother = DeadEnd}) ->
-      get_token_list entry tok (TokCns (last_tok, rev_tokl)) son
+      get_token_list tok (TokCns (last_tok, rev_tokl)) son
   | _ ->
      match rev_tokl with
      | TokNil -> None
      | _ -> Some (TokTree (last_tok, tree, rev_tokl))
+
+
 
 let rec name_of_symbol_failed : type s tr a. s ty_entry -> (s, tr, a) ty_symbol -> _ =
   fun entry ->
@@ -978,7 +980,7 @@ and name_of_tree_failed : type s tr a. s ty_entry -> (s, tr, a) ty_tree -> _ =
     Node (_, {node = s; brother = bro; son = son}) ->
       let tokl =
         match s with
-          Stoken tok -> get_token_list entry tok TokNil son
+          Stoken tok -> get_token_list tok TokNil son
         | _ -> None
       in
       begin match tokl with
@@ -1144,7 +1146,7 @@ let rec parser_of_tree : type s tr r. s ty_entry -> int -> int -> continuation_t
   | Node (_, {node = s; son = son; brother = DeadEnd}) ->
       let tokl =
         match s with
-          Stoken tok -> get_token_list entry tok TokNil son
+          Stoken tok -> get_token_list tok TokNil son
         | _ -> None
       in
       begin match tokl with
@@ -1166,7 +1168,7 @@ let rec parser_of_tree : type s tr r. s ty_entry -> int -> int -> continuation_t
   | Node (_, {node = s; son = son; brother = bro}) ->
       let tokl =
         match s with
-          Stoken tok -> get_token_list entry tok TokNil son
+          Stoken tok -> get_token_list tok TokNil son
         | _ -> None
       in
       match tokl with
