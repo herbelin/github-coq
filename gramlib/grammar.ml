@@ -1084,12 +1084,14 @@ let skip_if_empty bp p strm =
   if Stream.count strm == bp then fun a -> p strm
   else raise Stream.Failure
 
+(* Parse without allowing backtracking *)
+let must_succeed entry a s son ps strm =
+  try ps strm with Stream.Failure ->
+    raise (Stream.Error (tree_failed entry a s son))
+
 let continue entry bp a s son p1 toks (strm__ : _ Stream.t) =
   let a = (entry_of_symb entry s).econtinue 0 bp a toks strm__ in
-  let act =
-    try p1 strm__ with
-      Stream.Failure -> raise (Stream.Error (tree_failed entry a s son))
-  in
+  let act = must_succeed entry a s son p1 strm__ in
   fun _ -> act a
 
 let do_recover parser_of_tree entry nlevn alevn toks bp a s son
@@ -1153,11 +1155,7 @@ let rec parser_of_tree : type s tr r. s ty_entry -> int -> int -> continuation_t
           (fun (strm__ : _ Stream.t) ->
              let bp = Stream.count strm__ in
              let a = ps toks strm__ in
-             let act =
-               try p1 bp a strm__ with
-                 Stream.Failure ->
-                   raise (Stream.Error (tree_failed entry a s son))
-             in
+             let act = must_succeed entry a s son (p1 bp a) strm__ in
              act a)
       | Some (TokTree (last_tok, son, rev_tokl)) ->
           let lt = Stoken last_tok in
@@ -1181,12 +1179,8 @@ let rec parser_of_tree : type s tr r. s ty_entry -> int -> int -> continuation_t
              let bp = Stream.count strm in
              match try Some (ps strm) with Stream.Failure -> None with
                Some a ->
-                 begin match
-                   (try Some (p1 bp a strm) with Stream.Failure -> None)
-                 with
-                   Some act -> act a
-                 | None -> raise (Stream.Error (tree_failed entry a s son))
-                 end
+                 let act = must_succeed entry a s son (p1 bp a) strm in
+                 act a
              | None -> p2 strm)
       | Some (TokTree (last_tok, son, rev_tokl)) ->
           let lt = Stoken last_tok in
@@ -1222,9 +1216,8 @@ and parser_of_token_list : type s tr lt r f.
     fun (strm : _ Stream.t) ->
       let bp = Stream.count strm in
       let a = ps strm in
-      match try Some (p1 bp a strm) with Stream.Failure -> None with
-        Some act -> act a
-      | None -> raise (Stream.Error (tree_failed entry a (Stoken last_tok) son))
+      let act = must_succeed entry a (Stoken last_tok) son (p1 bp a) strm in
+      act a
   in
   let rec loop : type s f. _ -> (s, f) tok_list -> s parser_t -> f parser_t =
     fun n tokl plast -> match tokl with
