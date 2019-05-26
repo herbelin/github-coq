@@ -987,6 +987,10 @@ let rec add_starting_non_empty_tokens : type s tr r.
       match get_keyword_list tok TokNil son with
       | None -> tokl
       | Some (TokTree (last_tok,_,rev_tokl)) ->
+        let rec print : type r f. (r, f) tok_list -> unit = function
+          | TokCns (last_tok, rev_tokl) -> print rev_tokl; Printf.printf " %s%!" (Option.get (snd (L.tok_pattern_strings last_tok)))
+          | TokNil -> () in
+        Printf.printf "Found%!"; print (TokCns (last_tok, rev_tokl)); Printf.printf "\n%!";
         AbstractTokList (TokCns (last_tok, rev_tokl)) :: tokl
     end
   | Node (_, { brother = bro}) ->
@@ -1270,14 +1274,15 @@ and check_no_longer_higher_level_token_list =
   let n = tok_list_length rev_tokl in
   let rec loop : type s f. _ -> (s, f) tok_list -> unit =
     fun n tokl -> match tokl with
-    | TokNil -> raise Stream.Failure
+    | TokNil -> Printf.eprintf "FULL MATCH\n%!"; raise Stream.Failure
     | TokCns (tok, tokl) ->
       match peek_nth n strm with
       | Some read_tok ->
          let (a,b) = match L.tok_pattern_strings tok with (s,Some s') -> (s,s') | (s,None) -> (s,"None") in
+         Printf.eprintf "Comparing %d to %s %!" n b;
          if
-           try let _ = token_ematch egram tok read_tok in true
-           with _ -> false
+           try let _ = token_ematch egram tok read_tok in Printf.eprintf "MATCH\n%!"; true
+           with _ -> Printf.eprintf "NO MATCH\n%!"; false
          then
            loop (n - 1) tokl
          else ()
