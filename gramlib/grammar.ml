@@ -92,19 +92,6 @@ let tokens con =
     egram.gtokens;
   !list
 
-type ('r, 'f) tok_list =
-| TokNil : ('f, 'f) tok_list
-| TokCns : 'a pattern * ('r, 'f) tok_list -> ('a -> 'r, 'f) tok_list
-
-type continuation_tokens = ContTokens : bool * ('a, 'b) tok_list -> continuation_tokens
-
-let now (ContTokens (_,toks)) = ContTokens (false,toks)
-let later (ContTokens (_,toks)) = ContTokens (true,toks)
-let make_now toks = ContTokens (false,toks)
-let empty_later_toks = ContTokens (true,TokNil)
-let add_starting_tokens _ toks = toks
-let add_starting_tokens_map _ (ContTokens (b,toks)) = ContTokens (b,toks)
-
 type ty_norec = TyNoRec
 type ty_mayrec = TyMayRec
 
@@ -163,6 +150,20 @@ and ('self, 'trec, 'trecs, 'trecb, 'a, 'r) ty_node = {
   son : ('self, 'trecs, 'a -> 'r) ty_tree;
   brother : ('self, 'trecb, 'r) ty_tree;
 }
+
+and ('r, 'f) tok_list =
+| TokNil : ('f, 'f) tok_list
+| TokCns : 'a pattern * ('r, 'f) tok_list -> ('a -> 'r, 'f) tok_list
+
+and ('s, 'f) tok_tree = TokTree : 'a pattern * ('s, _, 'a -> 'r) ty_tree * ('r, 'f) tok_list -> ('s, 'f) tok_tree
+
+and abstract_tok_list = AbstractTokList : ('r, 'f) tok_list -> abstract_tok_list
+
+and continuation_tokens = bool * abstract_tok_list list
+
+let now (_,toks) = (false,toks)
+let later (_,toks) = (true,toks)
+let empty_later_toks = (true,[])
 
 type 'a ty_rules =
 | TRules : (_, ty_norec, 'act, Loc.t -> 'a) ty_rule * 'act -> 'a ty_rules
@@ -944,15 +945,13 @@ let name_of_symbol : type s tr a. s ty_entry -> (s, tr, a) ty_symbol -> string =
   | Stoken tok -> L.tok_text tok
   | _ -> "???"
 
-type ('s, 'f) tok_tree = TokTree : 'a pattern * ('s, _, 'a -> 'r) ty_tree * ('r, 'f) tok_list -> ('s, 'f) tok_tree
-
 let rec tok_list_length : type a b. (a, b) tok_list -> int =
   function
   | TokNil -> 0
   | TokCns (_, t) -> 1 + tok_list_length t
 
 let rec get_token_list : type s tr a r f.
-  s ty_entry -> a pattern -> (r, f) tok_list -> (s, tr, a -> r) ty_tree -> (s, f) tok_tree option =
+  a pattern -> (r, f) tok_list -> (s, tr, a -> r) ty_tree -> (s, f) tok_tree option =
   fun last_tok rev_tokl tree ->
   match tree with
     Node (_, {node = Stoken tok; son = son; brother = DeadEnd}) ->
@@ -962,7 +961,38 @@ let rec get_token_list : type s tr a r f.
      | TokNil -> None
      | _ -> Some (TokTree (last_tok, tree, rev_tokl))
 
+let rec get_keyword_list : type s tr a r f.
+  a pattern -> (r, f) tok_list -> (s, tr, a -> r) ty_tree -> (s, f) tok_tree option =
+  fun last_tok rev_tokl tree ->
+  if snd (L.tok_pattern_strings last_tok) <> None then
+  match tree with
+    Node (_, {node = Stoken tok; son = son; brother = DeadEnd}) ->
+      get_keyword_list tok (TokCns (last_tok, rev_tokl)) son
+  | _ ->
+     match rev_tokl with
+     | TokNil -> None
+     | _ -> Some (TokTree (last_tok, tree, rev_tokl))
+  else
+    None
 
+let rec add_starting_non_empty_tokens : type s tr r.
+  (s, tr, r) ty_tree -> abstract_tok_list list -> abstract_tok_list list =
+  fun tree toks ->
+  match tree with
+  | DeadEnd -> toks
+  | LocAct _ -> toks
+  | Node (_, {node = Stoken tok; son = son; brother = bro}) ->
+    let tokl = add_starting_non_empty_tokens bro toks in
+    begin
+      match get_keyword_list tok TokNil son with
+      | None -> tokl
+      | Some (TokTree (last_tok,_,rev_tokl)) ->
+        AbstractTokList (TokCns (last_tok, rev_tokl)) :: tokl
+    end
+  | Node (_, { brother = bro}) ->
+     add_starting_non_empty_tokens bro toks
+
+let add_starting_non_empty_tokens_map tree (b,toks) = (b,add_starting_non_empty_tokens tree toks)
 
 let rec name_of_symbol_failed : type s tr a. s ty_entry -> (s, tr, a) ty_symbol -> _ =
   fun entry ->
@@ -1235,6 +1265,24 @@ and parser_of_token_list : type s tr lt r f.
          let a = ps strm in let act = plast strm in act a in
        loop (n - 1) tokl plast in
   loop (n - 1) rev_tokl plast
+and check_no_longer_higher_level_token_list =
+  fun (AbstractTokList rev_tokl) strm ->
+  let n = tok_list_length rev_tokl in
+  let rec loop : type s f. _ -> (s, f) tok_list -> unit =
+    fun n tokl -> match tokl with
+    | TokNil -> raise Stream.Failure
+    | TokCns (tok, tokl) ->
+      match peek_nth n strm with
+      | Some read_tok ->
+         let (a,b) = match L.tok_pattern_strings tok with (s,Some s') -> (s,s') | (s,None) -> (s,"None") in
+         if
+           try let _ = token_ematch egram tok read_tok in true
+           with _ -> false
+         then
+           loop (n - 1) tokl
+         else ()
+      | None -> () in
+  loop n rev_tokl
 and parser_of_symbol : type s tr a.
   s ty_entry -> int -> continuation_tokens -> (s, tr, a) ty_symbol -> a parser_t =
   fun entry nlevn toks ->
@@ -1368,7 +1416,15 @@ and parser_of_token : type s a.
   (* Check if tok is a "now" prefix of a token in toks and if yes fail *)
   fun strm ->
     match Stream.peek strm with
-      Some tok -> let r = f tok in Stream.junk strm; r
+      Some tok ->
+       let r = f tok in
+       begin
+         match toks with
+         | (false,toks) -> List.iter (fun t -> check_no_longer_higher_level_token_list t strm) toks
+         | (true,toks) -> ()
+       end;
+       Stream.junk strm;
+       r
     | None -> raise Stream.Failure
 and parse_top_symb : type s tr a. s ty_entry -> continuation_tokens -> (s, tr, a) ty_symbol -> a parser_t =
   fun entry toks symb ->
@@ -1382,7 +1438,7 @@ let rec start_parser_of_levels entry clevn =
       match lev.lprefix with
         DeadEnd ->
           fun levn toks strm ->
-            let newtoks = add_starting_tokens_map lev.lsuffix toks in
+            let newtoks = if levn <= clevn then add_starting_non_empty_tokens_map lev.lsuffix toks else toks in
             p1 levn newtoks strm
       | tree ->
           let alevn =
@@ -1410,7 +1466,7 @@ let rec start_parser_of_levels entry clevn =
           | _ ->
               fun levn toks strm ->
                 if levn > clevn then
-                  let newtoks = add_starting_tokens_map lev.lsuffix toks in
+                  let newtoks = add_starting_non_empty_tokens_map lev.lsuffix toks in
                   p1 levn newtoks strm
                 else
                   let (strm__ : _ Stream.t) = strm in
@@ -1421,7 +1477,7 @@ let rec start_parser_of_levels entry clevn =
                       let a = act (loc_of_token_interval bp ep) in
                       entry.econtinue levn bp a toks strm
                   | _ ->
-                      let newtoks = add_starting_tokens_map lev.lsuffix toks in
+                      let newtoks = add_starting_non_empty_tokens_map lev.lsuffix toks in
                       p1 levn newtoks strm__
 
 let rec continue_parser_of_levels entry clevn =
@@ -1442,7 +1498,7 @@ let rec continue_parser_of_levels entry clevn =
             if levn > clevn then p1 levn bp a toks strm
             else
               let (strm__ : _ Stream.t) = strm in
-              let newtoks = add_starting_tokens lev.lsuffix toks in
+              let newtoks = add_starting_non_empty_tokens_map lev.lsuffix toks in
               try p1 levn bp a newtoks strm__ with
                 Stream.Failure ->
                   (* By definition econtinue parses p2* and thus includes eps *)
