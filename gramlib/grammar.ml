@@ -990,7 +990,7 @@ let rec add_starting_non_empty_tokens : type s tr r.
         let rec print : type r f. (r, f) tok_list -> unit = function
           | TokCns (last_tok, rev_tokl) -> print rev_tokl; Printf.printf " %s%!" (Option.get (snd (L.tok_pattern_strings last_tok)))
           | TokNil -> () in
-        Printf.printf "Found%!"; print (TokCns (last_tok, rev_tokl)); Printf.printf "\n%!";
+        Printf.printf "Found%!"; print (TokCns (last_tok, rev_tokl)); Printf.printf " (on top of %d elements)\n%!" (List.length toks);
         AbstractTokList (TokCns (last_tok, rev_tokl)) :: tokl
     end
   | Node (_, { brother = bro}) ->
@@ -1270,7 +1270,7 @@ and parser_of_token_list : type s tr lt r f.
        loop (n - 1) tokl plast in
   loop (n - 1) rev_tokl plast
 and check_no_longer_higher_level_token_list =
-  fun (AbstractTokList rev_tokl) strm ->
+  fun (AbstractTokList rev_tokl) nlevn strm ->
   let n = tok_list_length rev_tokl in
   let rec loop : type s f. _ -> (s, f) tok_list -> unit =
     fun n tokl -> match tokl with
@@ -1279,7 +1279,7 @@ and check_no_longer_higher_level_token_list =
       match peek_nth n strm with
       | Some read_tok ->
          let (a,b) = match L.tok_pattern_strings tok with (s,Some s') -> (s,s') | (s,None) -> (s,"None") in
-         Printf.eprintf "Comparing %d to %s %!" n b;
+         Printf.eprintf "Comparing %d to %s (lev %d) %!" n b nlevn;
          if
            try let _ = token_ematch egram tok read_tok in Printf.eprintf "MATCH\n%!"; true
            with _ -> Printf.eprintf "NO MATCH\n%!"; false
@@ -1413,11 +1413,12 @@ and parser_of_symbol : type s tr a.
       (fun (strm__ : _ Stream.t) -> e.estart (level_number e l) toks strm__)
   | Sself -> (fun (strm__ : _ Stream.t) -> entry.estart 0 toks strm__)
   | Snext -> (fun (strm__ : _ Stream.t) -> entry.estart nlevn toks strm__)
-  | Stoken tok -> parser_of_token entry toks tok
+  | Stoken tok -> parser_of_token entry toks nlevn tok
 and parser_of_token : type s a.
-  s ty_entry -> continuation_tokens -> a pattern -> a parser_t =
-  fun entry toks tok ->
+  s ty_entry -> continuation_tokens -> int -> a pattern -> a parser_t =
+  fun entry toks nlevn tok ->
   let f = L.tok_match tok in
+  Printf.eprintf "T%d %!" nlevn;
   (* Check if tok is a "now" prefix of a token in toks and if yes fail *)
   fun strm ->
     match Stream.peek strm with
@@ -1444,6 +1445,7 @@ let rec start_parser_of_levels entry clevn =
         DeadEnd ->
           fun levn toks strm ->
             let newtoks = if levn <= clevn then add_starting_non_empty_tokens_map lev.lsuffix toks else toks in
+            Printf.eprintf "1S%d-%d-%d %!" clevn levn (List.length levs);
             p1 levn newtoks strm
       | tree ->
           let alevn =
@@ -1467,10 +1469,12 @@ let rec start_parser_of_levels entry clevn =
                  let act = p2 toks strm__ in
                  let ep = Stream.count strm__ in
                  let a = act (loc_of_token_interval bp ep) in
+                 Printf.eprintf "1C%d-%d-%d %!" clevn levn (List.length levs);
                  entry.econtinue levn bp a toks strm)
           | _ ->
               fun levn toks strm ->
                 if levn > clevn then
+                  let _ = Printf.eprintf "2S%d-%d-%d %!" clevn levn (List.length levs) in
                   let newtoks = add_starting_non_empty_tokens_map lev.lsuffix toks in
                   p1 levn newtoks strm
                 else
@@ -1480,8 +1484,10 @@ let rec start_parser_of_levels entry clevn =
                     Some act ->
                       let ep = Stream.count strm__ in
                       let a = act (loc_of_token_interval bp ep) in
+                      Printf.eprintf "2C%d-%d-%d %!" clevn levn (List.length levs);
                       entry.econtinue levn bp a toks strm
                   | _ ->
+                      Printf.eprintf "3S%d-%d-%d %!" clevn levn (List.length levs);
                       let newtoks = add_starting_non_empty_tokens_map lev.lsuffix toks in
                       p1 levn newtoks strm__
 
@@ -1503,9 +1509,11 @@ let rec continue_parser_of_levels entry clevn =
             if levn > clevn then p1 levn bp a toks strm
             else
               let (strm__ : _ Stream.t) = strm in
+              Printf.eprintf "4C%d-%d-%d %!" clevn levn (List.length levs);
               try p1 levn bp a toks strm__ with
                 Stream.Failure ->
                   (* By definition econtinue parses p2* and thus includes eps *)
+                  Printf.eprintf "3C%d-%d-%d %!" clevn levn (List.length levs);
                   let act = p2 (now toks) strm__ in
                   let ep = Stream.count strm__ in
                   let a = act a (loc_of_token_interval bp ep) in
