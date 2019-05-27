@@ -1498,8 +1498,7 @@ let rec continue_parser_of_levels entry clevn =
             if levn > clevn then p1 levn bp a toks strm
             else
               let (strm__ : _ Stream.t) = strm in
-              let newtoks = add_starting_non_empty_tokens_map lev.lsuffix toks in
-              try p1 levn bp a newtoks strm__ with
+              try p1 levn bp a toks strm__ with
                 Stream.Failure ->
                   (* By definition econtinue parses p2* and thus includes eps *)
                   let act = p2 (now toks) strm__ in
