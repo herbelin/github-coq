@@ -806,7 +806,7 @@ GRAMMAR EXTEND Gram
   ;
   argument_spec: [
        [ b = OPT "!"; id = name ; s = OPT scope ->
-       { id.CAst.v, not (Option.is_empty b), Option.map (fun x -> CAst.make ~loc x) s }
+       { id, not (Option.is_empty b), Option.map (fun x -> CAst.make ~loc x) s }
     ]
   ];
   (* List of arguments implicit status, scope, modifiers *)
@@ -846,11 +846,11 @@ GRAMMAR EXTEND Gram
   ];
   (* Same as [argument_spec_block], but with only implicit status and names *)
   more_implicits_block: [
-    [ name = name -> { [(name.CAst.v, NotImplicit)] }
+    [ name = name -> { [(name, NotImplicit)] }
     | "["; items = LIST1 name; "]" ->
-       { List.map (fun name -> (name.CAst.v, Impargs.Implicit)) items }
+       { List.map (fun name -> (name, Impargs.Implicit)) items }
     | "{"; items = LIST1 name; "}" ->
-       { List.map (fun name -> (name.CAst.v, MaximallyImplicit)) items }
+       { List.map (fun name -> (name, MaximallyImplicit)) items }
     ]
   ];
   strategy_level:

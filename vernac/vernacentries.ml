@@ -1285,9 +1285,10 @@ let vernac_arguments ~section_local reference args more_implicits nargs_for_red 
   (* Checks *)
 
   let err_extra_args names =
-    user_err ~hdr:"vernac_declare_arguments"
+    let loc = Loc.merge_opt (List.hd names).CAst.loc (List.last names).CAst.loc in
+    user_err ?loc ~hdr:"vernac_declare_arguments"
                  (strbrk "Extra arguments: " ++
-                    prlist_with_sep pr_comma Name.print names ++ str ".")
+                    prlist_with_sep pr_comma Pputils.pr_lname names ++ str ".")
   in
   let err_missing_args names =
     user_err ~hdr:"vernac_declare_arguments"
@@ -1341,13 +1342,13 @@ let vernac_arguments ~section_local reference args more_implicits nargs_for_red 
     | [], [] -> []
     | _ :: _, [] -> names1
     | [], _ :: _ -> names2
-    | (Name _ as name) :: names1, Anonymous :: names2
-    | Anonymous :: names1, (Name _ as name) :: names2 ->
+    | ({CAst.v = Name _} as name) :: names1, {CAst.v = Anonymous} :: names2
+    | {CAst.v = Anonymous} :: names1, ({CAst.v = Name _} as name) :: names2 ->
        name :: names_union names1 names2
-    | name1 :: names1, name2 :: names2 ->
+    | CAst.{v = name1} as name :: names1, CAst.{loc; v = name2} :: names2 ->
        if Name.equal name1 name2 then
-         name1 :: names_union names1 names2
-       else user_err Pp.(str "Argument lists should agree on the names they provide.")
+         name :: names_union names1 names2
+       else user_err ?loc Pp.(str "Argument lists should agree on the names they provide.")
   in
 
   let names = List.fold_left names_union [] names in
@@ -1360,12 +1361,12 @@ let vernac_arguments ~section_local reference args more_implicits nargs_for_red 
        (* Error messages are expressed in terms of original names, not
             renamed ones. *)
        err_missing_args (List.lastn (List.length prev_names) inf_names)
-    | _ :: _, [] -> prev_names
-    | prev :: prev_names, Anonymous :: names ->
-       prev :: rename prev_names names
-    | prev :: prev_names, (Name id as name) :: names ->
+    | prev :: prev_names, [] -> CAst.make prev :: rename prev_names []
+    | (prev:Name.t) :: prev_names, CAst.{loc; v = Anonymous} :: names ->
+       CAst.make ?loc prev :: rename prev_names names
+    | prev :: prev_names, ({CAst.v = Name id as name} as name') :: names ->
        if not (Name.equal prev name) then save_example_renaming (prev,name);
-       name :: rename prev_names names
+       name' :: rename prev_names names
   in
   
   let names = rename prev_names names in
@@ -1383,11 +1384,13 @@ let vernac_arguments ~section_local reference args more_implicits nargs_for_red 
   end;
 
   let duplicate_names =
-    List.duplicates Name.equal (List.filter ((!=) Anonymous) names)
+    List.duplicates (fun {CAst.v=name1} {CAst.v=name2} -> Name.equal name1 name2)
+      (List.filter (fun {CAst.v=name} -> name != Anonymous) names)
   in
   if not (List.is_empty duplicate_names) then begin
-    let duplicates = prlist_with_sep pr_comma Name.print duplicate_names in
-    user_err (strbrk "Some argument names are duplicated: " ++ duplicates)
+    let loc = Loc.merge_opt (List.hd duplicate_names).CAst.loc (List.last duplicate_names).CAst.loc in
+    let duplicates = prlist_with_sep pr_comma Pputils.pr_lname duplicate_names in
+    user_err ?loc (strbrk "Some argument names are duplicated: " ++ duplicates)
   end;
 
   let implicits =
@@ -1435,6 +1438,7 @@ let vernac_arguments ~section_local reference args more_implicits nargs_for_red 
   if bidi_hint_specified && clear_bidi_hint then
     err_incompat "clear bidirectionality hint" "&";
 
+  let names = List.map (fun {CAst.v} -> v) names in
 
   (* Actions *)
 

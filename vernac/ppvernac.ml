@@ -1066,13 +1066,13 @@ open Pputils
                   | n, nbidi, { name = id; recarg_like = k;
                          notation_scope = s;
                          implicit_status = imp } :: tl ->
-                    spc() ++ pr_br imp (pr_if k (str"!") ++ Name.print id ++ pr_s s) ++
+                    spc() ++ pr_br imp (pr_if k (str"!") ++ Name.print id.CAst.v ++ pr_s s) ++
                     print_arguments (Option.map pred n) (Option.map pred nbidi) tl
               in
               let rec print_implicits = function
                 | [] -> mt ()
                 | (name, impl) :: rest ->
-                   spc() ++ pr_br impl (Name.print name) ++ print_implicits rest
+                   spc() ++ pr_br impl (Name.print name.CAst.v) ++ print_implicits rest
               in
               print_arguments nargs nargs_before_bidi args ++
                 if not (List.is_empty more_implicits) then
