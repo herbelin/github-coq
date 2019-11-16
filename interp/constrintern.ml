@@ -1406,7 +1406,7 @@ let rec adjust_to_down l l' default =
   match l, l' with
   | [], l -> []
   | true::l, l' -> adjust_to_down l l' default
-  | false::l, [] -> default :: adjust_to_down l [] default
+  | false::l, [] -> default :: adjust_to_down l l' default
   | false::l, y::l' -> y :: adjust_to_down l l' default
 
 (* @return the first variable that occurs twice in a pattern
@@ -1784,20 +1784,22 @@ let drop_notations_pattern (test_kind_top,test_kind_inner) genv env pat =
       let imps =
         if no_impl then [] else
           let impls_st = implicits_of_global gr in
-          if Int.equal n 0 then select_impargs_size npats impls_st
-          else List.skipn_at_least n (select_stronger_impargs impls_st) in
-      adjust_to_down tags imps None in
+          let impls =
+            if Int.equal n 0 then select_impargs_size npats impls_st
+            else List.skipn_at_least n (select_stronger_impargs impls_st) in
+          List.map is_status_implicit impls in
+      adjust_to_down tags imps false in
     let subscopes = adjust_to_down tags (List.skipn_at_least n (find_arguments_scope gr)) None in
-    let has_letin = check_has_letin ?loc gr expanded npats (List.count is_status_implicit imps) tags in
+    let has_letin = check_has_letin ?loc gr expanded npats (List.count ((=) true) imps) tags in
     let rec aux imps subscopes tags pats =
     match imps, subscopes, tags, pats with
     | _, _, true::tags, p::pats when has_letin ->
       in_pat_sc scopes None p :: aux imps subscopes tags pats
     | _, _, true::tags, _ ->
       default :: aux imps subscopes tags pats
-    | imp::imps, sc::subscopes, false::tags, _ when is_status_implicit imp ->
+    | isimp::imps, sc::subscopes, false::tags, _ when isimp ->
       default :: aux imps subscopes tags pats
-    | imp::imps, sc::subscopes, false::tags, p::pats ->
+    | isimp::imps, sc::subscopes, false::tags, p::pats ->
       in_pat_sc scopes sc p :: aux imps subscopes tags pats
     | _, _, [], [] -> []
     | _ -> assert false in
@@ -2710,7 +2712,7 @@ let interp_named_context_evars ?(program_mode=false) ?(impl_env=empty_internaliz
             let t' = locate_if_hole ?loc:(loc_of_glob_constr t) na t in (* useful? *)
             let sigma, t = understand_tcc ~flags env sigma ~expected_type:IsType t' in
             let (ty,imps,sc,uid) = Id.Map.find id int_env.impls in
-            let imps = List.map (function None -> CAst.make None | Some (_,_,(max,_)) -> CAst.make @@ Some (na,max)) imps in
+            let imps = List.map (function _, None -> CAst.make None | _, Some _ as imp -> CAst.make @@ Some (na,maximal_insertion_of imp)) imps in
             let imps = compute_internalization_data env sigma id ty t imps in
             let int_env = { int_env with impls = Id.Map.add id imps int_env.impls } in
             let r = Retyping.relevance_of_type env sigma t in
