@@ -347,20 +347,20 @@ let warn_shadowed_implicit_name =
 
 let exists_name na l =
   match na with
-  | Name id -> List.exists (function Some ((Name id',_,_),_,_) -> Id.equal id id' | _ -> false) l
+  | Name id -> List.exists (function ((Name id',_,_),_) -> Id.equal id id' | _ -> false) l
   | _ -> false
 
 let build_impls ?loc n bk na acc =
-  let impl_status max =
+  let impl_status maximal =
     let na =
       if exists_name na acc then begin warn_shadowed_implicit_name ?loc na; Anonymous end
       else na in
-    Some ((na,n,(*TODO:compute dependency*)None),Manual,(max,true))
+    ((na,n,(*TODO:compute dependency*)None),Some (default_implicit ~maximal ~force:true))
   in
   match bk with
   | NonMaxImplicit -> impl_status false :: acc
   | MaxImplicit -> impl_status true :: acc
-  | Explicit -> None :: acc
+  | Explicit -> ((na,n,None),None) :: acc
 
 let impls_binder_list =
   let rec aux acc n = function
@@ -1921,7 +1921,7 @@ let intern_ind_pattern genv ntnvars env pat =
 (* Utilities for application                                          *)
 
 let get_implicit_name n imps =
-  Some (Impargs.name_of_implicit (List.nth imps (n-1)))
+  Some (name_of_argument (List.nth imps (n-1)))
 
 let set_hole_implicit i b c =
   let loc = c.CAst.loc in
@@ -1937,11 +1937,11 @@ let set_hole_implicit i b c =
   | GVar id -> Loc.tag ?loc (Evar_kinds.ImplicitArg (GlobRef.VarRef id,i,b),IntroAnonymous,None)
   | _ -> anomaly (Pp.str "Only refs have implicits.")
 
-let exists_implicit_name id =
-  List.exists (fun imp -> is_status_implicit imp && Id.equal id (name_of_implicit imp))
+let is_named_argument id =
+  List.exists (fun imp -> is_status_implicit imp && Id.equal id (name_of_argument imp))
 
 let print_allowed_named_implicit imps =
-  let l = List.map_filter (function Some ((Name id,_,_),_,_) -> Some id | _ -> None) imps in
+  let l = List.map_filter (function ((Name id,_,_),Some _) -> Some id | _ -> None) imps in
   match l with
   | [] -> mt ()
   | l ->
@@ -1950,7 +1950,7 @@ let print_allowed_named_implicit imps =
     pr_sequence Id.print l ++ str ")"
 
 let print_allowed_nondep_implicit imps =
-  let l = List.map_filter (function Some ((_,_,Some n),_,_) -> Some n | _ -> None) imps in
+  let l = List.map_filter (function ((_,_,Some n),Some _) -> Some n | _ -> None) imps in
   match l with
   | [] -> mt ()
   | l ->
@@ -1968,7 +1968,7 @@ let extract_explicit_arg imps args =
       | Some {loc;v=pos} ->
           let _ = match pos with
           | ExplByName id ->
-              if not (exists_implicit_name id imps) then
+              if not (is_named_argument id imps) then
                 user_err ?loc
                   (str "Wrong argument name " ++ Id.print id ++
                    print_allowed_named_implicit imps ++ str ".");
@@ -1976,7 +1976,7 @@ let extract_explicit_arg imps args =
                 user_err ?loc  (str "Argument name " ++ Id.print id
                 ++ str " occurs more than once.")
           | ExplByPos p ->
-              if not (is_nondep_implicit p imps) then
+              if not (is_nondep_argument p imps) then
                 user_err ?loc
                   (str"Wrong argument position " ++ int p ++
                    print_allowed_nondep_implicit imps ++ str ".");
@@ -2408,7 +2408,7 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
       match (impl,rargs) with
       | (imp::impl', rargs) when is_status_implicit imp ->
           begin try
-            let eargs',(_,(_,a)) = List.extract_first (fun (pos,a) -> match_implicit imp pos) eargs in
+            let eargs',(_,(_,a)) = List.extract_first (fun (pos,a) -> match_argument imp pos) eargs in
             intern_no_implicit enva a :: aux (n+1) impl' subscopes' eargs' rargs
           with Not_found ->
           if List.is_empty rargs && List.is_empty eargs && not (maximal_insertion_of imp) then
