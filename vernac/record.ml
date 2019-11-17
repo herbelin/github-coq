@@ -594,7 +594,7 @@ let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls par
       mind_entry_variance = ComInductive.variance_of_entry ~cumulative ~variances univs;
     }
   in
-  let impls = List.map (fun _ -> paramimpls, []) record_data in
+  let impls = List.map (fun _ -> paramimpls, [[]]) record_data in
   let kn = DeclareInd.declare_mutual_inductive_with_eliminations mie ubind impls
       ~primitive_expected:(primitive_flag ())
   in
