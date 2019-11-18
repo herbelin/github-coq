@@ -355,6 +355,7 @@ val declare_entry
 val declare_variable
   :  name:variable
   -> kind:Decls.logical_kind
+  -> ?impargs:Impargs.manual_implicits
   -> typ:Constr.types
   -> impl:Glob_term.binding_kind
   -> unit
@@ -389,6 +390,7 @@ val declare_constant
   -> name:Id.t
   -> kind:Decls.logical_kind
   -> ?typing_flags:Declarations.typing_flags
+  -> ?impargs:Impargs.manual_implicits
   -> Evd.side_effects constant_entry
   -> Constant.t
 

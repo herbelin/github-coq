@@ -188,21 +188,21 @@ let (objConstant : constant_obj Libobject.Dyn.tag) =
 
 let inConstant v = Libobject.Dyn.Easy.inj v objConstant
 
-let update_tables c =
-  Impargs.declare_constant_implicits c;
+let update_tables c impargs =
+  Impargs.declare_constant_implicits c ~impargs;
   Notation.declare_ref_arguments_scope Evd.empty (GlobRef.ConstRef c)
 
-let register_constant kn kind local =
+let register_constant kn kind local impargs =
   let o = inConstant {
     cst_kind = kind;
     cst_locl = local;
   } in
   let id = Label.to_id (Constant.label kn) in
   let _ = Lib.add_leaf id o in
-  update_tables kn
+  update_tables kn impargs
 
 let register_side_effect (c, role) =
-  let () = register_constant c Decls.(IsProof Theorem) Locality.ImportDefaultBehavior in
+  let () = register_constant c Decls.(IsProof Theorem) Locality.ImportDefaultBehavior None in
   match role with
   | None -> ()
   | Some (Evd.Schema (ind, kind)) -> DeclareScheme.declare_scheme kind [|ind,c|]
@@ -359,11 +359,11 @@ let define_constant ~name ~typing_flags cd =
   if unsafe || is_unsafe_typing_flags typing_flags then feedback_axiom();
   kn
 
-let declare_constant ?(local = Locality.ImportDefaultBehavior) ~name ~kind ~typing_flags cd =
+let declare_constant ?(local = Locality.ImportDefaultBehavior) ~name ~kind ~typing_flags ?impargs cd =
   let () = check_exists name in
   let kn = define_constant ~typing_flags ~name cd in
   (* Register the libobjects attached to the constants *)
-  let () = register_constant kn kind local in
+  let () = register_constant kn kind local impargs in
   kn
 
 let declare_private_constant ?role ?(local = Locality.ImportDefaultBehavior) ~name ~kind de =
@@ -377,7 +377,7 @@ let declare_private_constant ?role ?(local = Locality.ImportDefaultBehavior) ~na
     in
     Global.add_private_constant name de
   in
-  let () = register_constant kn kind local in
+  let () = register_constant kn kind local None in
   let seff_roles = match role with
   | None -> Cmap.empty
   | Some r -> Cmap.singleton kn r
@@ -405,7 +405,7 @@ let objVariable : unit Libobject.Dyn.tag =
 
 let inVariable v = Libobject.Dyn.Easy.inj v objVariable
 
-let declare_variable_core ~name ~kind d =
+let declare_variable_core ~name ~kind ?impargs d =
   (* Variables are distinguished by only short names *)
   if Decls.variable_exists name then
     raise (DeclareUniv.AlreadyDeclared (None, name));
@@ -439,11 +439,11 @@ let declare_variable_core ~name ~kind d =
   Nametab.push (Nametab.Until 1) (Libnames.make_path DirPath.empty name) (GlobRef.VarRef name);
   Decls.(add_variable_data name {opaque;kind});
   ignore(Lib.add_leaf name (inVariable ()) : Libobject.object_name);
-  Impargs.declare_var_implicits ~impl name;
+  Impargs.declare_var_implicits ~impl name ~impargs;
   Notation.declare_ref_arguments_scope Evd.empty (GlobRef.VarRef name)
 
-let declare_variable ~name ~kind ~typ ~impl =
-  declare_variable_core ~name ~kind (SectionLocalAssum { typ; impl })
+let declare_variable ~name ~kind ?impargs ~typ ~impl =
+  declare_variable_core ~name ~kind ?impargs (SectionLocalAssum { typ; impl })
 
 (* Declaration messages *)
 
@@ -567,17 +567,16 @@ let declare_entry_core ~name ~scope ~kind ~typing_flags ?hook ~obls ~impargs ~uc
   let ubind = UState.universe_binders uctx in
   let dref = match scope with
   | Locality.Discharge ->
-    let () = declare_variable_core ~name ~kind (SectionLocalDef entry) in
+    let () = declare_variable_core ~name ~kind ~impargs (SectionLocalDef entry) in
     if should_suggest then Proof_using.suggest_variable (Global.env ()) name;
     Names.GlobRef.VarRef name
   | Locality.Global local ->
-    let kn = declare_constant ~name ~local ~kind ~typing_flags (DefinitionEntry entry) in
+    let kn = declare_constant ~name ~local ~kind ~typing_flags ~impargs (DefinitionEntry entry) in
     let gr = Names.GlobRef.ConstRef kn in
     if should_suggest then Proof_using.suggest_constant (Global.env ()) kn;
     let () = DeclareUniv.declare_univ_binders gr ubind in
     gr
   in
-  let () = Impargs.maybe_declare_manual_implicits false dref impargs in
   let () = definition_message name in
   Hook.call ?hook { Hook.S.uctx; obls; scope; dref };
   dref
@@ -639,9 +638,8 @@ let declare_assumption ~name ~scope ~hook ~impargs ~uctx pe =
   in
   let kind = Decls.(IsAssumption Conjectural) in
   let decl = ParameterEntry pe in
-  let kn = declare_constant ~name ~local ~kind ~typing_flags:None decl in
+  let kn = declare_constant ~name ~local ~kind ~typing_flags:None ~impargs decl in
   let dref = Names.GlobRef.ConstRef kn in
-  let () = Impargs.maybe_declare_manual_implicits false dref impargs in
   let () = assumption_message name in
   let () = DeclareUniv.declare_univ_binders dref (UState.universe_binders uctx) in
   let () = Hook.(call ?hook { S.uctx; obls = []; scope; dref}) in

@@ -363,11 +363,9 @@ let do_declare_instance sigma ~locality ~poly k u ctx ctx' pri udecl impargs sub
   let termtype = it_mkProd_or_LetIn ty_constr (ctx' @ ctx) in
   let sigma, entry = Declare.prepare_parameter ~poly sigma ~udecl ~types:termtype in
   let cst = Declare.declare_constant ~name
-      ~kind:Decls.(IsAssumption Logical) (Declare.ParameterEntry entry) in
+      ~kind:Decls.(IsAssumption Logical) ~impargs (Declare.ParameterEntry entry) in
   DeclareUniv.declare_univ_binders (GlobRef.ConstRef cst) (Evd.universe_binders sigma);
-  let cst = (GlobRef.ConstRef cst) in
-  Impargs.maybe_declare_manual_implicits false cst impargs;
-  instance_hook pri locality cst
+  instance_hook pri locality (GlobRef.ConstRef cst)
 
 let declare_instance_program pm env sigma ~locality ~poly name pri impargs udecl term termtype =
   let hook { Declare.Hook.S.scope; dref; _ } =
