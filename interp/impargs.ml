@@ -341,7 +341,7 @@ type implicit_length_condition = DefaultImpArgs | LessArgsThan of int
 
 type implicits_list = implicit_length_condition * implicit_status list
 
-let default_dependency_explanation = NonDependent
+let default_argument_status na = (na,None,NonDependent)
 
 let default_implicit ~maximal ~force = (Manual, maximal, force)
 
@@ -356,7 +356,9 @@ let binding_kind_of_status = function
   | _, Some (_, true, _) -> MaxImplicit
   | _, None -> Explicit
 
-let name_of_argument i = function
+let name_of_argument ((na,_,_),_) = na
+
+let id_of_argument i = function
   | ((Name id,_,_),_) -> id
   | ((Anonymous,_,_),_) -> name_of_pos i
 
@@ -375,7 +377,7 @@ let force_inference_of = function
   | _, None -> anomaly (Pp.str "Not an implicit argument.")
 
 let is_named_argument id imps =
-  List.exists_i (fun i imp -> Id.equal id (name_of_argument i imp)) 1 imps
+  List.exists_i (fun i imp -> Id.equal id (id_of_argument i imp)) 1 imps
 
 let is_nondep_argument p imps =
   List.exists (function ((_,Some p',_),_) -> Int.equal p p' | _ -> false) imps
