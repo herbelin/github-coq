@@ -521,7 +521,7 @@ let declare_variable_core ~name ~kind ?impargs d =
   Nametab.push (Nametab.Until 1) (Libnames.make_path DirPath.empty name) (GlobRef.VarRef name);
   Decls.(add_variable_data name {opaque;kind});
   Lib.add_leaf (inVariable name);
-  Impargs.declare_var_implicits ~impl name ~impargs;
+  Impargs.declare_variable_implicits ~impl name ~impargs;
   Notation.declare_ref_arguments_scope Evd.empty (GlobRef.VarRef name)
 
 let declare_variable ~name ~kind ?impargs ~typ ~impl ~univs =
