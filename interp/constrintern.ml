@@ -357,12 +357,11 @@ let build_impls ?loc n bk na acc =
   let na =
     if exists_name na acc then begin warn_shadowed_implicit_name ?loc na; Anonymous end
     else na in
-  let pos = default_argument_status na (*TODO:compute dependency*) in
   let impl_status maximal = Some (default_implicit ~maximal ~force:true) in
   match bk with
-  | NonMaxImplicit -> (pos, impl_status false) :: acc
-  | MaxImplicit -> (pos, impl_status true) :: acc
-  | Explicit -> (pos,None) :: acc
+  | NonMaxImplicit -> default_implicit_status na (impl_status false) :: acc
+  | MaxImplicit -> default_implicit_status na (impl_status true) :: acc
+  | Explicit -> default_implicit_status na None :: acc
 
 let impls_binder_list =
   let rec aux acc n = function
@@ -2697,7 +2696,7 @@ let interp_named_context_evars ?(program_mode=false) ?(impl_env=empty_internaliz
             let t' = locate_if_hole ?loc:(loc_of_glob_constr t) na t in (* useful? *)
             let sigma, t = understand_tcc ~flags env sigma ~expected_type:IsType t' in
             let (ty,imps,sc,uid) = Id.Map.find id int_env.impls in
-            let imps = List.map (function _, None -> CAst.make None | _, Some _ as imp -> CAst.make @@ Some (na,maximal_insertion_of imp)) imps in
+            let imps = List.map (fun imp -> CAst.make (if is_status_implicit imp then Some (na,maximal_insertion_of imp) else None)) imps in
             let imps = compute_internalization_data env sigma id ty t imps in
             let int_env = { int_env with impls = Id.Map.add id imps int_env.impls } in
             let r = Retyping.relevance_of_type env sigma t in
