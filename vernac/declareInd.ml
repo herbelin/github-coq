@@ -111,7 +111,7 @@ let declare_mind ?typing_flags mie impargs =
   let () = Lib.add_leaf (inInductive (id, { ind_names = names })) in
   if is_unsafe_typing_flags() then feedback_axiom ();
   let isprim = Inductive.is_primitive_record (Inductive.lookup_mind_specif (Global.env()) (mind,0)) in
-  Impargs.declare_mib_implicits mind ~impargs;
+  Impargs.declare_mind_implicits mind ~impargs;
   declare_inductive_argument_scopes mind mie;
   mind, isprim
 
