@@ -76,13 +76,9 @@ val class_args_of : env -> evar_map -> types -> constr list
 
 (** {6 [declare_coercion] adds a coercion in the graph of coercion paths } *)
 type coercion = {
-  coercion_type   : coe_typ;
-  coercion_local  : bool;
-  coercion_is_id  : bool;
-  coercion_is_proj  : Projection.Repr.t option;
+  coercion_info : coe_info_typ;
   coercion_source : cl_typ;
   coercion_target : cl_typ;
-  coercion_params : int;
 }
 
 val subst_coercion : substitution -> coercion -> coercion

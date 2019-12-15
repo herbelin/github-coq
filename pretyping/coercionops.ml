@@ -382,25 +382,24 @@ let add_coercion_in_graph env sigma (ic,source,target) =
   match !ambig_paths with [] -> () | _ -> warn_ambiguous_path !ambig_paths
 
 type coercion = {
-  coercion_type   : coe_typ;
-  coercion_local  : bool;
-  coercion_is_id  : bool;
-  coercion_is_proj  : Projection.Repr.t option;
+  coercion_info   : coe_info_typ;
   coercion_source : cl_typ;
   coercion_target : cl_typ;
-  coercion_params : int;
 }
 
+let subst_coe_info_typ subst c =
+  let coe = subst_coe_typ subst c.coe_value in
+  let clp = Option.Smart.map (subst_proj_repr subst) c.coe_is_projection in
+  if c.coe_value == coe && c.coe_is_projection == clp then c
+  else { c with coe_value = coe; coe_is_projection = clp }
+
 let subst_coercion subst c =
-  let coe = subst_coe_typ subst c.coercion_type in
+  let coe = subst_coe_info_typ subst c.coercion_info in
   let cls = subst_cl_typ subst c.coercion_source in
   let clt = subst_cl_typ subst c.coercion_target in
-  let clp = Option.Smart.map (subst_proj_repr subst) c.coercion_is_proj in
-  if c.coercion_type == coe && c.coercion_source == cls &&
-     c.coercion_target == clt && c.coercion_is_proj == clp
+  if c.coercion_info == coe && c.coercion_source == cls && c.coercion_target == clt
   then c
-  else { c with coercion_type = coe; coercion_source = cls;
-                coercion_target = clt; coercion_is_proj = clp; }
+  else { coercion_info = coe; coercion_source = cls; coercion_target = clt }
 
 (* Computation of the class arity *)
 
@@ -429,14 +428,8 @@ let declare_coercion env sigma c =
   let () = add_class env sigma c.coercion_target in
   let is, _ = class_info c.coercion_source in
   let it, _ = class_info c.coercion_target in
-  let xf =
-    { coe_value = c.coercion_type;
-      coe_local = c.coercion_local;
-      coe_is_identity = c.coercion_is_id;
-      coe_is_projection = c.coercion_is_proj;
-      coe_param = c.coercion_params;
-    } in
-  let () = add_new_coercion c.coercion_type xf in
+  let xf = c.coercion_info in
+  let () = add_new_coercion xf.coe_value xf in
   add_coercion_in_graph env sigma (xf,is,it)
 
 (* For printing purpose *)

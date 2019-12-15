@@ -236,23 +236,27 @@ let open_coercion i o =
   if Int.equal i 1 then
     cache_coercion o
 
-let discharge_coercion (_, c) =
-  if c.coercion_local then None
+let discharge_coercion_info c =
+  if c.coe_local then None
   else
     let n =
       try
-        let ins = Lib.section_instance c.coercion_type in
+        let ins = Lib.section_instance c.coe_value in
         Array.length (snd ins)
       with Not_found -> 0
     in
     let nc = { c with
-      coercion_params = n + c.coercion_params;
-      coercion_is_proj = Option.map Lib.discharge_proj_repr c.coercion_is_proj;
+      coe_param = n + c.coe_param;
+      coe_is_projection = Option.map Lib.discharge_proj_repr c.coe_is_projection;
     } in
     Some nc
 
+let discharge_coercion (_, c) =
+  Option.map (fun info -> {c with coercion_info = info})
+    (discharge_coercion_info c.coercion_info)
+
 let classify_coercion obj =
-  if obj.coercion_local then Dispose else Substitute obj
+  if obj.coercion_info.coe_local then Dispose else Substitute obj
 
 let inCoercion : coercion -> obj =
   declare_object {(default_object "COERCION") with
@@ -268,14 +272,17 @@ let declare_coercion coef ?(local = false) ~isid ~src:cls ~target:clt ~params:ps
     | GlobRef.ConstRef c -> Recordops.find_primitive_projection c
     | _ -> None
   in
+  let info = {
+    coe_value = coef;
+    coe_local = local;
+    coe_is_identity = isid;
+    coe_is_projection = isproj;
+    coe_param = ps;
+  } in
   let c = {
-    coercion_type = coef;
-    coercion_local = local;
-    coercion_is_id = isid;
-    coercion_is_proj = isproj;
+    coercion_info = info;
     coercion_source = cls;
     coercion_target = clt;
-    coercion_params = ps;
   } in
   Lib.add_anonymous_leaf (inCoercion c)
 
