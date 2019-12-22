@@ -28,7 +28,8 @@ val reapply_coercions : evar_map -> coercion_trace -> EConstr.t -> EConstr.t
     resolve_tc=false disables resolving type classes (as the last
     resort before failing) *)
 val inh_app_fun : program_mode:bool -> bool ->
-  env -> evar_map -> unsafe_judgment -> evar_map * unsafe_judgment * coercion_trace
+  env -> evar_map -> unsafe_judgment ->
+  evar_map * unsafe_judgment  * coercion_trace * (GlobRef.t * Impargs.implicit_status list) option
 
 (** [inh_coerce_to_sort env isevars j] coerces [j] to a type; i.e. it
     inserts a coercion into [j], if needed, in such a way it gets as

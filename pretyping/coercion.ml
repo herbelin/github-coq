@@ -436,27 +436,38 @@ let mu env sigma t =
       | None -> sigma, (None, v, IdCoe)
   in aux t
 
+let implicits_of_coercion nparams coef =
+  let open Impargs in
+  let impls = List.map (drop_first_implicits (nparams+1)) (implicits_of_global coef) in
+  select_stronger_impargs impls
+
+let implicits_of_inheritance_path t =
+  let coe = List.hd t in
+  (coe.coe_value, implicits_of_coercion coe.coe_param coe.coe_value)
+
 (* Try to coerce to a funclass; raise NoCoercion if not possible *)
 let inh_app_fun_core ~program_mode env sigma j =
   let t = whd_all env sigma j.uj_type in
     match EConstr.kind sigma t with
-    | Prod _ -> (sigma,j,IdCoe)
+    | Prod _ -> (sigma,j,IdCoe,None)
     | Evar ev ->
         let (sigma,t) = Evardefine.define_evar_as_product env sigma ev in
-          (sigma,{ uj_val = j.uj_val; uj_type = t },IdCoe)
+          (sigma,{ uj_val = j.uj_val; uj_type = t },IdCoe,None)
     | _ ->
-        try let t,p =
-          lookup_path_to_fun_from env sigma j.uj_type in
-            apply_coercion env sigma p j t
+        try
+          let t,p = lookup_path_to_fun_from env sigma j.uj_type in
+          let sigma, j, trace = apply_coercion env sigma p j t in
+          let impls = implicits_of_inheritance_path p in
+          (sigma,j,trace,Some impls)
        with Not_found | NoCoercion ->
          if program_mode then
            try
              let sigma, (coercef, t, trace) = mu env sigma t in
              let sigma, uj_val = app_opt env sigma coercef j.uj_val in
              let res = { uj_val ; uj_type = t } in
-             (sigma, res, trace)
+             (sigma, res, trace, None)
            with NoSubtacCoercion | NoCoercion ->
-             (sigma,j,IdCoe)
+             (sigma,j,IdCoe,None)
          else raise NoCoercion
 
 (* Try to coerce to a funclass; returns [j] if no coercion is applicable *)
@@ -464,10 +475,10 @@ let inh_app_fun ~program_mode resolve_tc env sigma j =
   try inh_app_fun_core ~program_mode env sigma j
   with
   | NoCoercion when not resolve_tc
-    || not (get_use_typeclasses_for_conversion ()) -> (sigma, j, IdCoe)
+    || not (get_use_typeclasses_for_conversion ()) -> (sigma, j, IdCoe, None)
   | NoCoercion ->
     try inh_app_fun_core ~program_mode env (saturate_evd env sigma) j
-    with NoCoercion -> (sigma, j, IdCoe)
+    with NoCoercion -> (sigma, j, IdCoe, None)
 
 let type_judgment env sigma j =
   match EConstr.kind sigma (whd_all env sigma j.uj_type) with
