@@ -746,19 +746,19 @@ let extern_args extern env args =
 let match_coercion_app c = match DAst.get c with
   | GApp (r, args) ->
     begin match DAst.get r with
-    | GRef (r,_) -> Some (c.CAst.loc, r, 0, args)
+    | GRef (r,_) -> Some (c.CAst.loc, r, args)
     | _ -> None
     end
   | _ -> None
 
 let remove_one_coercion inctx c =
   try match match_coercion_app c with
-  | Some (loc,r,pars,args) when not (!Flags.raw_print || !print_coercions) ->
+  | Some (loc,r,args) when not (!Flags.raw_print || !print_coercions) ->
       let nargs = List.length args in
       (match Coercionops.hide_coercion r with
-          | Some n when (n - pars) < nargs && (inctx || (n - pars)+1 < nargs) ->
+          | Some nparams when nparams < nargs && (inctx || nparams+1 < nargs) ->
               (* We skip the coercion *)
-              let l = List.skipn (n - pars) args in
+              let l = List.skipn nparams args in
               let (a,l) = match l with a::l -> (a,l) | [] -> assert false in
               (* Don't flatten App's in case of funclass so that
                  (atomic) notations on [a] work; should be compatible
@@ -770,7 +770,7 @@ let remove_one_coercion inctx c =
                  have been made explicit to match *)
               let a' = if List.is_empty l then a else DAst.make ?loc @@ GApp (a,l) in
               let inctx = inctx || not (List.is_empty l) in
-              Some (n-pars+1, inctx, a')
+              Some (nparams+1, inctx, a')
           | _ -> None)
   | _ -> None
   with Not_found ->
