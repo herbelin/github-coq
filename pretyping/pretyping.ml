@@ -124,9 +124,10 @@ let esearch_guard ?loc env sigma indexes fix =
 
 let insert_impargs ?loc coeimpls c args =
   match coeimpls with
-  | None -> (c,args)
+  | None -> (c,args,false)
   | Some (coe,allimpls) ->
   let open Impargs in
+  let some = ref false in
   let rec aux n impls args =
     match (impls,args) with
     | (imp::impls', args) when is_status_implicit imp ->
@@ -134,6 +135,7 @@ let insert_impargs ?loc coeimpls c args =
         []
       else
         let name = Some (Impargs.name_of_implicit (List.nth allimpls (n-1))) in
+        let _ = some := true in
         DAst.make ?loc
           (GHole(Evar_kinds.ImplicitArg (coe,(n,name),force_inference_of imp),Namegen.IntroAnonymous,None))
         :: aux (n+1) impls' args
@@ -141,7 +143,7 @@ let insert_impargs ?loc coeimpls c args =
     | (imp::impls', []) -> []
     | ([], args) -> args
   in
-  match aux 1 allimpls (c::args) with c::args -> (c,args) | _ -> assert false
+  match aux 1 allimpls (c::args) with c::args -> (c,args,!some) | _ -> assert false
 
 (* To force universe name declaration before use *)
 
@@ -380,6 +382,13 @@ let adjust_evar_source sigma na c =
      | _ -> sigma, c
      end
   | _, _ -> sigma, c
+
+let warn_tolerance_no_coercion_implicit_argument =
+  CWarnings.create ~name:"funclass-coercion-implicit-arguments-skipping-deprecated" ~category:"deprecated"
+    Pp.(fun (env,sigma,coe) ->
+      let sigma',c = Evarutil.new_global sigma coe in
+      strbrk "Not skipping implicit arguments of coercions to Funclass (here "
+      ++ Termops.Internal.print_constr_env env sigma' c ++ strbrk ") is deprecated.")
 
 (* coerce to tycon if any *)
 let inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma j = function
@@ -859,9 +868,8 @@ struct
         let bidi = n >= nargs_before_bidi in
         let argloc = loc_of_glob_constr c in
         let sigma, resj, trace, impls = Coercion.inh_app_fun ~program_mode resolve_tc !!env sigma resj in
-        let c,rest = insert_impargs ?loc impls c rest in
         let resty = whd_all !!env sigma resj.uj_type in
-        match EConstr.kind sigma resty with
+        let f c rest = match EConstr.kind sigma resty with
         | Prod (na,c1,c2) ->
           let (sigma, hj), bidiargs =
             if bidi then
@@ -894,6 +902,20 @@ struct
           let sigma, hj = pretype empty_tycon env sigma c in
           error_cant_apply_not_functional
             ?loc:(Loc.merge_opt floc argloc) !!env sigma resj [|hj|]
+        in
+        match impls with
+        | None -> f c rest
+        | Some (coe,_) ->
+          let c',rest',some_change = insert_impargs ?loc impls c rest in
+          if not some_change then f c rest else
+          let g c rest = try Inl (f c rest) with e when CErrors.noncritical e -> Inr e in
+          match g c' rest' with
+          | Inl x -> x
+          | Inr e' ->
+          (* Temporary fallback on not using implicit arguments in coercions to funclass *)
+            match g c rest with
+            | Inl x -> warn_tolerance_no_coercion_implicit_argument ?loc (!!env,sigma,coe); x
+            | Inr e -> raise e'
     in
     let sigma, resj, resj_before_bidi, bidiargs = apply_rec env sigma 0 fj fj candargs [] args in
     let sigma, resj = refresh_template env sigma resj in
