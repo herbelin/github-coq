@@ -5,6 +5,7 @@ Pretype_errors
 Reductionops
 Inductiveops
 Arguments_renaming
+Impargs
 Retyping
 Vnorm
 Nativenorm

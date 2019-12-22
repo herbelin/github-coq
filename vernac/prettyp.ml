@@ -23,6 +23,7 @@ open Environ
 open Impargs
 open Libobject
 open Libnames
+open Nameops
 open Globnames
 open Recordops
 open Printer
@@ -254,8 +255,8 @@ let needs_extra_scopes ref scopes =
   aux env ty scopes
 
 let implicit_name_of_pos = function
-  | Constrexpr.ExplByName id -> Name id
-  | Constrexpr.ExplByPos (n,k) -> Anonymous
+  | ExplByName id -> Name id
+  | ExplByPos (n,k) -> Anonymous
 
 let implicit_kind_of_status = function
   | None -> Anonymous, Glob_term.Explicit

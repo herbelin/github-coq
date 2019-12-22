@@ -22,6 +22,7 @@ open Constrexpr
 open Constrexpr_ops
 open Notation_gram
 open Namegen
+open Nameops
 (*i*)
 
 module Tag =

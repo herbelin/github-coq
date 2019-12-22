@@ -281,3 +281,8 @@ end
 (* Metavariables *)
 let pr_meta = Pp.int
 let string_of_meta = string_of_int
+
+(* Misc *)
+type explicitation =
+  | ExplByPos of int * Id.t option (* a reference to the n-th product starting from left *)
+  | ExplByName of Id.t

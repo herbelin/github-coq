@@ -21,7 +21,7 @@ open Libobject
 open EConstr
 open Reductionops
 open Namegen
-open Constrexpr
+open Nameops
 
 module NamedDecl = Context.Named.Declaration
 

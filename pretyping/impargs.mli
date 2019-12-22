@@ -11,6 +11,7 @@
 open Names
 open EConstr
 open Environ
+open Nameops
 
 (** {6 Implicit Arguments } *)
 (** Here we store the implicit arguments. Notice that we
@@ -68,7 +69,7 @@ type maximal_insertion = bool (** true = maximal contextual insertion *)
 
 type force_inference = bool (** true = always infer, never turn into evar/subgoal *)
 
-type implicit_status = (Constrexpr.explicitation * implicit_explanation *
+type implicit_status = (explicitation * implicit_explanation *
                           (maximal_insertion * force_inference)) option
     (** [None] = Not implicit *)
 
