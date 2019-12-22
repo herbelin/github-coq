@@ -6,3 +6,7 @@ fun (x : foo) (n : nat) => x n
      : foo -> nat -> nat
 "1" 0
      : PAIR
+h 0
+     : bool
+0 (1 :: nil)
+     : bool

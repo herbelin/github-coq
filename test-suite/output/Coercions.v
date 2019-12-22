@@ -22,3 +22,12 @@ Open Scope string_scope.
 Inductive PAIR := P (s:string) (n:nat).
 Coercion P : string >-> Funclass.
 Check ("1" 0).
+
+(* Implicit arguments and coercions *)
+
+Axiom h : nat -> forall {A} {_:list A}, bool.
+Coercion h : nat >-> Funclass.
+Check @h 0 _ (@nil bool).
+Open Scope list_scope.
+Arguments h _ {A} _.
+Check 0 (1::nil).

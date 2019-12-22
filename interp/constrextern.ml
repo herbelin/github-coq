@@ -732,6 +732,17 @@ let mkFlattenedCApp (head,args) =
   | _ ->
     CApp ((None, head), args)
 
+let extern_applied_funclass_coercion ?loc inctx impls head args =
+  try
+    let args = adjust_implicit_arguments inctx (List.length args) 1 args impls in
+    if args = [] then
+      (* No way to reinfer the coercion once implicit arguments are dropped *)
+      raise Expl;
+    Some (CAst.make ?loc @@ mkFlattenedCApp (head, args))
+  with Expl ->
+    (* Cannot use implicit arguments thus do not remove coercion *)
+    None
+
 let extern_applied_notation n impl f args =
   if List.is_empty args then
     f.CAst.v
@@ -768,9 +779,8 @@ let remove_one_coercion inctx c =
                  been confused with ordinary application or would have need
                  a surrounding context and the coercion to funclass would
                  have been made explicit to match *)
-              let a' = if List.is_empty l then a else DAst.make ?loc @@ GApp (a,l) in
-              let inctx = inctx || not (List.is_empty l) in
-              Some (nparams+1, inctx, a')
+              let coe_args = if List.is_empty l then None else Some (r,l) in
+              Some (nparams+1, a, coe_args)
           | _ -> None)
   | _ -> None
   with Not_found ->
@@ -869,10 +879,26 @@ let extern_ref vars ref us =
 let extern_var ?loc id = CRef (qualid_of_ident ?loc id,None)
 
 let rec extern inctx scopes vars r =
-  match remove_one_coercion inctx (flatten_application r) with
-  | Some (nargs,inctx,r') ->
-    (try extern_notations scopes vars (Some nargs) r
-     with No_match -> extern inctx scopes vars r')
+  match
+    match remove_one_coercion inctx (flatten_application r) with
+    | Some (nargs,head,to_funclass) ->
+      (try Some (extern_notations scopes vars (Some nargs) r)
+       with No_match ->
+         match to_funclass with
+         | None -> Some (extern inctx scopes vars head)
+         | Some (ref,args) ->
+           try Some (extern_notations scopes vars None (DAst.make (GApp (head,args))))
+           with No_match ->
+           let subscopes = find_arguments_scope ref in
+           let args = fill_arg_scopes args subscopes scopes in
+           let args = extern_args (extern true) vars args in
+           let impls = select_stronger_impargs
+                         (List.map (drop_first_implicits nargs) (implicits_of_global ref)) in
+           let head = sub_extern false scopes vars head in
+           extern_applied_funclass_coercion ?loc:r.CAst.loc inctx impls head args)
+    | None -> None
+  with
+  | Some a -> a
   | None ->
 
   try extern_notations scopes vars None r
