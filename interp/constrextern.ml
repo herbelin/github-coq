@@ -1283,7 +1283,9 @@ and extern_notation (custom,scopes as allscopes) vars t rules =
                   let args = extern_args (extern true) vars args in
                   CAst.make ?loc @@ extern_applied_notation nallargs argsimpls c args)
           | SynDefRule kn ->
-             match availability_of_entry_coercion custom InConstrEntrySomeLevel with
+             if terms = [] && entry_has_global custom then
+               CAst.make ?loc @@ CRef (Nametab.shortest_qualid_of_syndef ?loc vars kn,None)
+             else match availability_of_entry_coercion custom InConstrEntrySomeLevel with
              | None -> raise No_match
              | Some coercion ->
               let l =
