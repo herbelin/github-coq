@@ -193,6 +193,10 @@ let extract_manual_implicit e =
     let na = match e with ExplByPos _ -> Anonymous | ExplByName id -> Name id in
     (na,max)) e)
 
+let warn_discard_implicit =
+  CWarnings.create ~name:"implicit-declaration-not-in-section" ~category:"syntax"
+    Pp.(fun () -> str "Discarding implicit binder declaration since not in a section.")
+
 let context_insection sigma ~poly int_env ctx =
   let uctx = Evd.universe_context_set sigma in
   let () = DeclareUctx.declare_universe_context ~poly uctx in
@@ -237,6 +241,7 @@ let context_nosection sigma ~poly int_env ctx =
   in
   let fn subst d =
     let (name,b,t,impl) = context_subst subst d in
+    Glob_term.(match impl with Explicit -> () | MaxImplicit | NonMaxImplicit -> warn_discard_implicit ());
     let kind = Decls.(IsAssumption Logical) in
     let impls = implicits_of_decl_in_internalization_env name int_env in
     let impls = List.map extract_manual_implicit impls in
