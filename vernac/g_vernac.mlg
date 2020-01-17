@@ -738,8 +738,8 @@ GRAMMAR EXTEND Gram
          t = class_rawexpr ->
           { VernacCoercion (CAst.make ~loc @@ ByNotation ntn, s, t) }
 
-      | IDENT "Context"; c = LIST1 binder ->
-          { VernacContext (List.flatten c) }
+      | IDENT "Context"; c = open_binders ->
+          { VernacContext c }
 
       | IDENT "Instance"; namesup = instance_name; ":";
          t = operconstr LEVEL "200";

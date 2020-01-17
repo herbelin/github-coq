@@ -866,7 +866,7 @@ Sections create local contexts which can be shared across multiple definitions.
       :name: Let CoFixpoint
       :undocumented:
 
-.. cmd:: Context @binders
+.. cmd:: Context @open_binders
 
    Declare variables in the context of the current section, like :cmd:`Variable`,
    but also allowing implicit variables, :ref:`implicit-generalization`, and
