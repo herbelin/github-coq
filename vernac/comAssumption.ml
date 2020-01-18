@@ -224,13 +224,13 @@ let do_assumptions ~program_mode ~poly ~scope ~kind nl l =
   in
   declare_context ~poly ~scope (univs,ubinders) nl ctx
 
-let context ~poly l =
+let context ~program_mode ~poly l =
   let env = Global.env() in
   let sigma = Evd.from_env env in
   let sigma, (_, ((env, ctx), impls)) =
     Impargs.with_implicit_protection (fun () ->
         let () = Impargs.make_implicit_args false in
-        interp_named_context_evars ~program_mode:false env sigma l) ()
+        interp_named_context_evars ~program_mode env sigma l) ()
   in
   (* Note, we must use the normalized evar from now on! *)
   let sigma = solve_remaining_evars all_and_fail_flags env sigma in

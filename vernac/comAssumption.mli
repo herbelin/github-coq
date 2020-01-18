@@ -83,6 +83,7 @@ val declare_global
 (** Context command *)
 
 val context
-  :  poly:bool
+  :  program_mode:bool
+  -> poly:bool
   -> local_binder_expr list
   -> unit
