@@ -244,9 +244,8 @@ let context_nosection sigma ~poly ctx =
     let () = Declare.assumption_message name in
     let env = Global.env () in
     (* why local when is_modtype? *)
-    let locality = if Lib.is_modtype () then Goptions.OptLocal else Goptions.OptGlobal in
-    let () = if Lib.is_modtype() || Option.is_empty b then
-        Classes.declare_instance env sigma None locality (GlobRef.ConstRef cst)
+    let () = if Option.is_empty b then
+        Classes.declare_instance env sigma None Goptions.OptGlobal (GlobRef.ConstRef cst)
     in
     Constr.mkConstU (cst,instance_of_univ_entry univs) :: subst
   in
