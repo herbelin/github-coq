@@ -53,6 +53,19 @@ val declare_axiom
   -> variable
   -> GlobRef.t * Univ.Instance.t
 
+val declare_global
+  : coercion_flag
+  -> poly:bool
+  -> local:Locality.import_status
+  -> kind:Decls.logical_kind
+  -> Constr.constr option
+  -> Constr.types
+  -> Entries.universes_entry * UnivNames.universe_binders
+  -> Impargs.manual_implicits
+  -> Declaremods.inline
+  -> variable
+  -> GlobRef.t * Univ.Instance.t
+
 (** Context command *)
 
 val context

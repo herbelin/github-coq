@@ -37,25 +37,33 @@ let instance_of_univ_entry = function
   | Polymorphic_entry (_, univs) -> Univ.UContext.instance univs
   | Monomorphic_entry _ -> Univ.Instance.empty
 
-let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl name =
+(** Declares a global axiom/parameter, possibly declaring it:
+    - as a coercion
+    - as a type class instance
+    - with implicit arguments
+    - with inlining for functor application
+    - with named universes *)
+
+let declare_global is_coe ~poly ~local ~kind body typ (univs, pl) imps nl name =
   let do_instance = let open Decls in match kind with
-  | Context -> true
+  | IsAssumption Context -> body = None
     (* The typeclass behaviour of Variable and Context doesn't depend
        on section status *)
-  | Definitional | Logical | Conjectural -> false
+  | _ -> false
   in
   let inl = let open Declaremods in match nl with
     | NoInline -> None
     | DefaultInline -> Some (Flags.get_inline_level())
     | InlineAt i -> Some i
   in
-  let kind = Decls.IsAssumption kind in
-  let decl = Declare.ParameterEntry (None,(typ,univs),inl) in
+  let decl = match body with
+    | None -> Declare.ParameterEntry (None,(typ,univs),inl)
+    | Some b -> Declare.DefinitionEntry (Declare.definition_entry ~univs ~types:typ b) in
   let kn = Declare.declare_constant ~name ~local ~kind decl in
   let gr = GlobRef.ConstRef kn in
   let () = maybe_declare_manual_implicits false gr imps in
   let () = DeclareUniv.declare_univ_binders gr pl in
-  let () = Declare.assumption_message name in
+  let () = match body with None -> Declare.assumption_message name | Some _ -> Declare.definition_message name in
   let env = Global.env () in
   let sigma = Evd.from_env env in
   let () = if do_instance then Classes.declare_instance env sigma None Goptions.OptGlobal gr in
@@ -66,6 +74,9 @@ let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl name =
   let () = if is_coe then ComCoercion.try_add_new_coercion gr ~local ~poly in
   let inst = instance_of_univ_entry univs in
   (gr,inst)
+
+let declare_axiom is_coe ~poly ~local ~kind typ univs imps nl name =
+  declare_global is_coe ~poly ~local ~kind:(Decls.IsAssumption kind) None typ univs imps nl name
 
 let interp_assumption ~program_mode env sigma impl_env bl c =
   let flags = { Pretyping.all_no_fail_flags with program_mode } in
@@ -227,27 +238,14 @@ let context_nosection sigma ~poly ctx =
       let () = DeclareUctx.declare_universe_context ~poly uctx in
       Monomorphic_entry Univ.ContextSet.empty
   in
-  let fn subst d =
-    let (name,b,t,_impl) = context_subst subst d in
-    let kind = Decls.(IsAssumption Logical) in
-    let decl = match b with
-      | None ->
-        Declare.ParameterEntry (None,(t,univs),None)
-      | Some b ->
-        let entry = Declare.definition_entry ~univs ~types:t b in
-        Declare.DefinitionEntry entry
-    in
     let local = if Lib.is_modtype () then Locality.ImportDefaultBehavior
       else Locality.ImportNeedQualified
     in
-    let cst = Declare.declare_constant ~name ~kind ~local decl in
-    let () = Declare.assumption_message name in
-    let env = Global.env () in
-    (* why local when is_modtype? *)
-    let () = if Option.is_empty b then
-        Classes.declare_instance env sigma None Goptions.OptGlobal (GlobRef.ConstRef cst)
-    in
-    Constr.mkConstU (cst,instance_of_univ_entry univs) :: subst
+  let fn subst d =
+    let (name,b,t,_impl) = context_subst subst d in
+    let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+    let refu = declare_global false ~poly ~local ~kind b t (univs,Id.Map.empty) [] Declaremods.NoInline name in
+    Constr.mkRef refu :: subst
   in
   let _ : Vars.substl = List.fold_left fn [] ctx in
   ()
