@@ -145,14 +145,13 @@ let clear_univs scope univ =
 let context_subst subst (name,b,t,impl) =
   name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
 
-let declare_context ~poly ~scope univs ctx =
+let declare_context ~poly ~scope univs nl ctx =
   let fn i subst d =
-    let (name,b,t,impl) = context_subst subst d in
-    let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+    let (name,b,t,(impl,kind,is_coe,impls)) = context_subst subst d in
     let univs = if i = 0 then univs else clear_univs scope univs in
     let refu = match scope with
-      | Locality.Discharge -> declare_local false ~poly ~kind b t univs [] impl name
-      | Locality.Global local -> declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
+      | Locality.Discharge -> declare_local is_coe ~poly ~kind b t univs impls impl name
+      | Locality.Global local -> declare_global is_coe ~poly ~local ~kind b t univs impls nl name in
     Constr.mkRef refu :: subst
   in
   let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
@@ -270,14 +269,16 @@ let context ~poly l =
         | Name id -> id
       in
       let impl = let open Glob_term in
-      let search x = match x.CAst.v with
+        let search x = match x.CAst.v with
         | Some (Name id',max) when Id.equal name id' ->
           Some (if max then MaxImplicit else NonMaxImplicit)
         | _ -> None
         in
         try CList.find_map search impls with Not_found -> Explicit
       in
-      name,b,t,impl)
+      let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+      let data = (impl,kind,false,[]) in
+      (name,b,t,data))
       ctx
   in
   let univs = (Evd.univ_entry ~poly sigma, Evd.universe_binders sigma) in
@@ -286,4 +287,4 @@ let context ~poly l =
     if Global.sections_are_opened () then Discharge
     else Global (if Lib.is_modtype () then ImportDefaultBehavior else ImportNeedQualified)
   in
-  declare_context ~poly ~scope univs ctx
+  declare_context ~poly ~scope univs Declaremods.NoInline ctx
