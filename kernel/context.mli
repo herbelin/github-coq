@@ -145,6 +145,9 @@ sig
   (** Map all terms in a given rel-context. *)
   val map : ('c -> 'c) -> ('c, 'c) pt -> ('c, 'c) pt
 
+  (** Map all terms in a given named-context. *)
+  val map_het : ('c -> 'd) -> ('c, 'c) pt -> ('d, 'd) pt
+
   (** Perform a given action on every declaration in a given rel-context. *)
   val iter : ('c -> unit) -> ('c, 'c) pt -> unit
 
@@ -278,6 +281,9 @@ sig
 
   (** Map all terms in a given named-context. *)
   val map : ('c -> 'c) -> ('c, 'c) pt -> ('c, 'c) pt
+
+  (** Map all terms in a given named-context. *)
+  val map_het : ('c -> 'd) -> ('c, 'c) pt -> ('d, 'd) pt
 
   (** Perform a given action on every declaration in a given named-context. *)
   val iter : ('c -> unit) -> ('c, 'c) pt -> unit

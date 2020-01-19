@@ -223,6 +223,8 @@ struct
   (** Map all terms in a given rel-context. *)
   let map f = List.Smart.map (Declaration.map_constr f)
 
+  let map_het f = List.map (Declaration.map_constr_het f)
+
   (** Perform a given action on every declaration in a given rel-context. *)
   let iter f = List.iter (Declaration.iter_constr f)
 
@@ -438,6 +440,8 @@ struct
 
   (** Map all terms in a given named-context. *)
   let map f = List.Smart.map (Declaration.map_constr f)
+
+  let map_het f = List.map (Declaration.map_constr_het f)
 
   (** Perform a given action on every declaration in a given named-context. *)
   let iter f = List.iter (Declaration.iter_constr f)
