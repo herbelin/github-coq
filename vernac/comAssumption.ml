@@ -105,37 +105,51 @@ let interp_assumption ~program_mode env sigma impl_env bl c =
   let ty = EConstr.it_mkProd_or_LetIn ty ctx in
   sigma, ty, impls1@impls2
 
-(* When monomorphic the universe constraints and universe names are
-   declared with the first declaration only. *)
-let next_univs =
-  let empty_univs = Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders in
-  function
-  | Polymorphic_entry _, _ as univs -> univs
-  | Monomorphic_entry _, _ -> empty_univs
-
-let declare_assumptions ~poly ~scope ~kind univs nl l =
-  let () = match scope with
+(* When monomorphic, the universe constraints and universe names
+   are declared once for all *)
+let prepare_assumptions_with_universe scope (univ_entry,_ as univs) decls =
+  let add_univ_id univs CAst.{v=id} = (id,univs) in
+  let add_univ univs decls =
+    List.map (fun ((is_coe,ids),typ,imps) ->
+      ((is_coe,List.map (add_univ_id univs) ids),typ,imps)) decls
+  in
+  match scope, univ_entry with
+  | Locality.Discharge, Polymorphic_entry _ ->
+    assert false
+  | Locality.Global _, Polymorphic_entry _ ->
+    add_univ univs decls
+  | _, Monomorphic_entry _ ->
+    let () = match scope with
     | Locality.Discharge ->
       (* declare universes separately for variables *)
-      DeclareUctx.declare_universe_context ~poly (context_set_of_entry (fst univs))
+      DeclareUctx.declare_universe_context ~poly:false (context_set_of_entry univ_entry);
     | Locality.Global _ -> ()
-  in
-  let _, _ = List.fold_left (fun (subst,univs) ((is_coe,idl),typ,imps) ->
+    in
+    let empty_univs = Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders in
+    match decls with
+    | ((is_coe,CAst.{v=id}::ids),typ,imps) :: decls ->
+      ((is_coe,(id,univs)::List.map (add_univ_id empty_univs) ids),typ,imps) ::
+        add_univ empty_univs decls
+    | ((_,[]),_,_) :: _ | [] -> assert false
+
+let declare_assumptions ~poly ~scope ~kind univs nl decls =
+  let decls = prepare_assumptions_with_universe scope univs decls in
+  let _ = List.fold_left (fun subst ((is_coe,idl),typ,imps) ->
       (* NB: here univs are ignored when scope=Discharge *)
       let typ = replace_vars subst typ in
-      let univs,subst' =
-        List.fold_left_map (fun univs {CAst.v = id} ->
+      let subst' =
+        List.map (fun (id,univs) ->
             let refu = match scope with
               | Locality.Discharge ->
                 declare_variable is_coe ~poly ~kind typ univs imps Glob_term.Explicit id
               | Locality.Global local ->
                 declare_axiom is_coe ~local ~poly ~kind typ univs imps nl id
             in
-            next_univs univs, (id, Constr.mkRef refu))
-          univs idl
+            (id, Constr.mkRef refu))
+          idl
       in
-      subst'@subst, next_univs univs)
-      ([], univs) l
+      subst'@subst)
+      [] decls
   in
   ()
 
@@ -233,7 +247,6 @@ let context_insection sigma ~poly univs ctx =
   in
   let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
   ()
-
 let context_nosection sigma ~poly univs ctx =
   let local =
     if Lib.is_modtype () then Locality.ImportDefaultBehavior

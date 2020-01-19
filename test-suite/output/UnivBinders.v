@@ -150,6 +150,8 @@ Monomorphic Axiom axfoo'@{i+} axbar' : Type -> Type@{i}.
 
 About axfoo. About axbar. About axfoo'. About axbar'.
 
+Print axfoo. Print axbar. Print axfoo'. Print axbar'.
+
 Fail Axiom failfoo failbar@{i} : Type.
 
 (* Notation interaction *)
