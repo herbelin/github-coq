@@ -351,12 +351,16 @@ val declare_entry
   -> Evd.side_effects proof_entry
   -> GlobRef.t
 
+(** Declaration of section variables and local definitions *)
+type variable_declaration =
+  | SectionLocalDef of Evd.side_effects proof_entry
+  | SectionLocalAssum of { typ:Constr.types; impl:Glob_term.binding_kind; }
+
 (** Declaration of local constructions (Variable/Hypothesis/Local) *)
 val declare_variable
   :  name:variable
   -> kind:Decls.logical_kind
-  -> typ:Constr.types
-  -> impl:Glob_term.binding_kind
+  -> variable_declaration
   -> unit
 
 (** Declaration of global constructions

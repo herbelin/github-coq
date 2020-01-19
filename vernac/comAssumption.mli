@@ -34,8 +34,22 @@ val do_assumptions
 
 val declare_variable
   : coercion_flag
+  -> poly:bool
   -> kind:Decls.assumption_object_kind
   -> Constr.types
+  -> Entries.universes_entry * UnivNames.universe_binders
+  -> Impargs.manual_implicits
+  -> Glob_term.binding_kind
+  -> variable
+  -> Names.GlobRef.t * Univ.Instance.t
+
+val declare_local
+  : coercion_flag
+  -> poly:bool
+  -> kind:Decls.logical_kind
+  -> Constr.constr option
+  -> Constr.types
+  -> Entries.universes_entry * UnivNames.universe_binders
   -> Impargs.manual_implicits
   -> Glob_term.binding_kind
   -> variable

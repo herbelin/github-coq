@@ -21,17 +21,37 @@ open Entries
 module RelDecl = Context.Rel.Declaration
 (* 2| Variable/Hypothesis/Parameter/Axiom declarations *)
 
-let declare_variable is_coe ~kind typ imps impl name =
-  let kind = Decls.IsAssumption kind in
-  let () = Declare.declare_variable ~name ~kind ~typ ~impl in
-  let () = Declare.assumption_message name in
+let context_set_of_entry = function
+  | Polymorphic_entry (_,uctx) -> Univ.ContextSet.of_context uctx
+  | Monomorphic_entry uctx -> uctx
+
+(** Declares a local variable/let, possibly declaring it:
+    - as a coercion (is_coe)
+    - as a type class instance
+    - with implicit arguments (impls)
+    - with implicit status for discharge (impl)
+    - virtually with named universes *)
+
+let declare_local is_coe ~poly ~kind body typ univs imps impl name =
+  let (univs, (*Univ names not supported on variables*) _names) = univs in
+  let decl = match body with
+    | None ->
+      let () = DeclareUctx.declare_universe_context ~poly (context_set_of_entry univs) in
+      Declare.SectionLocalAssum {typ; impl}
+    | Some b ->
+      Declare.SectionLocalDef (Declare.definition_entry ~univs ~types:typ b) in
+  let () = Declare.declare_variable ~name ~kind decl in
+  let () = if body = None then Declare.assumption_message name else Declare.definition_message name in
   let r = GlobRef.VarRef name in
   let () = maybe_declare_manual_implicits true r imps in
   let env = Global.env () in
   let sigma = Evd.from_env env in
-  let () = Classes.declare_instance env sigma None Goptions.OptLocal r in
-  let () = if is_coe then ComCoercion.try_add_new_coercion r ~local:true ~poly:false in
+  let () = if body = None then Classes.declare_instance env sigma None Goptions.OptLocal r in
+  let () = if is_coe then ComCoercion.try_add_new_coercion r ~local:true ~poly in
   (r, Univ.Instance.empty)
+
+let declare_variable is_coe ~poly ~kind typ univs imps impl name =
+  declare_local is_coe ~poly ~kind:(Decls.IsAssumption kind) None typ univs imps impl name
 
 let instance_of_univ_entry = function
   | Polymorphic_entry (_, univs) -> Univ.UContext.instance univs
@@ -93,10 +113,6 @@ let next_univs =
   | Polymorphic_entry _, _ as univs -> univs
   | Monomorphic_entry _, _ -> empty_univs
 
-let context_set_of_entry = function
-  | Polymorphic_entry (_,uctx) -> Univ.ContextSet.of_context uctx
-  | Monomorphic_entry uctx -> uctx
-
 let declare_assumptions ~poly ~scope ~kind univs nl l =
   let () = match scope with
     | Locality.Discharge ->
@@ -111,7 +127,7 @@ let declare_assumptions ~poly ~scope ~kind univs nl l =
         List.fold_left_map (fun univs {CAst.v = id} ->
             let refu = match scope with
               | Locality.Discharge ->
-                declare_variable is_coe ~kind typ imps Glob_term.Explicit id
+                declare_variable is_coe ~poly ~kind typ univs imps Glob_term.Explicit id
               | Locality.Global local ->
                 declare_axiom is_coe ~local ~poly ~kind typ univs imps nl id
             in
@@ -200,26 +216,20 @@ let context_subst subst (name,b,t,impl) =
 let context_insection sigma ~poly ctx =
   let uctx = Evd.universe_context_set sigma in
   let () = DeclareUctx.declare_universe_context ~poly uctx in
+  (* We need to get poly right for check_same_poly *)
+  let univs =
+    ((if poly then Polymorphic_entry ([| |], Univ.UContext.empty)
+    else Monomorphic_entry Univ.ContextSet.empty), UnivNames.empty_binders)
+  in
   let fn subst (name,_,_,_ as d) =
     let d = context_subst subst d in
     let refu = match d with
       | name, None, t, impl ->
         let kind = Decls.Context in
-        declare_variable false ~kind t [] impl name
+        declare_variable false ~poly ~kind t univs [] impl name
       | name, Some b, t, impl ->
-        (* We need to get poly right for check_same_poly *)
-        let univs = if poly then Polymorphic_entry ([| |], Univ.UContext.empty)
-          else Monomorphic_entry Univ.ContextSet.empty
-        in
-        let entry = Declare.definition_entry ~univs ~types:t b in
-        (* XXX Fixme: Use Declare.prepare_definition *)
-        let uctx = Evd.evar_universe_context sigma in
         let kind = Decls.(IsDefinition LetContext) in
-        let gr =
-          Declare.declare_entry ~name ~scope:Locality.Discharge
-            ~kind ~impargs:[] ~uctx entry
-        in
-        (gr,Univ.Instance.empty)
+        declare_local false ~poly ~kind (Some b) t univs [] impl name
     in
     Constr.mkRef refu :: subst
   in
