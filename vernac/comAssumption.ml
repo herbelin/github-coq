@@ -21,7 +21,7 @@ open Entries
 module RelDecl = Context.Rel.Declaration
 (* 2| Variable/Hypothesis/Parameter/Axiom declarations *)
 
-let declare_variable is_coe ~kind typ imps impl {CAst.v=name} =
+let declare_variable is_coe ~kind typ imps impl name =
   let kind = Decls.IsAssumption kind in
   let () = Declare.declare_variable ~name ~kind ~typ ~impl in
   let () = Declare.assumption_message name in
@@ -37,7 +37,7 @@ let instance_of_univ_entry = function
   | Polymorphic_entry (_, univs) -> Univ.UContext.instance univs
   | Monomorphic_entry _ -> Univ.Instance.empty
 
-let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl {CAst.v=name} =
+let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl name =
   let do_instance = let open Decls in match kind with
   | Context -> true
     (* The typeclass behaviour of Variable and Context doesn't depend
@@ -97,15 +97,15 @@ let declare_assumptions ~poly ~scope ~kind univs nl l =
       (* NB: here univs are ignored when scope=Discharge *)
       let typ = replace_vars subst typ in
       let univs,subst' =
-        List.fold_left_map (fun univs id ->
+        List.fold_left_map (fun univs {CAst.v = id} ->
             let refu = match scope with
               | Locality.Discharge ->
                 declare_variable is_coe ~kind typ imps Glob_term.Explicit id;
-                GlobRef.VarRef id.CAst.v, Univ.Instance.empty
+                GlobRef.VarRef id, Univ.Instance.empty
               | Locality.Global local ->
                 declare_axiom is_coe ~local ~poly ~kind typ univs imps nl id
             in
-            next_univs univs, (id.CAst.v, Constr.mkRef refu))
+            next_univs univs, (id, Constr.mkRef refu))
           univs idl
       in
       subst'@subst, next_univs univs)
@@ -195,7 +195,7 @@ let context_insection sigma ~poly ctx =
     let () = match d with
       | name, None, t, impl ->
         let kind = Decls.Context in
-        declare_variable false ~kind t [] impl (CAst.make name)
+        declare_variable false ~kind t [] impl name
       | name, Some b, t, impl ->
         (* We need to get poly right for check_same_poly *)
         let univs = if poly then Polymorphic_entry ([| |], Univ.UContext.empty)

@@ -38,7 +38,7 @@ val declare_variable
   -> Constr.types
   -> Impargs.manual_implicits
   -> Glob_term.binding_kind
-  -> variable CAst.t
+  -> variable
   -> unit
 
 val declare_axiom
@@ -50,7 +50,7 @@ val declare_axiom
   -> Entries.universes_entry * UnivNames.universe_binders
   -> Impargs.manual_implicits
   -> Declaremods.inline
-  -> variable CAst.t
+  -> variable
   -> GlobRef.t * Univ.Instance.t
 
 (** Context command *)
