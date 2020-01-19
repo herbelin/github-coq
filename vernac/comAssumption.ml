@@ -237,27 +237,14 @@ let clear_univs scope univ =
 let context_subst subst (name,b,t,impl) =
   name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
 
-let context_insection sigma ~poly univs ctx =
+let declare_context ~poly ~scope univs ctx =
   let fn i subst d =
     let (name,b,t,impl) = context_subst subst d in
     let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
-    let univs = if i = 0 then univs else empty_univ_entry poly in
-    let refu = declare_local false ~poly ~kind b t univs [] impl name in
-    Constr.mkRef refu :: subst
-  in
-  let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
-  ()
-let context_nosection sigma ~poly univs ctx =
-  let local =
-    if Lib.is_modtype () then Locality.ImportDefaultBehavior
-    else Locality.ImportNeedQualified
-  in
-  let fn i subst d =
-    let (name,b,t,_impl) = context_subst subst d in
-    let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
-    (* Multiple monomorphic axioms: declare universes only on the first declaration *)
-    let univs = if i = 0 then univs else clear_univs (Locality.Global local) univs in
-    let refu = declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
+    let univs = if i = 0 then univs else clear_univs scope univs in
+    let refu = match scope with
+      | Locality.Discharge -> declare_local false ~poly ~kind b t univs [] impl name
+      | Locality.Global local -> declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
     Constr.mkRef refu :: subst
   in
   let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
@@ -291,6 +278,9 @@ let context ~poly l =
       ctx
   in
   let univs = (Evd.univ_entry ~poly sigma, Evd.universe_binders sigma) in
-  if Global.sections_are_opened ()
-  then context_insection sigma ~poly univs ctx
-  else context_nosection sigma ~poly univs ctx
+  let open Locality in
+  let scope =
+    if Global.sections_are_opened () then Discharge
+    else Global (if Lib.is_modtype () then ImportDefaultBehavior else ImportNeedQualified)
+  in
+  declare_context ~poly ~scope univs ctx
