@@ -132,6 +132,32 @@ let prepare_assumptions_with_universe scope (univ_entry,_ as univs) decls =
         add_univ empty_univs decls
     | ((_,[]),_,_) :: _ | [] -> assert false
 
+let empty_poly_univ_entry = Polymorphic_entry ([| |], Univ.UContext.empty), UnivNames.empty_binders
+let empty_mono_univ_entry = Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders
+let empty_univ_entry poly = if poly then empty_poly_univ_entry else empty_mono_univ_entry
+
+let clear_univs scope univ =
+  match scope, univ with
+  | Locality.Global _, (Polymorphic_entry _, _ as univs) -> univs
+  | _, (Monomorphic_entry _, _) -> empty_univ_entry false
+  | _, (Polymorphic_entry _, _) -> empty_univ_entry true
+
+let context_subst subst (name,b,t,impl) =
+  name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
+
+let declare_context ~poly ~scope univs ctx =
+  let fn i subst d =
+    let (name,b,t,impl) = context_subst subst d in
+    let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+    let univs = if i = 0 then univs else clear_univs scope univs in
+    let refu = match scope with
+      | Locality.Discharge -> declare_local false ~poly ~kind b t univs [] impl name
+      | Locality.Global local -> declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
+    Constr.mkRef refu :: subst
+  in
+  let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
+  ()
+
 let declare_assumptions ~poly ~scope ~kind univs nl decls =
   let decls = prepare_assumptions_with_universe scope univs decls in
   let _ = List.fold_left (fun subst ((is_coe,idl),typ,imps) ->
@@ -153,35 +179,38 @@ let declare_assumptions ~poly ~scope ~kind univs nl decls =
   in
   ()
 
-let maybe_error_many_udecls = function
-  | ({CAst.loc;v=id}, Some _) ->
-    user_err ?loc ~hdr:"many_universe_declarations"
+let error_extra_universe_decl ?loc () =
+  user_err ?loc ~hdr:"many_universe_declarations"
       Pp.(strbrk "When declaring multiple assumptions in one command, " ++
           strbrk "only the first name is allowed to mention a universe binder " ++
           strbrk "(which will be shared by the whole block).")
-  | (_, None) -> ()
 
-let process_assumptions_udecls ~scope l =
-  let udecl, first_id = match l with
-    | (coe, ((id, udecl)::rest, c))::rest' ->
-      List.iter maybe_error_many_udecls rest;
-      List.iter (fun (coe, (idl, c)) -> List.iter maybe_error_many_udecls idl) rest';
-      udecl, id
-    | (_, ([], _))::_ | [] -> assert false
-  in
-  let () = match scope, udecl with
-    | Locality.Discharge, Some _ ->
-      let loc = first_id.CAst.loc in
-      let msg = Pp.str "Section variables cannot be polymorphic." in
-      user_err ?loc  msg
-    | _ -> ()
-  in
-  udecl, List.map (fun (coe, (idl, c)) -> coe, (List.map fst idl, c)) l
+let extract_assumption_names = function
+  | ({CAst.loc;v=id}, Some _) -> error_extra_universe_decl ?loc ()
+  | (id, None) -> id
+
+let process_assumptions_udecls = function
+  | (coe, ((id, udecl)::ids, c))::assums ->
+    let ids = List.map extract_assumption_names ids in
+    let assums = List.map (fun (coe, (idl, c)) -> (coe, (List.map extract_assumption_names idl, c))) assums in
+    udecl, (coe,(id::ids,c))::assums
+  | (_, ([], _))::_ | [] -> assert false
+
+let error_polymorphic_section_variable ?loc () =
+  user_err ?loc (Pp.str "Section variables cannot be polymorphic.")
+
+let process_assumptions_no_udecls l =
+  List.map (fun (coe, (ids, c)) ->
+      (coe, (List.map (function
+                 | ({CAst.loc}, Some _) -> error_polymorphic_section_variable ?loc ()
+                 | (id, None) -> id) ids, c))) l
 
 let do_assumptions ~program_mode ~poly ~scope ~kind nl l =
   let open Context.Named.Declaration in
   let env = Global.env () in
-  let udecl, l = process_assumptions_udecls ~scope l in
+  let udecl, l = match scope with
+    | Locality.Global import_behavior -> process_assumptions_udecls l
+    | Locality.Discharge -> None, process_assumptions_no_udecls l in
   let sigma, udecl = interp_univ_decl_opt env udecl in
   let l =
     if poly then
@@ -223,32 +252,6 @@ let do_assumptions ~program_mode ~poly ~scope ~kind nl l =
   let univs = Evd.check_univ_decl ~poly sigma udecl in
   let ubinders = Evd.universe_binders sigma in
   declare_assumptions ~poly ~scope ~kind (univs,ubinders) nl l
-
-let empty_poly_univ_entry = Polymorphic_entry ([| |], Univ.UContext.empty), UnivNames.empty_binders
-let empty_mono_univ_entry = Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders
-let empty_univ_entry poly = if poly then empty_poly_univ_entry else empty_mono_univ_entry
-
-let clear_univs scope univ =
-  match scope, univ with
-  | Locality.Global _, (Polymorphic_entry _, _ as univs) -> univs
-  | _, (Monomorphic_entry _, _) -> empty_univ_entry false
-  | _, (Polymorphic_entry _, _) -> empty_univ_entry true
-
-let context_subst subst (name,b,t,impl) =
-  name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
-
-let declare_context ~poly ~scope univs ctx =
-  let fn i subst d =
-    let (name,b,t,impl) = context_subst subst d in
-    let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
-    let univs = if i = 0 then univs else clear_univs scope univs in
-    let refu = match scope with
-      | Locality.Discharge -> declare_local false ~poly ~kind b t univs [] impl name
-      | Locality.Global local -> declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
-    Constr.mkRef refu :: subst
-  in
-  let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
-  ()
 
 let context ~poly l =
   let env = Global.env() in
