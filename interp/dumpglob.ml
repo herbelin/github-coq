@@ -71,7 +71,7 @@ open Declarations
 let type_of_logical_kind = function
   | IsDefinition def ->
       (match def with
-      | Definition | Let -> "def"
+      | Definition | Let | LetContext -> "def"
       | Coercion -> "coe"
       | SubClass -> "subclass"
       | CanonicalStructure -> "canonstruc"
