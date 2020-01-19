@@ -210,47 +210,44 @@ let do_assumptions ~program_mode ~poly ~scope ~kind nl l =
   let ubinders = Evd.universe_binders sigma in
   declare_assumptions ~poly ~scope ~kind (univs,ubinders) nl l
 
+let empty_poly_univ_entry = Polymorphic_entry ([| |], Univ.UContext.empty), UnivNames.empty_binders
+let empty_mono_univ_entry = Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders
+let empty_univ_entry poly = if poly then empty_poly_univ_entry else empty_mono_univ_entry
+
+let clear_univs scope univ =
+  match scope, univ with
+  | Locality.Global _, (Polymorphic_entry _, _ as univs) -> univs
+  | _, (Monomorphic_entry _, _) -> empty_univ_entry false
+  | _, (Polymorphic_entry _, _) -> empty_univ_entry true
+
 let context_subst subst (name,b,t,impl) =
   name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
 
-let context_insection sigma ~poly ctx =
-  let uctx = Evd.universe_context_set sigma in
-  let () = DeclareUctx.declare_universe_context ~poly uctx in
-  (* We need to get poly right for check_same_poly *)
-  let univs =
-    ((if poly then Polymorphic_entry ([| |], Univ.UContext.empty)
-    else Monomorphic_entry Univ.ContextSet.empty), UnivNames.empty_binders)
-  in
-  let fn subst d =
+let context_insection sigma ~poly univs ctx =
+  let fn i subst d =
     let (name,b,t,impl) = context_subst subst d in
     let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+    let univs = if i = 0 then univs else empty_univ_entry poly in
     let refu = declare_local false ~poly ~kind b t univs [] impl name in
     Constr.mkRef refu :: subst
   in
-  let _ : Vars.substl = List.fold_left fn [] ctx in
+  let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
   ()
 
-let context_nosection sigma ~poly ctx =
-  let univs =
-    match ctx, poly with
-    | [_], _ | _, true -> Evd.univ_entry ~poly sigma
-    | _, false ->
-      (* Multiple monomorphic axioms: declare universes separately to
-         avoid redeclaring them. *)
-      let uctx = Evd.universe_context_set sigma in
-      let () = DeclareUctx.declare_universe_context ~poly uctx in
-      Monomorphic_entry Univ.ContextSet.empty
+let context_nosection sigma ~poly univs ctx =
+  let local =
+    if Lib.is_modtype () then Locality.ImportDefaultBehavior
+    else Locality.ImportNeedQualified
   in
-    let local = if Lib.is_modtype () then Locality.ImportDefaultBehavior
-      else Locality.ImportNeedQualified
-    in
-  let fn subst d =
+  let fn i subst d =
     let (name,b,t,_impl) = context_subst subst d in
     let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
-    let refu = declare_global false ~poly ~local ~kind b t (univs,Id.Map.empty) [] Declaremods.NoInline name in
+    (* Multiple monomorphic axioms: declare universes only on the first declaration *)
+    let univs = if i = 0 then univs else clear_univs (Locality.Global local) univs in
+    let refu = declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
     Constr.mkRef refu :: subst
   in
-  let _ : Vars.substl = List.fold_left fn [] ctx in
+  let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
   ()
 
 let context ~poly l =
@@ -280,6 +277,7 @@ let context ~poly l =
       name,b,t,impl)
       ctx
   in
+  let univs = (Evd.univ_entry ~poly sigma, UnivNames.empty_binders) in
   if Global.sections_are_opened ()
-  then context_insection sigma ~poly ctx
-  else context_nosection sigma ~poly ctx
+  then context_insection sigma ~poly univs ctx
+  else context_nosection sigma ~poly univs ctx
