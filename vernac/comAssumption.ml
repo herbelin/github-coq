@@ -221,16 +221,10 @@ let context_insection sigma ~poly ctx =
     ((if poly then Polymorphic_entry ([| |], Univ.UContext.empty)
     else Monomorphic_entry Univ.ContextSet.empty), UnivNames.empty_binders)
   in
-  let fn subst (name,_,_,_ as d) =
-    let d = context_subst subst d in
-    let refu = match d with
-      | name, None, t, impl ->
-        let kind = Decls.Context in
-        declare_variable false ~poly ~kind t univs [] impl name
-      | name, Some b, t, impl ->
-        let kind = Decls.(IsDefinition LetContext) in
-        declare_local false ~poly ~kind (Some b) t univs [] impl name
-    in
+  let fn subst d =
+    let (name,b,t,impl) = context_subst subst d in
+    let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+    let refu = declare_local false ~poly ~kind b t univs [] impl name in
     Constr.mkRef refu :: subst
   in
   let _ : Vars.substl = List.fold_left fn [] ctx in
