@@ -277,7 +277,7 @@ let context ~poly l =
       name,b,t,impl)
       ctx
   in
-  let univs = (Evd.univ_entry ~poly sigma, UnivNames.empty_binders) in
+  let univs = (Evd.univ_entry ~poly sigma, Evd.universe_binders sigma) in
   if Global.sections_are_opened ()
   then context_insection sigma ~poly univs ctx
   else context_nosection sigma ~poly univs ctx
