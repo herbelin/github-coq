@@ -60,6 +60,13 @@ let test_nospace m = assert(m <> []); Pcoq.Entry.of_parser "test_nospace"
 let test_nospace_pipe_closedcurly =
   test_nospace ["|"; "}"]
 
+let test_nospace_after_next_token =
+  Pcoq.Entry.of_parser "test_nospace_after"
+   (fun tok strm ->
+      let n = Stream.count strm in
+      let _ = Stream.npeek 2 strm in
+      if contiguous tok n (n + 1) then ()
+      else raise Stream.Failure)
 
 }
 
@@ -146,7 +153,7 @@ GRAMMAR EXTEND Gram
   ;
   integer:
     [ [ i = NUMERAL      -> { my_int_of_string loc (check_int loc i) }
-      | "-"; i = NUMERAL -> { - my_int_of_string loc (check_int loc i) } ] ]
+      | test_nospace_after_next_token; "-"; i = NUMERAL -> { - my_int_of_string loc (check_int loc i) } ] ]
   ;
   natural:
     [ [ i = NUMERAL -> { my_int_of_string loc (check_int loc i) } ] ]
