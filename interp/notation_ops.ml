@@ -1396,3 +1396,181 @@ let match_notation_constr_cases_pattern c (metas,pat) =
 let match_notation_constr_ind_pattern ind args (metas,pat) =
   let (terms,termlists,(),()),more_args = match_ind_pattern metas ([],[],(),()) ind args pat in
   reorder_canonically_substitution terms termlists metas, more_args
+
+(**********************************************************************)
+(* Manipulating notation strings                                      *)
+
+type symbol =
+  | Terminal of string
+  | NonTerminal of Id.t
+  | SProdList of Id.t * symbol list
+  | Break of int
+
+let rec symbol_eq s1 s2 = match s1, s2 with
+  | Terminal s1, Terminal s2 -> String.equal s1 s2
+  | NonTerminal id1, NonTerminal id2 -> Id.equal id1 id2
+  | SProdList (id1, l1), SProdList (id2, l2) ->
+    Id.equal id1 id2 && List.equal symbol_eq l1 l2
+  | Break i1, Break i2 -> Int.equal i1 i2
+  | _ -> false
+
+(************************************************************)
+(* Canonically encoding notations as strings back and forth *)
+
+let rec string_of_symbol = function
+  | NonTerminal _ -> ["_"]
+  | Terminal "_" -> ["'_'"]
+  | Terminal s -> [s]
+  | SProdList (_,l) ->
+    let l = List.flatten (List.map string_of_symbol l) in "_"::l@".."::l@["_"]
+  | Break _ -> []
+
+let make_notation_key from symbols =
+  (from,String.concat " " (List.flatten (List.map string_of_symbol symbols)))
+
+let decompose_notation_key (from,s) =
+  let len = String.length s in
+  let rec decomp_ntn dirs n =
+    if n>=len then List.rev dirs else
+    let pos =
+      try
+        String.index_from s n ' '
+      with Not_found -> len
+    in
+    let tok =
+      match String.sub s n (pos-n) with
+      | "_" -> NonTerminal (Id.of_string "_")
+      | s -> Terminal (String.drop_simple_quotes s) in
+    decomp_ntn (tok::dirs) (pos+1)
+  in
+    from, decomp_ntn [] 0
+
+type symbol_token = WhiteSpace of int | String of string
+
+let split_notation_string str =
+  let push_token beg i l =
+    if Int.equal beg i then l else
+      let s = String.sub str beg (i - beg) in
+      String s :: l
+  in
+  let push_whitespace beg i l =
+    if Int.equal beg i then l else WhiteSpace (i-beg) :: l
+  in
+  let rec loop beg i =
+    if i < String.length str then
+      if str.[i] == ' ' then
+        push_token beg i (loop_on_whitespace (i+1) (i+1))
+      else
+        loop beg (i+1)
+    else
+      push_token beg i []
+  and loop_on_whitespace beg i =
+    if i < String.length str then
+      if str.[i] != ' ' then
+        push_whitespace beg i (loop i (i+1))
+      else
+        loop_on_whitespace beg (i+1)
+    else
+      push_whitespace beg i []
+  in
+  loop 0 0
+
+(* Find non-terminal tokens of notation *)
+
+let rec raw_analyze_notation_tokens = function
+  | []    -> []
+  | String ".." :: sl when -> NonTerminal ldots_var :: raw_analyze_notation_tokens sl
+  | String "_" :: _ -> user_err Pp.(str "_ must be quoted.")
+  | String x :: sl when Id.is_valid x ->
+      NonTerminal (Names.Id.of_string x) :: raw_analyze_notation_tokens sl
+  | String s :: sl ->
+      Terminal (String.drop_simple_quotes s) :: raw_analyze_notation_tokens sl
+  | WhiteSpace n :: sl ->
+      Break n :: raw_analyze_notation_tokens sl
+
+let decompose_raw_notation ntn = raw_analyze_notation_tokens (split_notation_string ntn)
+
+let interp_notation_string ntn =
+  (* We collect the possible interpretations of a notation string depending on whether it is
+    in "x 'U' y" or "_ U _" format *)
+  let toks = split_notation_string ntn in
+  if List.exists (function String "_" -> true | _ -> false) toks then
+    (* Only "_ U _" format *)
+    [ntn]
+  else
+    (* Remark: we shortcut here the ".." -> SProdList -> ".." detour *)
+    let _,ntn' = make_notation_key None (raw_analyze_notation_tokens toks) in
+    if String.equal ntn ntn' then (* Only symbols *) [ntn] else [ntn;ntn']
+
+(* Interpret notations with a recursive component *)
+
+let out_nt = function NonTerminal x -> x | _ -> assert false
+
+let msg_expected_form_of_recursive_notation =
+  "In the notation, the special symbol \"..\" must occur in\na configuration of the form \"x symbs .. symbs y\"."
+
+let rec find_pattern nt xl = function
+  | Break n as x :: l, Break n' :: l' when Int.equal n n' ->
+      find_pattern nt (x::xl) (l,l')
+  | Terminal s as x :: l, Terminal s' :: l' when String.equal s s' ->
+      find_pattern nt (x::xl) (l,l')
+  | [], NonTerminal x' :: l' ->
+      (out_nt nt,x',List.rev xl),l'
+  | _, Break s :: _ | Break s :: _, _ ->
+      user_err Pp.(str ("A break occurs on one side of \"..\" but not on the other side."))
+  | _, Terminal s :: _ | Terminal s :: _, _ ->
+      user_err ~hdr:"find_pattern"
+        (str "The token \"" ++ str s ++ str "\" occurs on one side of \"..\" but not on the other side.")
+  | _, [] ->
+      user_err Pp.(str msg_expected_form_of_recursive_notation)
+  | ((SProdList _ | NonTerminal _) :: _), _ | _, (SProdList _ :: _) ->
+      anomaly (Pp.str "Only Terminal or Break expected on left, non-SProdList on right.")
+
+let rec interp_list_parser hd = function
+  | [] -> [], List.rev hd
+  | NonTerminal id :: tl when Id.equal id ldots_var ->
+      if List.is_empty hd then user_err Pp.(str msg_expected_form_of_recursive_notation);
+      let hd = List.rev hd in
+      let ((x,y,sl),tl') = find_pattern (List.hd hd) [] (List.tl hd,tl) in
+      let xyl,tl'' = interp_list_parser [] tl' in
+      (* We remember each pair of variable denoting a recursive part to *)
+      (* remove the second copy of it afterwards *)
+      (x,y)::xyl, SProdList (x,sl) :: tl''
+  | (Terminal _ | Break _) as s :: tl ->
+      if List.is_empty hd then
+        let yl,tl' = interp_list_parser [] tl in
+        yl, s :: tl'
+      else
+        interp_list_parser (s::hd) tl
+  | NonTerminal _ as x :: tl ->
+      let xyl,tl' = interp_list_parser [x] tl in
+      xyl, List.rev_append hd tl'
+  | SProdList _ :: _ -> anomaly (Pp.str "Unexpected SProdList in interp_list_parser.")
+
+let rec get_notation_vars onlyprint = function
+  | [] -> []
+  | NonTerminal id :: sl ->
+      let vars = get_notation_vars onlyprint sl in
+      if Id.equal id ldots_var then vars else
+        (* don't check for nonlinearity if printing only, see Bug 5526 *)
+        if not onlyprint && Id.List.mem id vars then
+          user_err ~hdr:"get_notation_vars"
+            (str "Variable " ++ Id.print id ++ str " occurs more than once.")
+        else id::vars
+  | (Terminal _ | Break _) :: sl -> get_notation_vars onlyprint sl
+  | SProdList _ :: _ -> assert false
+
+let analyze_notation_tokens ~onlyprint ntn =
+  let l = decompose_raw_notation ntn in
+  let vars = get_notation_vars onlyprint l in
+  let recvars,l = interp_list_parser [] l in
+  recvars, List.subtract Id.equal vars (List.map snd recvars), l
+
+let find_notation_string ~allow_part (from,ntn' as fullntn') ntn =
+  if String.contains ntn ' ' then String.equal ntn ntn'
+  else
+    let _,toks = decompose_notation_key fullntn' in
+    let get_terminals = function Terminal ntn -> Some ntn | _ -> None in
+    let trms = List.map_filter get_terminals toks in
+    if allow_part then String.List.mem ntn trms
+    else String.List.equal [ntn] trms

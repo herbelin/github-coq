@@ -67,5 +67,32 @@ val match_notation_constr_ind_pattern :
   (('a cases_pattern_g * extended_subscopes) list * ('a cases_pattern_g list * extended_subscopes) list) *
     (int * 'a cases_pattern_g list)
 
-(** {5 Matching a notation pattern against a [glob_constr]} *)
+(** {5 Manipulating notation strings } *)
 
+(** Building notation key *)
+
+type symbol =
+  | Terminal of string              (* an expression including symbols or a simply-quoted ident, e.g. "'U'" or "!" *)
+  | NonTerminal of Id.t             (* an identifier "x" *)
+  | SProdList of Id.t * symbol list (* an expression "x sep .. sep y", remembering x (or y) and sep *)
+  | Break of int                    (* a sequence of blanks > 1, e.g. "   " *)
+
+val symbol_eq : symbol -> symbol -> bool
+
+(** Encode/decode notation under a string form "_ U _"
+    Note: [Break] markers are dropped *)
+val make_notation_key : Constrexpr.notation_entry_level -> symbol list -> Constrexpr.notation
+val decompose_notation_key : Constrexpr.notation -> Constrexpr.notation_entry_level * symbol list
+
+(** Decompose a notation of the form "a 'U' b"
+    Returning the pairs of recursive variables and the list of non-recursive variables
+    If not [onlyprint], variables have to be distinct *)
+val analyze_notation_tokens : onlyprint:bool -> string -> (Id.t * Id.t) list * Id.t list * symbol list
+
+(** This collects the possible interpretations of a notation string
+    depending on whether it is in "x 'U' y" or "_ U _" format;
+    resulting in a key where variables are replaced by "_" and quotes are dropped *)
+val interp_notation_string : string -> string list
+
+(** This tells if a notation string (or component of a string) refers to a given notation *)
+val find_notation_string : allow_part:bool -> Constrexpr.notation -> string -> bool

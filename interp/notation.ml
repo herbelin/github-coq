@@ -1612,51 +1612,6 @@ let declare_ref_arguments_scope sigma ref =
   let (scs,cls as o) = compute_arguments_scope_full sigma typ in
   declare_arguments_scope_gen ArgsScopeAuto ref (List.length scs) o
 
-(********************************)
-(* Encoding notations as string *)
-
-type symbol =
-  | Terminal of string
-  | NonTerminal of Id.t
-  | SProdList of Id.t * symbol list
-  | Break of int
-
-let rec symbol_eq s1 s2 = match s1, s2 with
-| Terminal s1, Terminal s2 -> String.equal s1 s2
-| NonTerminal id1, NonTerminal id2 -> Id.equal id1 id2
-| SProdList (id1, l1), SProdList (id2, l2) ->
-  Id.equal id1 id2 && List.equal symbol_eq l1 l2
-| Break i1, Break i2 -> Int.equal i1 i2
-| _ -> false
-
-let rec string_of_symbol = function
-  | NonTerminal _ -> ["_"]
-  | Terminal "_" -> ["'_'"]
-  | Terminal s -> [s]
-  | SProdList (_,l) ->
-     let l = List.flatten (List.map string_of_symbol l) in "_"::l@".."::l@["_"]
-  | Break _ -> []
-
-let make_notation_key from symbols =
-  (from,String.concat " " (List.flatten (List.map string_of_symbol symbols)))
-
-let decompose_notation_key (from,s) =
-  let len = String.length s in
-  let rec decomp_ntn dirs n =
-    if n>=len then List.rev dirs else
-    let pos =
-      try
-        String.index_from s n ' '
-      with Not_found -> len
-    in
-    let tok =
-      match String.sub s n (pos-n) with
-      | "_" -> NonTerminal (Id.of_string "_")
-      | s -> Terminal (String.drop_simple_quotes s) in
-    decomp_ntn (tok::dirs) (pos+1)
-  in
-    from, decomp_ntn [] 0
-
 (************)
 (* Printing *)
 
@@ -1723,76 +1678,15 @@ let factorize_entries = function
           (ntn,[c],[]) l in
       (ntn,l_of_ntn)::rest
 
-type symbol_token = WhiteSpace of int | String of string
-
-let split_notation_string str =
-  let push_token beg i l =
-    if Int.equal beg i then l else
-      let s = String.sub str beg (i - beg) in
-      String s :: l
-  in
-  let push_whitespace beg i l =
-    if Int.equal beg i then l else WhiteSpace (i-beg) :: l
-  in
-  let rec loop beg i =
-    if i < String.length str then
-      if str.[i] == ' ' then
-        push_token beg i (loop_on_whitespace (i+1) (i+1))
-      else
-        loop beg (i+1)
-    else
-      push_token beg i []
-  and loop_on_whitespace beg i =
-    if i < String.length str then
-      if str.[i] != ' ' then
-        push_whitespace beg i (loop i (i+1))
-      else
-        loop_on_whitespace beg (i+1)
-    else
-      push_whitespace beg i []
-  in
-  loop 0 0
-
-let rec raw_analyze_notation_tokens = function
-  | []    -> []
-  | String ".." :: sl -> NonTerminal Notation_ops.ldots_var :: raw_analyze_notation_tokens sl
-  | String "_" :: _ -> user_err Pp.(str "_ must be quoted.")
-  | String x :: sl when Id.is_valid x ->
-      NonTerminal (Names.Id.of_string x) :: raw_analyze_notation_tokens sl
-  | String s :: sl ->
-      Terminal (String.drop_simple_quotes s) :: raw_analyze_notation_tokens sl
-  | WhiteSpace n :: sl ->
-      Break n :: raw_analyze_notation_tokens sl
-
-let decompose_raw_notation ntn = raw_analyze_notation_tokens (split_notation_string ntn)
-
-let possible_notations ntn =
-  (* We collect the possible interpretations of a notation string depending on whether it is
-    in "x 'U' y" or "_ U _" format *)
-  let toks = split_notation_string ntn in
-  if List.exists (function String "_" -> true | _ -> false) toks then
-    (* Only "_ U _" format *)
-    [ntn]
-  else
-    let _,ntn' = make_notation_key None (raw_analyze_notation_tokens toks) in
-    if String.equal ntn ntn' then (* Only symbols *) [ntn] else [ntn;ntn']
-
-let browse_notation strict ntn map =
-  let ntns = possible_notations ntn in
-  let find (from,ntn' as fullntn') ntn =
-    if String.contains ntn ' ' then String.equal ntn ntn'
-    else
-      let _,toks = decompose_notation_key fullntn' in
-      let get_terminals = function Terminal ntn -> Some ntn | _ -> None in
-      let trms = List.map_filter get_terminals toks in
-      if strict then String.List.equal [ntn] trms
-      else String.List.mem ntn trms
-  in
+let browse_notation allow_part ntn map =
+  let ntns = Notation_ops.interp_notation_string ntn in
   let l =
     String.Map.fold
       (fun scope_name sc ->
         NotationMap.fold (fun ntn { not_interp  = (_, r); not_location = df } l ->
-          if List.exists (find ntn) ntns then (ntn,(scope_name,r,df))::l else l) sc.notations)
+          if List.exists (Notation_ops.find_notation_string ~allow_part ntn) ntns
+          then (ntn,(scope_name,r,df))::l
+          else l) sc.notations)
       map [] in
   List.sort (fun x y -> String.compare (snd (fst x)) (snd (fst y))) l
 
@@ -1817,7 +1711,7 @@ let interp_notation_as_global_reference ?loc test ntn sc =
       let scope = find_scope (find_delimiters_scope sc) in
       String.Map.add sc scope String.Map.empty
   | None -> !scope_map in
-  let ntns = browse_notation true ntn scopes in
+  let ntns = browse_notation false ntn scopes in
   let refs = List.map (global_reference_of_notation test) ntns in
   match Option.List.flatten refs with
   | [_,_,ref] -> ref
@@ -1835,7 +1729,7 @@ let interp_notation_as_global_reference ?loc test ntn sc =
       | _ -> error_ambiguous_notation ?loc ntn
 
 let locate_notation prglob ntn scope =
-  let ntns = factorize_entries (browse_notation false ntn !scope_map) in
+  let ntns = factorize_entries (browse_notation true ntn !scope_map) in
   let scopes = Option.fold_right push_scope scope !scope_stack in
   match ntns with
   | [] -> str "Unknown notation"
