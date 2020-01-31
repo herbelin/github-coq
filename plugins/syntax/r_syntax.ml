@@ -77,7 +77,7 @@ let glob_ZERO = GlobRef.ConstructRef path_of_ZERO
 let glob_POS = GlobRef.ConstructRef path_of_POS
 let glob_NEG = GlobRef.ConstructRef path_of_NEG
 
-let z_of_int ?loc n =
+let z_of_nat ?loc n =
   if not (Bigint.equal n zero) then
     let sgn, n =
       if is_pos_or_zero n then glob_POS, n else glob_NEG, Bigint.neg n in
@@ -114,6 +114,7 @@ let z_modpath = MPdot (MPfile (make_dir binintdef), Label.make "Z")
 let glob_pow_pos = GlobRef.ConstRef (Constant.make2 z_modpath @@ Label.make "pow_pos")
 
 let r_of_rawnum ?loc (sign,n) =
+  if sign = SMinus then raise Notation.NoPrimNumberInterpretation;
   let n, f, e = NumTok.(n.int, n.frac, n.exp) in
   let izr z =
     DAst.make @@ GApp (DAst.make @@ GRef(glob_IZR,None), [z]) in
@@ -122,13 +123,12 @@ let r_of_rawnum ?loc (sign,n) =
   let rdiv r r' =
     DAst.make @@ GApp (DAst.make @@ GRef(glob_Rdiv,None), [r; r']) in
   let pow10 e =
-    let ten = z_of_int ?loc (Bigint.of_int 10) in
+    let ten = z_of_nat ?loc (Bigint.of_int 10) in
     let e = pos_of_bignat e in
     DAst.make @@ GApp (DAst.make @@ GRef(glob_pow_pos,None), [ten; e]) in
   let n =
     let n = Bigint.of_string (n ^ f) in
-    let n = match sign with SPlus -> n | SMinus -> Bigint.(neg n) in
-    izr (z_of_int ?loc n) in
+    izr (z_of_nat ?loc n) in
   let e =
     let e = if e = "" then Bigint.zero else match e.[1] with
       | '+' -> Bigint.of_string (String.sub e 2 (String.length e - 2))
