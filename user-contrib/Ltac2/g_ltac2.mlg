@@ -51,8 +51,8 @@ let lk_ident tok n strm = match stream_nth n strm with
 | IDENT _ -> Some (n + 1)
 | _ -> None
 
-let lk_int tok n strm = match stream_nth n strm with
-| NUMERAL { NumTok.int = _; frac = ""; exp = "" } -> Some (n + 1)
+let lk_nat tok n strm = match stream_nth n strm with
+| NUMERAL p when NumTok.Unsigned.is_nat p -> Some (n + 1)
 | _ -> None
 
 let lk_ident_or_anti = lk_ident <+> (lk_kw "$" >> lk_ident >> check_no_space)
@@ -63,7 +63,7 @@ let rec lk_ident_list n strm =
 (* lookahead for (x:=t), (?x:=t) and (1:=t) *)
 let test_lpar_idnum_coloneq =
   entry_of_lookahead "test_lpar_idnum_coloneq" begin
-    lk_kw "(" >> (lk_ident_or_anti <+> lk_int) >> lk_kw ":="
+    lk_kw "(" >> (lk_ident_or_anti <+> lk_nat) >> lk_kw ":="
   end
 
 (* lookahead for (x:t), (?x:t) *)

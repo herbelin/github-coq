@@ -72,11 +72,8 @@ type proj_flag = int option (** [Some n] = proj of the n-th visible argument *)
    to record the form of the numeral which exactly matches the
    notation. *)
 
-type sign = SPlus | SMinus
-type raw_numeral = NumTok.t
-
 type prim_token =
-  | Numeral of sign * raw_numeral
+  | Numeral of NumTok.Signed.t
   | String of string
 
 type instance_expr = Glob_term.glob_level list

@@ -21,15 +21,11 @@ let _ = List.iter CLexer.add_keyword prim_kw
 
 let local_make_qualid loc l id = make_qualid ~loc (DirPath.make l) id
 
-let check_int loc = function
-  | { NumTok.int = i; frac = ""; exp = "" } -> i
-  | _ -> CErrors.user_err ~loc (Pp.str "This number is not an integer.")
-
-let my_int_of_string loc s =
+let my_int_of_string ?loc s =
   try
     int_of_string s
   with Failure _ ->
-    CErrors.user_err ~loc (Pp.str "This number is too large.")
+    CErrors.user_err ?loc (Pp.str "This number is too large.")
 
 let rec contiguous tok n m =
     n == m
@@ -152,17 +148,17 @@ GRAMMAR EXTEND Gram
     [ [ s = string -> { CAst.make ~loc s } ] ]
   ;
   integer:
-    [ [ i = bigint -> { my_int_of_string loc i } ] ]
+    [ [ i = bigint -> { my_int_of_string ~loc i } ] ]
   ;
   natural:
-    [ [ i = bignat -> { my_int_of_string loc i } ] ]
+    [ [ i = bignat -> { my_int_of_string ~loc i } ] ]
   ;
   bigint:
-    [ [ i = NUMERAL -> { check_int loc i }
-      | test_nospace_after_next_token; "-"; i = NUMERAL -> { check_int loc i } ] ]
+    [ [ i = NUMERAL -> { NumTok.Unsigned.to_nat ~loc i }
+      | test_nospace_after_next_token; "-"; i = NUMERAL -> { "-" ^ NumTok.Unsigned.to_nat ~loc i } ] ]
   ;
   bignat:
-    [ [ i = NUMERAL -> { check_int loc i } ] ]
+    [ [ i = NUMERAL -> { NumTok.Unsigned.to_nat ~loc i } ] ]
   ;
   bar_cbrace:
     [ [ test_nospace_pipe_closedcurly; "|"; "}" -> { () } ] ]
