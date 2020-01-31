@@ -465,6 +465,8 @@ type ('target, 'warning) prim_token_notation_obj =
 type numeral_notation_obj = (target_kind, numnot_option) prim_token_notation_obj
 type string_notation_obj = (string_target_kind, unit) prim_token_notation_obj
 
+exception NoPrimNumberInterpretation
+
 module PrimTokenNotation = struct
 (** * Code shared between Numeral notation and String notation *)
 (** Reduction
@@ -816,7 +818,7 @@ let interp o ?loc n =
     | Int63, (s, { NumTok.int = n; frac = ""; exp = "" }) ->
        interp_int63 ?loc (raw2big s n)
     | (Int _ | UInt _ | Z _ | Int63), _ ->
-       no_such_prim_token "number" ?loc o.ty_name
+       raise NoPrimNumberInterpretation
     | Decimal decimal_ty, (s,n) -> coqdecimal_of_rawnum decimal_ty s n
   in
   let env = Global.env () in

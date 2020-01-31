@@ -2052,16 +2052,20 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
         DAst.make ?loc @@
         GLetIn (na.CAst.v, inc1, int,
           intern_restart_binders (push_name_env ntnvars (impls_term_list 1 inc1) env na) c2)
-    | CNotation (_,(InConstrEntrySomeLevel,"- _"), ([a],[],[],[])) when is_non_zero a ->
+    | CNotation (_,(InConstrEntrySomeLevel,"- _" as ntn), ([a],[],[],[] as args)) when is_non_zero a ->
       let p = match a.CAst.v with CPrim (Numeral (_, p)) -> p | _ -> assert false in
-       intern env (CAst.make ?loc @@ CPrim (Numeral (SMinus,p)))
+      (try intern env (CAst.make ?loc @@ CPrim (Numeral (SMinus,p)))
+       with NoPrimNumberInterpretation ->
+         intern_notation intern env ntnvars loc ntn args)
     | CNotation (_,(InConstrEntrySomeLevel,"( _ )"),([a],[],[],[])) -> intern env a
     | CNotation (_,ntn,args) ->
         intern_notation intern env ntnvars loc ntn args
     | CGeneralization (b,a,c) ->
         intern_generalization intern env ntnvars loc b a c
     | CPrim p ->
-        fst (Notation.interp_prim_token ?loc p (env.tmp_scope,env.scopes))
+        (try fst (Notation.interp_prim_token ?loc p (env.tmp_scope,env.scopes))
+         with NoPrimNumberInterpretation ->
+         CErrors.user_err ?loc (str ("Cannot interpret this number.")))
     | CDelimiters (key, e) ->
         intern {env with tmp_scope = None;
                   scopes = find_delimiters_scope ?loc key :: env.scopes} e

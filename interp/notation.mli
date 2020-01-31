@@ -92,6 +92,9 @@ type rawnum = Constrexpr.sign * Constrexpr.raw_numeral
 type prim_token_uid = string
 
 type 'a prim_token_interpreter = ?loc:Loc.t -> 'a -> glob_constr
+  (** Allowed to raise NoPrimNumberInterpretation if no interpretation
+      for the given number *)
+
 type 'a prim_token_uninterpreter = any_glob_constr -> 'a option
 
 type 'a prim_token_interpretation =
@@ -201,6 +204,9 @@ val interp_prim_token : ?loc:Loc.t -> prim_token -> subscopes ->
 (* This function returns a glob_const representing a pattern *)
 val interp_prim_token_cases_pattern_expr : ?loc:Loc.t -> (GlobRef.t -> unit) -> prim_token ->
   subscopes -> glob_constr * (notation_location * scope_name option)
+
+(** Raised by interp_prim_token if a number without interpretation *)
+exception NoPrimNumberInterpretation
 
 (** Return the primitive token associated to a [term]/[cases_pattern];
    raise [No_match] if no such token *)
