@@ -392,21 +392,27 @@ let restart_lambda_binders env =
 
 let switch_prod_binders env =
   match env.binder_block_names with
-  | Some (o,ids) when o <> Some AbsLambda -> restart_prod_binders env
+  | Some (o,ids) when o <> Some AbsLambda ->
+    { env with binder_block_names = Some (Some AbsPi, ids) }
   | _ -> restart_no_binders env
   (* In a position switching to a type *)
 
 let switch_lambda_binders env =
   match env.binder_block_names with
-  | Some (o,ids) when o <> Some AbsPi -> restart_lambda_binders env
+  | Some (o,ids) when o <> Some AbsPi ->
+    { env with binder_block_names = Some (Some AbsLambda, ids) }
   | _ -> restart_no_binders env
-  (* In a position switching to a term *)
+  (* In a position switching to a term (note: not supposed to accept
+  anymore binders but this will be checked at pretyping; coercion from
+  funclass can also be inserted) *)
 
 let slide_binders env =
   match env.binder_block_names with
-  | Some (o,ids) when o <> Some AbsPi -> restart_prod_binders env
+  | Some (o,ids) when o <> Some AbsPi ->
+    { env with binder_block_names = Some (Some AbsPi, ids) }
   | _ -> restart_no_binders env
-  (* In a position of cast *)
+  (* In a position of cast (note: not supposed to accept anymore
+  binders but this will be checked at pretyping) *)
 
 let binder_status_fun = {
   no = (fun x -> x);
@@ -481,6 +487,17 @@ let check_implicit_meaningful ?loc k env =
   else
     k
 
+let warn_name_occurs_twice =
+  CWarnings.create ~name:"distinct-name" ~category:"syntax"
+    Pp.(fun id -> Id.print id ++ strbrk " occurs twice in the same block of "
+        ++ strbrk "arguments eventually leading to ambiguities when referring to arguments by name.")
+
+let check_name_redundancies ?loc na env =
+  match na, env.binder_block_names with
+  | Name id, Some (_,ids) -> if Id.Set.mem id ids then warn_name_occurs_twice ?loc id
+  | _, None (* A position where names cannot be used as references to *)
+  | Anonymous, _ -> ()
+
 let intern_generalized_binder intern_type ntnvars
     env {loc;v=na} b' t ty =
   let ids = (match na with Anonymous -> fun x -> x | Name na -> Id.Set.add na) env.ids in
@@ -491,7 +508,9 @@ let intern_generalized_binder intern_type ntnvars
   let ty' = intern_type {env with ids = ids; unb = true} ty in
   let fvs = Implicit_quantifiers.generalizable_vars_of_glob_constr ~bound:ids ~allowed:ids' ty' in
   let env' = List.fold_left
-    (fun env {loc;v=x} -> push_name_env ntnvars (Variable,[],[],[])(*?*) env (make ?loc @@ Name x))
+    (fun env {loc;v=id} ->
+      check_name_redundancies ?loc (Name id) env;
+      push_name_env ntnvars (Variable,[],[],[])(*?*) env (make ?loc @@ Name id))
     env fvs in
   let b' = check_implicit_meaningful ?loc b' env in
   let bl = List.map
@@ -511,6 +530,7 @@ let intern_generalized_binder intern_type ntnvars
           in Name name
     | _ -> na in
   let impls = impls_type_list 1 ty' in
+  check_name_redundancies ?loc na env';
   (push_name_env ntnvars impls env' (make ?loc na),
    (make ?loc (na,b',ty')) :: List.rev bl)
 
@@ -523,6 +543,7 @@ let intern_assumption intern ntnvars env nal bk ty =
       let impls = impls_type_list 1 ty in
       List.fold_left
         (fun (env, bl) ({loc;v=na} as locna) ->
+          check_name_redundancies ?loc na env;
           let k = check_implicit_meaningful ?loc k env in
           (push_name_env ntnvars impls env locna,
            (make ?loc (na,k,locate_if_hole ?loc na ty))::bl))
@@ -581,7 +602,7 @@ let intern_local_binder_aux intern ntnvars (env,bl) = function
       in
       let env, ((disjpat,il),id),na = intern_cases_pattern_as_binder ?loc ntnvars env p in
       let bk = Default Explicit in
-      let _, bl' = intern_assumption intern ntnvars env [na] bk tyc in
+      let _, bl' = intern_assumption intern ntnvars (restart_no_binders env (* only for typing *)) [na] bk tyc in
       let {v=(_,bk,t)} = List.hd bl' in
       (env, (DAst.make ?loc @@ GLocalPattern((disjpat,List.map (fun x -> x.v) il),id,bk,t)) :: bl)
 
@@ -811,6 +832,7 @@ let instantiate_notation_constr loc intern intern_pat ntnvars subst infos c =
         with Not_found ->
         try
           let (bl,(scopt,subscopes)) = Id.Map.find x binderlists in
+          let env = restart_no_binders env (* interpreting terms *) in
           let env,bl' = List.fold_left (intern_local_binder_aux intern ntnvars) (env,[]) bl in
           terms_of_binders (if revert then bl' else List.rev bl'),(None,[])
         with Not_found ->
