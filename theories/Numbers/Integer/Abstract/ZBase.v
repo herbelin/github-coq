@@ -29,7 +29,7 @@ Proof.
 intros n1 n2; split; [apply pred_inj | intros; now f_equiv].
 Qed.
 
-Lemma succ_m1 : S (-1) == 0.
+Lemma succ_m1 : S (- 1) == 0.
 Proof.
  now rewrite one_succ, opp_succ, opp_0, succ_pred.
 Qed.

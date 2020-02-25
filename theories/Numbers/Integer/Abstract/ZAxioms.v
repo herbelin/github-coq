@@ -66,7 +66,7 @@ Module Type HasSgn (Import Z : ZAxiomsMiniSig').
  Parameter Inline sgn : t -> t.
  Axiom sgn_null : forall n, n==0 -> sgn n == 0.
  Axiom sgn_pos : forall n, 0<n -> sgn n == 1.
- Axiom sgn_neg : forall n, n<0 -> sgn n == -1.
+ Axiom sgn_neg : forall n, n<0 -> sgn n == -(1).
 End HasSgn.
 
 (** Divisions *)

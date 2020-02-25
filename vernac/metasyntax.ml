@@ -824,8 +824,9 @@ type syntax_extension_obj =
 
 let check_and_extend_constr_grammar ntn rule =
   try
-    let ntn_for_grammar = rule.notgram_notation in
-    if notation_eq ntn ntn_for_grammar then raise Not_found;
+    let ntn_for_grammar = match rule.notgram_notation with
+      | ForNotation ntn' -> if notation_eq ntn ntn' then raise Not_found else ntn'
+      | _ -> raise Not_found in
     let prec = rule.notgram_level in
     let oldparsing,oldprec = Notgram_ops.level_of_notation ntn_for_grammar in
     if not (Notgram_ops.level_eq prec oldprec) && oldparsing <> None then error_parsing_incompatible_level ntn ntn_for_grammar oldprec prec;
@@ -1515,7 +1516,7 @@ let make_pa_rule level (typs,symbols) ntn need_squash =
   let sy = {
     notgram_level = level;
     notgram_assoc = assoc;
-    notgram_notation = ntn;
+    notgram_notation = ForNotation ntn;
     notgram_prods = prod;
   } in
   (* By construction, the rule for "{ _ }" is declared, but we need to
@@ -1831,3 +1832,17 @@ let declare_custom_entry local s =
     user_err Pp.(str "Custom entry " ++ str s ++ str " already exists")
   else
     Lib.add_anonymous_leaf (inCustomEntry (local,s))
+
+let add_negative_number_parser custom level =
+  let prods =
+    [GramConstrNonTerminalSpecial G_prim.test_no_space_after_minus;
+     GramConstrTerminal (Tok.PKEYWORD "-"); 
+     GramConstrTerminal (Tok.PNUMERAL None)] in
+  let ntn_grammar = {
+      notgram_level = level;
+      notgram_assoc = None;
+      notgram_notation = ForPrimToken false;
+      notgram_prods = prods;
+    } in
+  extend_constr_grammar ntn_grammar
+

@@ -423,7 +423,7 @@ match e with
 
 type (_, _) ty_symbol =
 | TyTerm : string Tok.p -> ('s, string) ty_symbol
-| TyNonTerm : 's target * ('s, 'a) entry * ('s, 'a) mayrec_symbol * bool -> ('s, 'a) ty_symbol
+| TyNonTerm : 's target * ('s, 'a) entry option * ('s, 'a) mayrec_symbol -> ('s, 'a) ty_symbol
 
 type ('self, _, 'r) ty_rule =
 | TyStop : ('self, 'r, 'r) ty_rule
@@ -437,9 +437,9 @@ let rec ty_eval : type s a. (s, a, Loc.t -> s) ty_rule -> s gen_eval -> s env ->
   fun f env loc -> f loc env
 | TyNext (rem, TyTerm _) ->
   fun f env _ -> ty_eval rem f env
-| TyNext (rem, TyNonTerm (_, _, _, false)) ->
+| TyNext (rem, TyNonTerm (_, None, _)) ->
   fun f env _ -> ty_eval rem f env
-| TyNext (rem, TyNonTerm (forpat, e, _, true)) ->
+| TyNext (rem, TyNonTerm (forpat, Some e, _)) ->
   fun f env v ->
     ty_eval rem f (push_item forpat e env v)
 | TyMark (n, b, p, rem) ->
@@ -471,7 +471,7 @@ let rec ty_erase : type s a r. (s, a, r) ty_rule -> (s, a, r) mayrec_rule = func
    begin match ty_erase rem with
    | MayRecRNo rem -> MayRecRMay (Next (rem, Atoken tok))
    | MayRecRMay rem -> MayRecRMay (Next (rem, Atoken tok)) end
-| TyNext (rem, TyNonTerm (_, _, s, _)) ->
+| TyNext (rem, TyNonTerm (_, _, s)) ->
    begin match ty_erase rem, s with
    | MayRecRNo rem, MayRecNo s -> MayRecRMay (Next (rem, s))
    | MayRecRNo rem, MayRecMay s -> MayRecRMay (Next (rem, s))
@@ -491,11 +491,15 @@ let make_ty_rule assoc from forpat prods =
     let AnyTyRule r = make_ty_rule rem in
     let TTAny e = interp_entry forpat e in
     let s = symbol_of_entry assoc from e in
-    let bind = match var with None -> false | Some _ -> true in
-    AnyTyRule (TyNext (r, TyNonTerm (forpat, e, s, bind)))
+    let e = match var with None -> None | Some _ -> Some e in
+    AnyTyRule (TyNext (r, TyNonTerm (forpat, e, s)))
   | GramConstrListMark (n, b, p) :: rem ->
     let AnyTyRule r = make_ty_rule rem in
     AnyTyRule (TyMark (n, b, p, r))
+  | GramConstrNonTerminalSpecial e :: rem ->
+    let AnyTyRule r = make_ty_rule rem in
+    let s = MayRecNo (Aentry e) in
+    AnyTyRule (TyNext (r, TyNonTerm (forpat, None, s)))
   in
   make_ty_rule (List.rev prods)
 
@@ -524,15 +528,32 @@ let rec pure_sublevels' assoc from forpat level = function
    | ETProdPattern i -> push InConstrEntry (NumLevel i,InternalProd) rem
    | ETProdConstr (s,p) -> push s p rem
    | _ -> rem)
-| (GramConstrTerminal _ | GramConstrListMark _) :: rem -> pure_sublevels' assoc from forpat level rem
+| (GramConstrTerminal _ | GramConstrListMark _ | GramConstrNonTerminalSpecial _) :: rem ->
+   pure_sublevels' assoc from forpat level rem
 
-let make_act : type r. r target -> _ -> r gen_eval = function
-| ForConstr -> fun notation loc env ->
+let make_prim : type r. r target -> bool -> Loc.t -> r -> r = fun w sign loc a ->
+  match w, sign with
+  | ForPattern, true -> CAst.make ~loc a.CAst.v
+  | ForConstr, true -> CAst.make ~loc a.CAst.v
+  | ForPattern, false ->
+     (match a.CAst.v with
+      | CPatPrim (Numeral (NumTok.SPlus,n)) -> CAst.make ~loc @@ CPatPrim (Numeral (NumTok.SMinus,n))
+      | _ -> assert false)
+  | ForConstr, false ->
+     (match a.CAst.v with
+      | CPrim (Numeral (NumTok.SPlus,n)) -> CAst.make ~loc @@ CPrim (Numeral (NumTok.SMinus,n))
+      | _ -> assert false)
+
+let make_act : type r. r target -> _ -> r gen_eval = fun w f loc env ->
+match w, f with
+| ForConstr, ForNotation notation ->
   let env = (env.constrs, env.constrlists, env.binders, env.binderlists) in
   CAst.make ~loc @@ CNotation (None, notation, env)
-| ForPattern -> fun notation loc env ->
+| ForPattern, ForNotation notation ->
   let env = (env.constrs, env.constrlists) in
   CAst.make ~loc @@ CPatNotation (None, notation, env, [])
+| w, ForPrimToken sign ->
+  (match env.constrs with [a] -> make_prim w sign loc a | _ -> assert false)
 
 let extend_constr state forpat ng =
   let custom,n,_,_ = ng.notgram_level in
@@ -560,11 +581,13 @@ let extend_constr state forpat ng =
 let constr_levels = GramState.field ()
 
 let is_disjunctive_pattern_rule ng =
-  String.is_sub "( _ | " (snd ng.notgram_notation) 0
+  match ng.notgram_notation with
+  | ForNotation ntn -> if String.is_sub "( _ | " (snd ntn) 0 then Some ntn else None
+  | _ -> None
 
 let warn_disj_pattern_notation =
   let open Pp in
-  let pp ng = str "Use of " ++ Notation.pr_notation ng.notgram_notation ++
+  let pp ntn = str "Use of " ++ Notation.pr_notation ntn ++
               str " Notation is deprecated as it is inconsistent with pattern syntax." in
   CWarnings.create ~name:"disj-pattern-notation" ~category:"notation" ~default:CWarnings.Disabled pp
 
@@ -578,10 +601,11 @@ let extend_constr_notation ng state =
   (* Add the notation in cases_pattern, unless it would disrupt *)
   (* parsing nested disjunctive patterns. *)
   let (r', levels) =
-    if is_disjunctive_pattern_rule ng then begin
-       warn_disj_pattern_notation ng;
+    match is_disjunctive_pattern_rule ng with
+    | Some ntn ->
+       warn_disj_pattern_notation ntn;
        ([], levels)
-    end else extend_constr levels ForPattern ng in
+    | None -> extend_constr levels ForPattern ng in
   let state = GramState.set state constr_levels levels in
   (r @ r', state)
 

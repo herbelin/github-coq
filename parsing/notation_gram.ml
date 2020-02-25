@@ -20,6 +20,7 @@ type level = notation_entry * entry_level * entry_relative_level list * constr_e
 type grammar_constr_prod_item =
   | GramConstrTerminal of string Tok.p
   | GramConstrNonTerminal of Extend.constr_prod_entry_key * Id.t option
+  | GramConstrNonTerminalSpecial of unit entry
   | GramConstrListMark of int * bool * int
     (* tells action rule to make a list of the n previous parsed items;
        concat with last parsed list when true; additionally release
@@ -27,10 +28,14 @@ type grammar_constr_prod_item =
 
 (** Grammar rules for a notation *)
 
+type notation_grammar_kind =
+  | ForNotation of Constrexpr.notation
+  | ForPrimToken of bool (* true = positive *)
+
 type one_notation_grammar = {
   notgram_level : level;
   notgram_assoc : Gramlib.Gramext.g_assoc option;
-  notgram_notation : Constrexpr.notation;
+  notgram_notation : notation_grammar_kind;
   notgram_prods : grammar_constr_prod_item list list;
 }
 
