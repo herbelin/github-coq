@@ -207,6 +207,14 @@ let merge_occurrences loc cl = function
     in
     (Some p, ans)
 
+let is_pos_or_var = function
+  | ArgArg n when n >= 0 -> true
+  | _ -> false
+
+let opp_or_var = function
+  | ArgArg n -> ArgArg (-n)
+  | x -> x
+
 let warn_deprecated_eqn_syntax =
   CWarnings.create ~name:"deprecated-eqn-syntax" ~category:"deprecated"
          (fun arg -> strbrk (Printf.sprintf "Syntax \"_eqn:%s\" is deprecated. Please use \"eqn:%s\" instead." arg arg))
@@ -262,10 +270,10 @@ GRAMMAR EXTEND Gram
           { (Some (occs,c1), c2) } ] ]
   ;
   occs_nums:
-    [ [ nl = LIST1 nat_or_var -> { OnlyOccurrences nl }
-      | "-"; n = nat_or_var; nl = LIST0 int_or_var ->
-          (* have used int_or_var instead of nat_or_var for compatibility *)
-         { AllOccurrencesBut (List.map (Locusops.or_var_map abs) (n::nl)) } ] ]
+    [ [ n = int_or_var; nl = LIST0 nat_or_var ->
+        { if is_pos_or_var n then OnlyOccurrences (n :: nl)
+          else (* Case of "-n" without space *) AllOccurrencesBut (opp_or_var n :: nl) }
+      | "-"; n = nat_or_var; nl = LIST0 nat_or_var -> { AllOccurrencesBut (n::nl) } ] ]
   ;
   occs:
     [ [ "at"; occs = occs_nums -> { occs } | -> { AllOccurrences } ] ]
