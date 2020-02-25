@@ -353,6 +353,8 @@ let check_index ?loc i =
 let mk_index ?loc = function
   | ArgArg i -> ArgArg (check_index ?loc i)
   | iv -> iv
+let interpret_index_mult ?loc i m =
+  if i > 0 then (L2R, (i, m)) else (R2L, ((- i), m))
 
 let interp_index ist gl idx =
   Tacmach.project gl,
@@ -369,8 +371,7 @@ let interp_index ist gl idx =
         | Some c ->
           let rc = Detyping.detype Detyping.Now false Id.Set.empty (pf_env gl) (project gl) c in
           begin match Notation.uninterp_prim_token rc with
-          | _, Constrexpr.Numeral (b,{NumTok.int = s; frac = ""; exp = ""}) ->
-             let n = int_of_string s in (match b with SPlus -> n | SMinus -> -n)
+          | _, Constrexpr.Numeral n -> int_of_string (NumTok.to_string n)
           | _ -> raise Not_found
           end
         | None -> raise Not_found
@@ -438,19 +439,24 @@ END
 let pr_mult (n, m) =
   if n > 0 && m <> Once then int n ++ pr_mmod m else pr_mmod m
 
-let pr_ssrmult _ _ _ = pr_mult
+let pr_dirmult (dir, (n, m)) =
+  let n = match dir with L2R -> n | R2L -> -n in
+  pr_mult (n, m)
+
+let pr_ssrdirmult _ _ _ = pr_dirmult
+
+let wit_ssrmult = add_genarg "ssrmult" (fun env sigma -> pr_mult)
 
 }
 
-ARGUMENT EXTEND ssrmult_ne TYPED AS (int * ssrmmod) PRINTED BY { pr_ssrmult }
-  | [ natural(n) ssrmmod(m) ] -> { check_index ~loc n, m }
-  | [ ssrmmod(m) ]            -> { notimes, m }
+ARGUMENT EXTEND ssrdirmult_ne TYPED AS (ssrdir * (int * ssrmmod)) PRINTED BY { pr_ssrdirmult }
+  | [ integer(n) ssrmmod(m) ] -> { interpret_index_mult n m }
+  | [ "-" natural(n) ssrmmod(m) ] -> { (R2L, (n, m)) } (* If a space before the number *)
+  | [ "-" ] -> { (R2L, nomult) }
+  | [ "-" ssrmmod(m) ] -> { (R2L, (notimes, m)) }
+  | [ ssrmmod(m) ] -> { (L2R, (notimes, m)) }
 END
 
-ARGUMENT EXTEND ssrmult TYPED AS ssrmult_ne PRINTED BY { pr_ssrmult }
-  | [ ssrmult_ne(m) ] -> { m }
-  | [ ] -> { nomult }
-END
 
 {
 
@@ -2348,12 +2354,10 @@ END
 ARGUMENT EXTEND ssrrwarg
   TYPED AS ((ssrdir * ssrmult) * ((ssrdocc * rpattern option) * ssrrule))
   PRINTED BY { pr_ssrrwarg }
-  | [ "-" ssrmult(m) ssrrwocc(docc) ssrpattern_squarep(rx) ssrrule_ne(r) ] ->
-    { mk_rwarg (R2L, m) (docc, rx) r }
   | [ "-/" ssrterm(t) ] ->     (* just in case '-/' should become a token *)
     { mk_rwarg (R2L, nomult) norwocc (RWdef, t) }
-  | [ ssrmult_ne(m) ssrrwocc(docc) ssrpattern_squarep(rx) ssrrule_ne(r) ] ->
-    { mk_rwarg (L2R, m) (docc, rx) r }
+  | [ ssrdirmult_ne(m) ssrrwocc(docc) ssrpattern_squarep(rx) ssrrule_ne(r) ] ->
+    { mk_rwarg m (docc, rx) r }
   | [ "{" ne_ssrhyp_list(clr) "}" ssrpattern_ne_squarep(rx) ssrrule_ne(r) ] ->
     { mk_rwarg norwmult (mkclr clr, rx) r }
   | [ "{" ne_ssrhyp_list(clr) "}" ssrrule(r) ] ->
