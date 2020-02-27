@@ -1414,6 +1414,8 @@ let rec vernac_interp_error_handler = function
     if Int.equal i 0 then str "." else str " (level " ++ int i ++ str")."
   | Logic_monad.TacticFailure e ->
     vernac_interp_error_handler e
+  | Tactics.TacticError e ->
+    Tactics.explain_tactic_error e
   | _ ->
     raise Unhandled
 

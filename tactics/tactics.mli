@@ -26,6 +26,10 @@ open Ltac_pretype
     implementation features various styles and stages of the proof engine.
     This has to be uniformized someday. *)
 
+type tactic_error
+exception TacticError of tactic_error
+val explain_tactic_error : tactic_error -> Pp.t
+
 (** {6 General functions. } *)
 
 val is_quantified_hypothesis : Id.t -> Proofview.Goal.t -> bool
