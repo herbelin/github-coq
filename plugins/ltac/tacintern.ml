@@ -402,13 +402,13 @@ let dump_glob_red_expr = function
     try
       Dumpglob.add_glob ?loc:r.loc
         (Smartlocate.smart_global r)
-    with e when CErrors.noncritical e -> ()) occs
+    with e when noncritical e -> ()) occs
   | Cbv grf | Lazy grf ->
     List.iter (fun r ->
       try
         Dumpglob.add_glob ?loc:r.loc
           (Smartlocate.smart_global r)
-      with e when CErrors.noncritical e -> ()) grf.rConst
+      with e when noncritical e -> ()) grf.rConst
   | _ -> ()
 
 let intern_red_expr ist = function
