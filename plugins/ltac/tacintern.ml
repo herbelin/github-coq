@@ -60,6 +60,14 @@ let find_var id ist = Id.Set.mem id ist.ltacvars
 let find_hyp id ist =
   Id.List.mem id (ids_of_named_context (Environ.named_context ist.genv))
 
+let strict_check = ref false
+
+let warn_forced_ident =
+  CWarnings.create ~name:"statically-forced-ident" ~category:"ltac"
+    (fun id ->
+      strbrk "Ltac function would be more robust if using a fresh name; you may use ?"
+      ++ Id.print id ++ strbrk " instead.")
+
 (* Globalize a name introduced by Intro/LetTac/... ; it is allowed to *)
 (* be fresh in which case it is binding later on *)
 let intern_ident s ist id =
@@ -67,11 +75,17 @@ let intern_ident s ist id =
   if not (find_ident id ist) then s := Id.Set.add id !s;
   id
 
+let intern_ident_warn ?loc s ist id =
+  (* We use identifier both for variables and new names; thus nothing to do *)
+  if not (find_ident id ist) then begin
+    if !strict_check then warn_forced_ident ?loc id;
+    s := Id.Set.add id !s
+    end;
+  id
+
 let intern_name l ist = function
   | Anonymous -> Anonymous
   | Name id -> Name (intern_ident l ist id)
-
-let strict_check = ref false
 
 let adjust_loc loc = if !strict_check then None else loc
 
@@ -235,16 +249,16 @@ let intern_constr_with_bindings ist (c,bl) =
 let intern_constr_with_bindings_arg ist (clear,c) =
   (clear,intern_constr_with_bindings ist c)
 
-let rec intern_intro_pattern lf ist = map (function
+let rec intern_intro_pattern lf ist = CAst.map_with_loc (fun ?loc -> function
   | IntroNaming pat ->
-    IntroNaming (intern_intro_pattern_naming lf ist pat)
+    IntroNaming (intern_intro_pattern_naming ?loc lf ist pat)
   | IntroAction pat ->
     IntroAction (intern_intro_pattern_action lf ist pat)
   | IntroForthcoming _ as x -> x)
 
-and intern_intro_pattern_naming lf ist = function
+and intern_intro_pattern_naming ?loc lf ist = function
   | IntroIdentifier id ->
-      IntroIdentifier (intern_ident lf ist id)
+      IntroIdentifier (intern_ident_warn ?loc lf ist id)
   | IntroFresh id ->
       IntroFresh (intern_ident lf ist id)
   | IntroAnonymous as x -> x
@@ -270,8 +284,8 @@ let intern_or_and_intro_pattern_loc lf ist = function
       else user_err Pp.(str "Disjunctive/conjunctive introduction pattern expected.")
   | ArgArg ll -> ArgArg (map (fun l -> intern_or_and_intro_pattern lf ist l) ll)
 
-let intern_intro_pattern_naming_loc lf ist = map (fun pat ->
-    intern_intro_pattern_naming lf ist pat)
+let intern_intro_pattern_naming_loc lf ist = CAst.map_with_loc (fun ?loc pat ->
+    intern_intro_pattern_naming ?loc lf ist pat)
 
   (* TODO: catch ltac vars *)
 let intern_destruction_arg ist = function
