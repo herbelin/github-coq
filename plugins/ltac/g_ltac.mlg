@@ -464,7 +464,7 @@ END
 {
 
 let pr_ltac_production_item = function
-| Tacentries.TacTerm s -> quote (str s)
+| Tacentries.TacTerm (_, s) -> quote (str s)
 | Tacentries.TacNonTerm (_, ((arg, None), None)) -> str arg
 | Tacentries.TacNonTerm (_, ((arg, Some _), None)) -> assert false
 | Tacentries.TacNonTerm (_, ((arg, sep), Some id)) ->
@@ -477,7 +477,7 @@ let pr_ltac_production_item = function
 }
 
 VERNAC ARGUMENT EXTEND ltac_production_item PRINTED BY { pr_ltac_production_item }
-| [ string(s) ] -> { Tacentries.TacTerm s }
+| [ string(s) ] -> { Tacentries.TacTerm (Some loc,s) }
 | [ ident(nt) "(" ident(p) ltac_production_sep_opt(sep) ")" ] ->
   { Tacentries.TacNonTerm (Loc.tag ~loc ((Id.to_string nt, sep), Some p)) }
 | [ ident(nt) ] ->
