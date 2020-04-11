@@ -603,7 +603,7 @@ check: validate test-suite
 
 test-suite: world byte $(ALLSTDLIB).v
 	$(MAKE) $(MAKE_TSOPTS) clean
-	$(MAKE) $(MAKE_TSOPTS) all
+	$(MAKE) OPT=-$(BEST) $(MAKE_TSOPTS) all
 
 ###########################################################################
 # Default rules for compiling ML code
