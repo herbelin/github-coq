@@ -33,6 +33,11 @@ val translate_constant :
   env -> Constant.t -> constant_entry ->
     'a constant_body
 
+val translate_mutual_fixpoint :
+  env -> Constant.t array -> Id.Set.t option ->
+  Constr.rel_context -> Entries.universes_entry ->
+  Constr.fixpoint -> 'a constant_body array
+
 val translate_opaque :
   env -> Constant.t -> 'a opaque_entry ->
     unit constant_body * typing_context

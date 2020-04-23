@@ -95,6 +95,11 @@ val export_private_constants :
 val add_constant :
   Label.t -> global_declaration -> Constant.t safe_transformer
 
+val add_mutual_fixpoint :
+  Id.Set.t option -> Constr.rel_context ->
+  Entries.universes_entry -> Constr.fixpoint ->
+  safe_environment -> Names.Constant.t array * safe_environment
+
 (** Similar to add_constant but also returns a certificate *)
 val add_private_constant :
   Label.t -> side_effect_declaration -> (Constant.t * private_constants) safe_transformer

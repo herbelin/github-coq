@@ -148,6 +148,40 @@ let infer_declaration env (dcl : constant_entry) =
         cook_context = c.const_entry_secctx;
       }
 
+let abstract_univ env = function
+  | Entries.Monomorphic_entry ctx ->
+    let env = Environ.push_context_set ~strict:true ctx env in
+    env, Univ.empty_level_subst, Univ.Instance.empty, Monomorphic ctx
+  | Entries.Polymorphic_entry (nas, uctx) ->
+    (** [ctx] must contain local universes, such that it has no impact
+        on the rest of the graph (up to transitivity). *)
+    let env = Environ.push_context ~strict:false uctx env in
+    let inst, auctx = Univ.abstract_universes nas uctx in
+    let sbst = Univ.make_instance_subst inst in
+    env, sbst, inst, Polymorphic auctx
+
+let infer_mutual_fixpoint env kns secctx ctx univs fix  =
+  let env, usubst, inst, univs = abstract_univ env univs in
+  let c = Term.it_mkLambda_or_LetIn (mkFix fix) ctx in
+  let j = Typeops.infer env c in
+  let ctx,fix = Term.decompose_lam_assum j.Environ.uj_val in
+  let (_,(_,typs,bodies)) = destFix fix in
+  let csts = Array.map_to_list (fun kn -> mkConstU (kn,inst)) kns in
+  let bodies = Array.map (fun c -> Term.it_mkLambda_or_LetIn (Vars.substl csts c) ctx) bodies in
+  let typs = Array.map (fun c -> Term.it_mkProd_or_LetIn c ctx) typs in
+  Array.map2 (fun body typ ->
+      let def = Vars.subst_univs_level_constr usubst body in
+      let def = Def (Mod_subst.from_val def) in
+      let typ = Vars.subst_univs_level_constr usubst typ in
+      {
+        Cooking.cook_body = def;
+        cook_type = typ;
+        cook_universes = univs;
+        cook_relevance = Relevanceops.relevance_of_term env body;
+        cook_inline = false;
+        cook_context = secctx;
+      }) bodies typs
+
 (** Definition is opaque (Qed), so we delay the typing of its body. *)
 let infer_opaque env = function
   | ({ opaque_entry_type = typ;
@@ -290,6 +324,10 @@ let check_delayed (type a) (handle : a effect_handler) tyenv (body : a proof_out
 let translate_constant env _kn ce =
   build_constant_declaration env
     (infer_declaration env ce)
+
+let translate_mutual_fixpoint env kns secctx ctx univs fix =
+  Array.map (build_constant_declaration env)
+    (infer_mutual_fixpoint env kns secctx ctx univs fix)
 
 let translate_opaque env _kn ce =
   let def, ctx = infer_opaque env ce in

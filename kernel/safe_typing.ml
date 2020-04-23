@@ -956,6 +956,14 @@ let add_private_constant l decl senv : (Constant.t * private_constants) * safe_e
   in
   (kn, eff), senv
 
+let add_mutual_fixpoint secctx ctx univs fix senv =
+  let (_,(ids,_,_)) = fix in
+  let labels = Array.map (function {Context.binder_name = Name id;_} -> Label.of_id id | _ -> failwith "Unnamed") ids in
+  let kns = Array.map (Constant.make2 senv.modpath) labels in
+  let cbs = Term_typing.translate_mutual_fixpoint senv.env kns secctx ctx univs fix in
+  let senv = Array.fold_left2 (fun senv kn cb -> add_constant_aux senv (kn, cb)) senv kns cbs in
+  kns, senv
+
 (** Insertion of inductive types *)
 
 let check_mind mie lab =
