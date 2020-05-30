@@ -64,7 +64,7 @@ let se_iter do_decl do_spec do_mp =
     | MEident mp -> do_mp mp
     | MEfunctor (_,mt,me) -> me_iter me; mt_iter mt
     | MEapply (me,me') -> me_iter me; me_iter me'
-    | MEstruct (msid, sel) -> List.iter se_iter sel
+    | MEstruct (msid, _, sel) -> List.iter se_iter sel
   in
   se_iter
 
@@ -206,7 +206,7 @@ let signature_of_structure s =
 
 let rec mtyp_of_mexpr = function
   | MEfunctor (id,ty,e) -> MTfunsig (id,ty, mtyp_of_mexpr e)
-  | MEstruct (mp,str) -> MTsig (mp, msig_of_ms str)
+  | MEstruct (mp,_,str) -> MTsig (mp, msig_of_ms str)
   | _ -> assert false
 
 
@@ -234,7 +234,7 @@ let get_decl_in_structure r struc =
             | SEmodtype m -> assert false
             | SEmodule m ->
                 match m.ml_mod_expr with
-                  | MEstruct (_,sel) -> go ll sel
+                  | MEstruct (_,_,sel) -> go ll sel
                   | _ -> error_not_visible r
     in go ll sel
   with Not_found ->
@@ -298,7 +298,7 @@ let rec optim_se top to_appear s = function
   | se :: lse -> se :: (optim_se top to_appear s lse)
 
 and optim_me to_appear s = function
-  | MEstruct (msid, lse) -> MEstruct (msid, optim_se false to_appear s lse)
+  | MEstruct (msid, all, lse) -> MEstruct (msid, all, optim_se false to_appear s lse)
   | MEident mp as me -> me
   | MEapply (me, me') ->
       MEapply (optim_me to_appear s me, optim_me to_appear s me')
