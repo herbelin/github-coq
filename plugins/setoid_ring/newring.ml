@@ -409,7 +409,7 @@ let setoid_of_relation env sigma a r =
     let sigma, trans = Rewrite.get_transitive_proof env sigma a r in
     sigma, lapp coq_mk_Setoid [|a ; r ; refl; sym; trans |]
   with Not_found ->
-    error "cannot find setoid relation"
+    CErrors.user_err (str "Cannot find a setoid structure for relation " ++ pr_econstr_env env sigma r ++ str ".")
 
 let op_morph r add mul opp req m1 m2 m3 =
   lapp coq_mk_reqe [| r; add; mul; opp; req; m1; m2; m3 |]
@@ -432,20 +432,20 @@ let ring_equality env sigma (r,add,mul,opp,req) =
         let sigma, setoid = setoid_of_relation env sigma r req in
         let signature = [Some (r,Some req);Some (r,Some req)],Some(r,Some req) in
         let add_m, add_m_lem =
-          try Rewrite.default_morphism signature add
+          try Rewrite.default_morphism_env env sigma signature add
           with Not_found ->
-            error "ring addition should be declared as a morphism" in
+            CErrors.user_err (str "Ring addition " ++ pr_econstr_env env sigma add ++ str " should be declared as a morphism.") in
         let mul_m, mul_m_lem =
-          try Rewrite.default_morphism signature mul
+          try Rewrite.default_morphism_env env sigma signature mul
           with Not_found ->
-            error "ring multiplication should be declared as a morphism" in
+            CErrors.user_err (str "Ring multiplication " ++ pr_econstr_env env sigma mul ++ str " should be declared as a morphism.") in
         let op_morph =
           match opp with
             | Some opp ->
                 (let opp_m,opp_m_lem =
-                  try Rewrite.default_morphism ([Some(r,Some req)],Some(r,Some req)) opp
+                  try Rewrite.default_morphism_env env sigma ([Some(r,Some req)],Some(r,Some req)) opp
                   with Not_found ->
-                    error "ring opposite should be declared as a morphism" in
+                    CErrors.user_err (str "Ring opposite " ++ pr_econstr_env env sigma opp ++ str " should be declared as a morphism.") in
                 let op_morph =
                   op_morph r add mul opp req add_m_lem mul_m_lem opp_m_lem in
                   Flags.if_verbose
@@ -609,11 +609,10 @@ let ic_coeff_spec env sigma = function
   | Morphism t -> Morphism (ic_unsafe env sigma t)
   | Abstract -> Abstract
 
-
 let set_once s r v =
   if Option.is_empty !r then r := Some v else error (s^" cannot be set twice")
 
-let process_ring_mods env sigma l =
+let process_ring_mods env sigma bl l =
   let kind = ref None in
   let set = ref None in
   let cst_tac = ref None in
@@ -622,6 +621,7 @@ let process_ring_mods env sigma l =
   let sign = ref None in
   let power = ref None in
   let div = ref None in
+  let sigma, (_, ((env, ctx), impls)) = Constrintern.interp_named_context env sigma bl in
   List.iter(function
       Ring_kind k -> set_once "ring kind" kind (ic_coeff_spec env sigma k)
     | Const_tac t -> set_once "tactic recognizing constants" cst_tac t
@@ -632,13 +632,13 @@ let process_ring_mods env sigma l =
     | Sign_spec t -> set_once "sign" sign t
     | Div_spec t -> set_once "div" div t) l;
   let k = match !kind with Some k -> k | None -> Abstract in
-  (k, !set, !cst_tac, !pre, !post, !power, !sign, !div)
+  (env, sigma, k, !set, !cst_tac, !pre, !post, !power, !sign, !div)
 
-let add_theory id rth l =
+let add_theory id bl rth l =
   let env = Global.env () in
   let sigma = Evd.from_env env in
+  let (env,sigma,k,set,cst,pre,post,power,sign, div) = process_ring_mods env sigma bl l in
   let sigma, rth = ic env sigma rth in
-  let (k,set,cst,pre,post,power,sign, div) = process_ring_mods env sigma l in
   add_theory0 env sigma id rth set k cst (pre,post) power sign div
 
 (*****************************************************************************)
@@ -925,7 +925,7 @@ let add_field_theory0 env sigma name fth eqth morphth cst_tac inj (pre,post) pow
           field_pre_tac = pretac;
           field_post_tac = posttac }) in  ()
 
-let process_field_mods env sigma l =
+let process_field_mods env sigma b l =
   let kind = ref None in
   let set = ref None in
   let cst_tac = ref None in
@@ -935,6 +935,7 @@ let process_field_mods env sigma l =
   let sign = ref None in
   let power = ref None in
   let div = ref None in
+  let sigma, (_, ((env, ctx), impls)) = Constrintern.interp_named_context env sigma b in
   List.iter(function
       Ring_mod(Ring_kind k) -> set_once "field kind" kind (ic_coeff_spec env sigma k)
     | Ring_mod(Const_tac t) ->
@@ -949,10 +950,10 @@ let process_field_mods env sigma l =
   let k = match !kind with Some k -> k | None -> Abstract in
   (env, sigma, k, !set, !inj, !cst_tac, !pre, !post, !power, !sign, !div)
 
-let add_field_theory id t mods =
+let add_field_theory id b t mods =
   let env = Global.env () in
   let sigma = Evd.from_env env in
-  let (env,sigma,k,set,inj,cst_tac,pre,post,power,sign,div) = process_field_mods env sigma mods in
+  let (env,sigma,k,set,inj,cst_tac,pre,post,power,sign,div) = process_field_mods env sigma b mods in
   add_field_theory0 env sigma id t set k cst_tac inj (pre,post) power sign div
 
 let ltac_field_structure e =
