@@ -142,14 +142,14 @@ let ic env sigma c =
 let ic_unsafe env sigma c = (*FIXME remove *)
   fst (Constrintern.interp_constr env sigma c)
 
-let decl_constant na univs c =
+let decl_constant name univs c =
   let open Constr in
   let vars = CVars.universes_of_constr c in
   let univs = UState.restrict_universe_context ~lbound:(Global.universes_lbound ()) univs vars in
   let () = DeclareUctx.declare_universe_context ~poly:false univs in
   let types = (Typeops.infer (Global.env ()) c).uj_type in
   let univs = Monomorphic_entry Univ.ContextSet.empty in
-  mkConst(declare_constant ~name:(Id.of_string na)
+  mkConst(declare_constant ~name
             ~kind:Decls.(IsProof Lemma)
             (DefinitionEntry (definition_entry ~opaque:true ~types ~univs c)))
 
@@ -570,9 +570,9 @@ let add_theory0 env sigma name rth eqth morphth cst_tac (pre,post) power sign di
   let lemma2 = params.(4) in
 
   let lemma1 =
-    decl_constant (Id.to_string name^"_ring_lemma1") ctx lemma1 in
+    decl_constant (Nameops.add_suffix name "_ring_lemma1") ctx lemma1 in
   let lemma2 =
-    decl_constant (Id.to_string name^"_ring_lemma2") ctx lemma2 in
+    decl_constant (Nameops.add_suffix name "_ring_lemma2") ctx lemma2 in
   let cst_tac =
     interp_cst_tac env sigma morphth kind (zero,one,add,mul,opp) cst_tac in
   let pretac =
@@ -887,15 +887,15 @@ let add_field_theory0 env sigma name fth eqth morphth cst_tac inj (pre,post) pow
     match inj with
       | Some thm -> mkApp(params.(8),[|EConstr.to_constr sigma thm|])
       | None -> params.(7) in
-  let lemma1 = decl_constant (Id.to_string name^"_field_lemma1")
+  let lemma1 = decl_constant (Nameops.add_suffix name "_field_lemma1")
     ctx lemma1 in
-  let lemma2 = decl_constant (Id.to_string name^"_field_lemma2")
+  let lemma2 = decl_constant (Nameops.add_suffix name"_field_lemma2")
     ctx lemma2 in
-  let lemma3 = decl_constant (Id.to_string name^"_field_lemma3")
+  let lemma3 = decl_constant (Nameops.add_suffix name "_field_lemma3")
     ctx lemma3 in
-  let lemma4 = decl_constant (Id.to_string name^"_field_lemma4")
+  let lemma4 = decl_constant (Nameops.add_suffix name "_field_lemma4")
     ctx lemma4 in
-  let cond_lemma = decl_constant (Id.to_string name^"_lemma5")
+  let cond_lemma = decl_constant (Nameops.add_suffix name "_lemma5")
     ctx cond_lemma in
   let cst_tac =
     interp_cst_tac env sigma morphth kind (zero,one,add,mul,opp) cst_tac in
