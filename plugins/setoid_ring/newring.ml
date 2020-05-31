@@ -146,7 +146,7 @@ let args_of_named_context ctx =
   let open Context.Named.Declaration in
   List.flatten (List.rev_map (fun d -> if is_local_assum d then [Constr.mkVar (get_id d)] else []) ctx)
 
-let decl_constant name ctx univs c =
+let decl_constant name ctx impargs univs c =
   let c = List.fold_left (fun c d -> Term.mkNamedLambda_or_LetIn d c) c ctx in
   let vars = CVars.universes_of_constr c in
   let univs = UState.restrict_universe_context ~lbound:(Global.universes_lbound ()) univs vars in
@@ -598,7 +598,7 @@ let interp_div env sigma div =
       plapp sigma coq_Some [|carrier;spec|]
        (* Same remark on ill-typed terms ... *)
 
-let add_theory0 env ctx sigma name rth eqth morphth cst_tac (pre,post) power sign div =
+let add_theory0 env (ctx,impargs) sigma name rth eqth morphth cst_tac (pre,post) power sign div =
   check_required_library (cdir@["Ring_base"]);
   let (kind,r,zero,one,add,mul,sub,opp,req) = dest_ring env sigma rth in
   let (sth,ext) = build_setoid_params env sigma r add mul opp req eqth in
@@ -614,9 +614,9 @@ let add_theory0 env ctx sigma name rth eqth morphth cst_tac (pre,post) power sig
   let lemma2 = params.(4) in
 
   let lemma1 =
-    decl_constant (Nameops.add_suffix name "_ring_lemma1") ctx uctx lemma1 in
+    decl_constant (Nameops.add_suffix name "_ring_lemma1") ctx impargs uctx lemma1 in
   let lemma2 =
-    decl_constant (Nameops.add_suffix name "_ring_lemma2") ctx uctx lemma2 in
+    decl_constant (Nameops.add_suffix name "_ring_lemma2") ctx impargs uctx lemma2 in
   let cst_tac =
     interp_cst_tac env sigma morphth kind (zero,one,add,mul,opp) cst_tac in
   let pretac =
@@ -677,7 +677,7 @@ let process_ring_mods env sigma bl l =
     | Sign_spec t -> set_once "sign" sign t
     | Div_spec t -> set_once "div" div t) l;
   let k = match !kind with Some k -> k | None -> Abstract in
-  (env, ctx, sigma, k, !set, !cst_tac, !pre, !post, !power, !sign, !div)
+  (env, (ctx, impls), sigma, k, !set, !cst_tac, !pre, !post, !power, !sign, !div)
 
 let add_theory id bl rth l =
   let env = Global.env () in
@@ -909,7 +909,7 @@ let field_equality env sigma r inv req =
             error "field inverse should be declared as a morphism" in
           inv_m_lem
 
-let add_field_theory0 env ctx sigma name fth eqth morphth cst_tac inj (pre,post) power sign odiv =
+let add_field_theory0 env (ctx,impargs) sigma name fth eqth morphth cst_tac inj (pre,post) power sign odiv =
   let open Constr in
   check_required_library (cdir@["Field_tac"]);
   let (sigma,fth) = ic env sigma fth in
@@ -917,7 +917,7 @@ let add_field_theory0 env ctx sigma name fth eqth morphth cst_tac inj (pre,post)
     dest_field env sigma fth in
   let (sth,ext) = build_setoid_params env sigma r add mul opp req eqth in
   let eqth = Some(sth,ext) in
-  let _ = add_theory0 env ctx sigma name rth eqth morphth cst_tac (None,None) power sign odiv in
+  let _ = add_theory0 env (ctx,impargs) sigma name rth eqth morphth cst_tac (None,None) power sign odiv in
   let sigma, (pow_tac, pspec) = interp_power env sigma power in
   let sigma, sspec = interp_sign env sigma sign in
   let sigma, dspec = interp_div env sigma odiv in
@@ -936,15 +936,15 @@ let add_field_theory0 env ctx sigma name fth eqth morphth cst_tac inj (pre,post)
       | Some thm -> mkApp(params.(8),[|EConstr.to_constr sigma thm|])
       | None -> params.(7) in
   let lemma1 = decl_constant (Nameops.add_suffix name "_field_lemma1")
-    ctx uctx lemma1 in
+    ctx impargs uctx lemma1 in
   let lemma2 = decl_constant (Nameops.add_suffix name"_field_lemma2")
-    ctx uctx lemma2 in
+    ctx impargs uctx lemma2 in
   let lemma3 = decl_constant (Nameops.add_suffix name "_field_lemma3")
-    ctx uctx lemma3 in
+    ctx impargs uctx lemma3 in
   let lemma4 = decl_constant (Nameops.add_suffix name "_field_lemma4")
-    ctx uctx lemma4 in
+    ctx impargs uctx lemma4 in
   let cond_lemma = decl_constant (Nameops.add_suffix name "_lemma5")
-    ctx uctx cond_lemma in
+    ctx impargs uctx cond_lemma in
   let cst_tac =
     interp_cst_tac env sigma morphth kind (zero,one,add,mul,opp) cst_tac in
   let pretac =
@@ -996,7 +996,7 @@ let process_field_mods env sigma b l =
     | Ring_mod(Div_spec t) -> set_once "div" div t
     | Inject i -> set_once "infinite property" inj (ic_unsafe env sigma i)) l;
   let k = match !kind with Some k -> k | None -> Abstract in
-  (env, ctx, sigma, k, !set, !inj, !cst_tac, !pre, !post, !power, !sign, !div)
+  (env, (ctx,impls), sigma, k, !set, !inj, !cst_tac, !pre, !post, !power, !sign, !div)
 
 let add_field_theory id b t mods =
   let env = Global.env () in
