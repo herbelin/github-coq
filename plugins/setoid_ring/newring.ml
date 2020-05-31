@@ -595,6 +595,16 @@ let interp_div env sigma div =
       plapp sigma coq_Some [|carrier;spec|]
        (* Same remark on ill-typed terms ... *)
 
+let check_domain_inversibility sigma ctx r =
+  let ids = Termops.collect_vars sigma r in
+  let ids' = Termops.ids_of_named_context ctx in
+  let l = List.filter (fun id -> not (Id.Set.mem id ids)) ids' in
+  match l with
+  | id::_ ->
+    CErrors.user_err (strbrk "To be able to retrieve the whole theory from the " ++
+              strbrk "carrier, the latter should be dependent on " ++ Id.print id ++ str ".")
+  | _ -> ()
+
 let add_theory0 env (ctx,impargs) sigma name rth eqth morphth cst_tac (pre,post) power sign div =
   check_required_library (cdir@["Ring_base"]);
   let (kind,r,zero,one,add,mul,sub,opp,req) = dest_ring env sigma rth in
@@ -602,6 +612,8 @@ let add_theory0 env (ctx,impargs) sigma name rth eqth morphth cst_tac (pre,post)
   let sigma, (pow_tac, pspec) = interp_power env sigma power in
   let sigma, sspec = interp_sign env sigma sign in
   let sigma, dspec = interp_div env sigma div in
+  Pretyping.check_evars_are_solved ~program_mode:false env sigma;
+  check_domain_inversibility sigma ctx r;
   let ctx = List.map (Context.Named.Declaration.map_constr_het (EConstr.to_constr sigma)) ctx in
   let rk = reflect_coeff morphth in
   let params,uctx =
