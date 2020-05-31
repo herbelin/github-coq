@@ -136,8 +136,7 @@ let _ = add_tacdef false ((Loc.ghost,Id.of_string"ring_closed_term"
 (****************************************************************************)
 
 let ic env sigma c =
-  let c, uctx = Constrintern.interp_constr env sigma c in
-  (Evd.from_ctx uctx, c)
+  Constrintern.interp_constr_evars env sigma c
 
 let ic_unsafe env sigma c = (*FIXME remove *)
   fst (Constrintern.interp_constr env sigma c)
