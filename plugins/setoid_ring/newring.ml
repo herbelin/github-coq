@@ -321,8 +321,6 @@ let _ = add_map "ring"
 (****************************************************************************)
 (* Ring database *)
 
-module Cmap = Map.Make(Constr)
-
 (* Global map of ring theories, indexed by ring carrier types.
    For example the key type Z maps to Zth, the ring theory of integers.
    For parametric carrier types such as CRcarrier, the key has evar holes
@@ -812,11 +810,12 @@ let dest_field env sigma th_spec =
         (Some true,r,zero,one,add,mul,None,None,div,inv,req,rth)
     | _ -> error "bad field structure"
 
-let field_from_carrier = Summary.ref Cmap.empty ~name:"field-tac-carrier-table"
+let field_from_carrier : (Constr.t * field_info) list ref
+  = Summary.ref [] ~name:"field-tac-carrier-table"
 
 let print_fields () =
   Feedback.msg_notice (strbrk "The following field structures have been declared:");
-  Cmap.iter (fun _carrier fi ->
+  List.iter (fun (_carrier,fi) ->
       let env = Global.env () in
       let sigma = Evd.from_env env in
       Feedback.msg_notice
@@ -826,7 +825,32 @@ let print_fields () =
             str"and equivalence relation "++ pr_constr_env env sigma fi.field_req))
     ) !field_from_carrier
 
-let field_for_carrier r = Cmap.find r !field_from_carrier
+(* Lookup ring theory by ring carrier type r. *)
+let field_for_carrier env evd r =
+  let flags = Evarconv.default_flags_of (Typeclasses.classes_transparent_state ()) in
+  List.find_map (fun (carrier, field_th) ->
+      let open Clenv in
+      (* Try to unify r with the key to find a corresponding ring theory. *)
+      let (evd,cl) = Clenv.make_evar_clause env evd (EConstr.of_constr carrier) in
+      match Evarconv.evar_conv_x flags env evd Reduction.CONV r cl.cl_concl with
+      | Evarsolve.Success evd ->
+         (* Replace the variables of the matched ring_th by
+            the result of the unification. *)
+         let l = List.map (fun (h:hole) ->
+                     (Nameops.Name.get_id h.hole_name, EConstr.to_constr evd h.hole_evar))
+                   cl.cl_holes in
+         let f = CVars.replace_vars l in
+         Some { field_th with
+             field_carrier = f field_th.field_carrier;
+             field_req = f field_th.field_req;
+             field_ok = f field_th.field_ok;
+             field_simpl_eq_ok = f field_th.field_simpl_eq_ok;
+             field_simpl_ok = f field_th.field_simpl_ok;
+             field_simpl_eq_in_ok = f field_th.field_simpl_eq_in_ok;
+             field_cond = f field_th.field_cond }
+
+      | Evarsolve.UnifFailure _ -> None)
+    !field_from_carrier
 
 let find_field_structure env sigma l =
   check_required_library (cdir@["Field_tac"]);
@@ -840,17 +864,19 @@ let find_field_structure env sigma l =
               (str"arguments of field_simplify do not have all the same type")
         in
         List.iter check cl';
-        (try field_for_carrier (EConstr.to_constr sigma ty)
+        (try field_for_carrier env sigma ty
         with Not_found ->
           CErrors.user_err ~hdr:"field"
             (str"cannot find a declared field structure over"++
              spc()++str"\""++pr_econstr_env env sigma ty++str"\""))
     | [] -> assert false
 
-let add_field_entry e =
-  field_from_carrier := Cmap.add e.field_carrier e !field_from_carrier
+let add_field_entry (ctx, field_th) =
+  let typ = List.fold_left (fun c d -> Term.mkNamedProd_or_LetIn d c) field_th.field_carrier ctx in
+  field_from_carrier := List.cons (typ, field_th) !field_from_carrier
 
-let subst_th (subst,th) =
+let subst_th (subst,(ctx,th as ctxth)) =
+  let ctx' = Context.Named.map (subst_mps subst) ctx in
   let c' = subst_mps subst th.field_carrier in
   let eq' = subst_mps subst th.field_req in
   let thm1' = subst_mps subst th.field_ok in
@@ -862,7 +888,8 @@ let subst_th (subst,th) =
   let pow_tac' = Tacsubst.subst_tactic subst th.field_pow_tac in
   let pretac'= Tacsubst.subst_tactic subst th.field_pre_tac in
   let posttac'= Tacsubst.subst_tactic subst th.field_post_tac in
-  if c' == th.field_carrier &&
+  if ctx' == ctx &&
+     c' == th.field_carrier &&
      eq' == th.field_req &&
      thm1' == th.field_ok &&
      thm2' == th.field_simpl_eq_ok &&
@@ -872,8 +899,9 @@ let subst_th (subst,th) =
      tac' == th.field_cst_tac &&
      pow_tac' == th.field_pow_tac &&
      pretac' == th.field_pre_tac &&
-     posttac' == th.field_post_tac then th
+     posttac' == th.field_post_tac then ctxth
   else
+    (ctx,
     { field_name = th.field_name;
       field_carrier = c';
       field_req = eq';
@@ -885,9 +913,9 @@ let subst_th (subst,th) =
       field_simpl_eq_in_ok = thm4';
       field_cond = thm5';
       field_pre_tac = pretac';
-      field_post_tac = posttac' }
+      field_post_tac = posttac' })
 
-let ftheory_to_obj : field_info -> obj =
+let ftheory_to_obj : Constr.named_context * field_info -> obj =
   let cache_th (_, th) = add_field_entry th in
   declare_object @@ global_object_nodischarge "tactic-new-field-theory"
     ~cache:cache_th
@@ -916,11 +944,11 @@ let add_field_theory0 env (ctx,impargs) sigma name fth eqth morphth cst_tac inj 
     dest_field env sigma fth in
   let (sth,ext) = build_setoid_params env sigma r add mul opp req eqth in
   let eqth = Some(sth,ext) in
-  let _ = add_theory0 env (ctx,impargs) sigma name rth eqth morphth cst_tac (None,None) power sign odiv in
   let sigma, (pow_tac, pspec) = interp_power env sigma power in
   let sigma, sspec = interp_sign env sigma sign in
   let sigma, dspec = interp_div env sigma odiv in
   let inv_m = field_equality env sigma r inv req in
+  let _ = add_theory0 env (ctx,impargs) sigma name rth eqth morphth cst_tac (None,None) power sign odiv in
   let rk = reflect_coeff morphth in
   let ctx = List.map (Context.Named.Declaration.map_constr_het (EConstr.to_constr sigma)) ctx in
   let params,uctx =
@@ -958,7 +986,7 @@ let add_field_theory0 env (ctx,impargs) sigma name fth eqth morphth cst_tac inj 
   let req = EConstr.to_constr sigma req in
   let _ =
     Lib.add_anonymous_leaf
-      (ftheory_to_obj
+      (ftheory_to_obj (ctx,
         { field_name = name;
           field_carrier = r;
           field_req = req;
@@ -970,7 +998,7 @@ let add_field_theory0 env (ctx,impargs) sigma name fth eqth morphth cst_tac inj 
           field_simpl_eq_in_ok = lemma4;
           field_cond = cond_lemma;
           field_pre_tac = pretac;
-          field_post_tac = posttac }) in  ()
+          field_post_tac = posttac })) in  ()
 
 let process_field_mods env sigma b l =
   let kind = ref None in
