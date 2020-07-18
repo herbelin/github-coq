@@ -689,9 +689,9 @@ let traverse_binder intern_pat ntnvars (terms,_,binders,_ as subst) avoid (renam
   with Not_found ->
   try
     (* Trying to associate a pattern *)
-    let pat,(onlyident,scopes) = Id.Map.find id binders in
+    let pat,(onlyname,scopes) = Id.Map.find id binders in
     let env = set_env_scopes env scopes in
-    if onlyident then
+    if onlyname then
       (* Do not try to interpret a variable as a constructor *)
       let na = out_patvar pat in
       let env = push_name_env ntnvars [] env (make ?loc:pat.loc na) in
@@ -836,9 +836,9 @@ let instantiate_notation_constr loc intern intern_pat ntnvars subst infos c =
             Id.Map.add id (gc, None) map
           with Nametab.GlobalizationError _ -> map
         in
-        let mk_env' (c, (onlyident,(tmp_scope,subscopes))) =
+        let mk_env' (c, (onlyname,(tmp_scope,subscopes))) =
           let nenv = {env with tmp_scope; scopes = subscopes @ env.scopes} in
-          if onlyident then
+          if onlyname then
             let na = out_patvar c in term_of_name na, None
           else
             let _,((disjpat,_),_),_ = intern_pat ntnvars nenv c in
@@ -895,9 +895,9 @@ let instantiate_notation_constr loc intern intern_pat ntnvars subst infos c =
                 scopes = subscopes @ env.scopes} a
     with Not_found ->
     try
-      let pat,(onlyident,scopes) = Id.Map.find id binders in
+      let pat,(onlyname,scopes) = Id.Map.find id binders in
       let env = set_env_scopes env scopes in
-      if onlyident then
+      if onlyname then
         term_of_name (out_patvar pat)
       else
         let env,((disjpat,ids),id),na = intern_pat ntnvars env pat in
@@ -949,8 +949,8 @@ let split_by_type ids subst =
        let binders' = Id.Map.add id (cases_pattern_of_name (coerce_to_name a),(true,scl)) binders' in
        (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
     | NtnTypeBinder (NtnParsedAsName | NtnParsedAsPattern _ as x) ->
-       let onlyident = (x = NtnParsedAsIdent) in
-       let binders,binders' = bind id (onlyident,scl) binders binders' in
+       let onlyname = (x = NtnParsedAsIdent) in
+       let binders,binders' = bind id (onlyname,scl) binders binders' in
        (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
     | NtnTypeConstrList ->
        let termlists,termlists' = bind id scl termlists termlists' in
