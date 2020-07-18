@@ -1226,7 +1226,7 @@ GRAMMAR EXTEND Gram
   ;
   constr_as_binder_kind:
     [ [ "as"; IDENT "ident" -> { Notation_term.AsIdent }
-      | "as"; IDENT "pattern" -> { Notation_term.AsIdentOrPattern }
+      | "as"; IDENT "pattern" -> { Notation_term.AsNameOrPattern }
       | "as"; IDENT "strict"; IDENT "pattern" -> { Notation_term.AsStrictPattern } ] ]
   ;
 END

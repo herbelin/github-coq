@@ -1094,7 +1094,7 @@ let make_interpretation_type isrec isonlybinding default_if_binding = function
   (* Parsed as constr, interpreted as constr *)
   | ETConstr (_,None,_) -> NtnTypeConstr
   (* Others *)
-  | ETIdent -> NtnTypeBinder NtnParsedAsIdent
+  | ETIdent -> NtnTypeBinder NtnParsedAsName
   | ETPattern (ppstrict,_) -> NtnTypeBinder (NtnParsedAsPattern ppstrict) (* Parsed as ident/pattern, primarily interpreted as binder; maybe strict at printing *)
   | ETBigint | ETGlobal -> NtnTypeConstr
   | ETBinder _ ->
@@ -1839,7 +1839,7 @@ let add_syntactic_definition ~local deprecation env ident (vars,c) { onlyparsing
       interp_notation_constr env nenv c
   in
   let in_pat id = (id,ETConstr (Constrexpr.InConstrEntry,None,(NextLevel,0))) in
-  let interp = make_interpretation_vars ~default_if_binding:AsIdentOrPattern [] acvars (List.map in_pat vars) in
+  let interp = make_interpretation_vars ~default_if_binding:AsNameOrPattern [] acvars (List.map in_pat vars) in
   let vars = List.map (fun x -> (x, Id.Map.find x interp)) vars in
   let onlyparsing = onlyparsing || fst (printability None [] false reversibility pat) in
   Syntax_def.declare_syntactic_definition ~local deprecation ident ~onlyparsing (vars,pat)

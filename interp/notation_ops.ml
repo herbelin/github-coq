@@ -727,7 +727,7 @@ let is_onlybinding_meta id metas =
 let is_onlybinding_pattern_like_meta isvar id metas =
   try match Id.List.assoc id metas with
       | _,NtnTypeBinder (NtnBinderParsedAsConstr
-                           (AsIdentOrPattern | AsStrictPattern)) -> true
+                           (AsNameOrPattern | AsStrictPattern)) -> true
       | _,NtnTypeBinder (NtnParsedAsPattern strict) -> not (strict && isvar)
       | _ -> false
   with Not_found -> false
@@ -1352,7 +1352,7 @@ let match_notation_constr u c (metas,pat) =
           let v = glob_constr_of_cases_pattern (Global.env()) pat in
           ((v,scl)::terms',termlists',binders',binderlists')
         | _ -> raise No_match)
-    | NtnTypeBinder (NtnParsedAsIdent | NtnParsedAsPattern _) ->
+    | NtnTypeBinder (NtnParsedAsName | NtnParsedAsPattern _) ->
        (terms',termlists',(Id.List.assoc x binders,scl)::binders',binderlists')
     | NtnTypeConstrList ->
        (terms',(Id.List.assoc x termlists,scl)::termlists',binders',binderlists')

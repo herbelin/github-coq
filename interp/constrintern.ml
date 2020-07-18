@@ -940,7 +940,7 @@ let split_by_type ids subst =
     | NtnTypeConstr ->
        let terms,terms' = bind id scl terms terms' in
        (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeBinder NtnBinderParsedAsConstr (AsIdentOrPattern | AsStrictPattern) ->
+    | NtnTypeBinder NtnBinderParsedAsConstr (AsNameOrPattern | AsStrictPattern) ->
        let a,terms = match terms with a::terms -> a,terms | _ -> assert false in
        let binders' = Id.Map.add id (coerce_to_cases_pattern_expr a,(false,scl)) binders' in
        (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
@@ -948,7 +948,7 @@ let split_by_type ids subst =
        let a,terms = match terms with a::terms -> a,terms | _ -> assert false in
        let binders' = Id.Map.add id (cases_pattern_of_name (coerce_to_name a),(true,scl)) binders' in
        (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeBinder (NtnParsedAsIdent | NtnParsedAsPattern _ as x) ->
+    | NtnTypeBinder (NtnParsedAsName | NtnParsedAsPattern _ as x) ->
        let onlyident = (x = NtnParsedAsIdent) in
        let binders,binders' = bind id (onlyident,scl) binders binders' in
        (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
