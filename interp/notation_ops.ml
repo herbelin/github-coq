@@ -1336,11 +1336,10 @@ and match_disjunctive_equations u alp metas sigma {CAst.v=(ids,disjpatl1,rhs1)} 
       (alp,sigma) disjpatl1 disjpatl2 in
   match_in u alp metas sigma rhs1 rhs2
 
-let match_notation_constr u c (metas,pat) =
-  let terms,termlists,binders,binderlists =
-    match_ false u ([],[]) metas ([],[],[],[]) c pat in
-  (* Turning substitution based on binding/constr distinction into a
-     substitution based on entry productions *)
+(* Turning glob_constr substitution based on binding/constr
+   distinction into a glob_constr substitution based on entry
+   productions *)
+let split_by_type metas (terms,termlists,binders,binderlists) =
   List.fold_right (fun (x,(scl,typ)) (terms',termlists',binders',binderlists') ->
     match typ with
     | NtnTypeConstr ->
@@ -1360,6 +1359,9 @@ let match_notation_constr u c (metas,pat) =
       let bl = try Id.List.assoc x binderlists with Not_found -> raise No_match in
        (terms',termlists',binders',(bl, scl)::binderlists'))
     metas ([],[],[],[])
+
+let match_notation_constr u c (metas,pat) =
+  split_by_type metas (match_ false u ([],[]) metas ([],[],[],[]) c pat)
 
 (* Matching cases pattern *)
 
