@@ -177,11 +177,11 @@ GRAMMAR EXTEND Gram
              collapse -(3) into the numeral -3. *)
           (match c.CAst.v with
             | CPrim (Numeral (NumTok.SPlus,n)) ->
-                CAst.make ~loc @@ CNotation(None,(InConstrEntry,"( _ )"),([c],[],[],[]))
+                CAst.make ~loc @@ CNotation(None,(InConstrEntry,"( _ )"),subst_notation_of_terms [c])
             | _ -> c) }
       | "{|"; c = record_declaration; bar_cbrace -> { c }
       | "{"; c = binder_constr ; "}" ->
-        { CAst.make ~loc @@ CNotation(None,(InConstrEntry,"{ _ }"),([c],[],[],[])) }
+        { CAst.make ~loc @@ CNotation(None,(InConstrEntry,"{ _ }"),subst_notation_of_terms [c]) }
       | "`{"; c = operconstr LEVEL "200"; "}" ->
         { CAst.make ~loc @@ CGeneralization (MaxImplicit, None, c) }
       | test_array_opening; "["; "|"; ls = array_elems; "|"; def = lconstr; ty = type_cstr; test_array_closing; "|"; "]"; u = univ_instance ->

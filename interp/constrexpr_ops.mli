@@ -130,3 +130,5 @@ val interp_univ_decl : Environ.env -> universe_decl_expr ->
 
 val interp_univ_decl_opt : Environ.env -> universe_decl_expr option ->
                        Evd.evar_map * UState.universe_decl
+
+val subst_notation_of_terms : constr_expr list -> constr_notation_substitution

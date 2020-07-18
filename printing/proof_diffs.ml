@@ -466,7 +466,8 @@ let match_goals ot nt =
         constr_expr ogname ce ce2
     in
     let constr_notation_substitution ogname exp exp2 =
-      let (ce, cel, cp, lb), (ce2, cel2, cp2, lb2) = exp, exp2 in
+      let {parsing_terms=ce; parsing_termlists=cel; parsing_binders=cp; parsing_binderlists=lb} = exp in
+      let {parsing_terms=ce2; parsing_termlists=cel2; parsing_binders=cp2; parsing_binderlists=lb2} = exp2 in
       iter2 (constr_expr ogname) ce ce2;
       iter2 (fun a a2 -> iter2 (constr_expr ogname) a a2) cel cel2;
       iter2 (fun a a2 -> iter2 (local_binder_expr ogname) a a2) lb lb2

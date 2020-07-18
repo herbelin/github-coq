@@ -535,7 +535,7 @@ let rec pure_sublevels' assoc from forpat level = function
 
 let make_act : type r. r target -> _ -> r gen_eval = function
 | ForConstr -> fun notation loc env ->
-  let env = (env.constrs, env.constrlists, env.binders, env.binderlists) in
+  let env = {parsing_terms=env.constrs; parsing_termlists=env.constrlists; parsing_binders=env.binders; parsing_binderlists=env.binderlists} in
   CAst.make ~loc @@ CNotation (None, notation, env)
 | ForPattern -> fun notation loc env ->
   let env = (env.constrs, env.constrlists) in

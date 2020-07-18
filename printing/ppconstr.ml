@@ -81,8 +81,9 @@ let tag_var = tag Tag.variable
     | Numeral (NumTok.SMinus,_) -> lnegint
     | String _ -> latom
 
-  let print_hunks n pr pr_patt pr_binders (terms, termlists, binders, binderlists) unps =
-    let env = ref terms and envlist = ref termlists and bl = ref binders and bll = ref binderlists in
+  let print_hunks n pr pr_patt pr_binders subst unps =
+    let env = ref subst.parsing_terms and envlist = ref subst.parsing_termlists
+    and bl = ref subst.parsing_binders and bll = ref subst.parsing_binderlists in
     let pop r = let a = List.hd !r in r := List.tl !r; a in
     let return unp pp1 pp2 = (tag_unparsing unp pp1) ++ pp2 in
     let parens = !Constrextern.print_parentheses in
@@ -278,7 +279,7 @@ let tag_var = tag Tag.variable
         pr_patt (fun()->str"(") lpattop p ++ str")", latom
 
       | CPatNotation (which,s,(l,ll),args) ->
-        let strm_not, l_not = pr_notation (pr_patt mt) (fun _ _ -> mt ()) (fun _ _ _ -> mt()) which s (l,ll,[],[]) in
+        let strm_not, l_not = pr_notation (pr_patt mt) (fun _ _ -> mt ()) (fun _ _ _ -> mt()) which s {parsing_terms=l; parsing_termlists=ll; parsing_binders=[]; parsing_binderlists=[]} in
         (if List.is_empty args||prec_less l_not (LevelLt lapp) then strm_not else surround strm_not)
         ++ prlist (pr_patt spc (LevelLt lapp)) args, if not (List.is_empty args) then lapp else l_not
 
@@ -645,7 +646,7 @@ let tag_var = tag Tag.variable
                     | CastCoerce -> str ":>"),
           lcast
         )
-      | CNotation (_,(_,"( _ )"),([t],[],[],[])) ->
+      | CNotation (_,(_,"( _ )"),{parsing_terms=[t];parsing_termlists=[];parsing_binders=[];parsing_binderlists=[]}) ->
         return (pr (fun()->str"(") ltop t ++ str")", latom)
       | CNotation (which,s,env) ->
         pr_notation (pr mt) pr_patt (pr_binders_gen (pr mt ltop)) which s env

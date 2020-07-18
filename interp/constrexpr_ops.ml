@@ -228,7 +228,9 @@ and local_binder_eq l1 l2 = match l1, l2 with
     List.equal (eq_ast Name.equal) n1 n2 && constr_expr_eq e1 e2
   | _ -> false
 
-and constr_notation_substitution_eq (e1, el1, b1, bl1) (e2, el2, b2, bl2) =
+and constr_notation_substitution_eq
+   {parsing_terms=e1; parsing_termlists=el1; parsing_binders=b1; parsing_binderlists=bl1}
+   {parsing_terms=e2; parsing_termlists=el2; parsing_binders=b2; parsing_binderlists=bl2} =
   List.equal constr_expr_eq e1 e2 &&
   List.equal (List.equal constr_expr_eq) el1 el2 &&
   List.equal cases_pattern_expr_eq b1 b2 &&
@@ -326,7 +328,7 @@ let fold_constr_expr_with_binders g f n acc = CAst.with_val (function
       f (Name.fold_right g (na.CAst.v) n) (Option.fold_left (f n) (f n acc a) t) b
     | CCast (a,(CastConv b|CastVM b|CastNative b)) -> f n (f n acc a) b
     | CCast (a,CastCoerce) -> f n acc a
-    | CNotation (_,_,(l,ll,bl,bll)) ->
+    | CNotation (_,_,{parsing_terms=l; parsing_termlists=ll; parsing_binders=bl; parsing_binderlists=bll}) ->
       (* The following is an approximation: we don't know exactly if
          an ident is binding nor to which subterms bindings apply *)
       let acc = List.fold_left (f n) acc (l@List.flatten ll) in
@@ -395,6 +397,17 @@ let map_local_binders f g e bl =
   let (e,rbl) = List.fold_left h (e,[]) bl in
   (e, List.rev rbl)
 
+let map_constr_notation_substitution g f e
+      { parsing_terms = l;
+        parsing_termlists=ll;
+        parsing_binders=bl;
+        parsing_binderlists=bll } =
+  (* This is an approximation because we don't know what binds what *)
+  { parsing_terms = List.map (f e) l;
+    parsing_termlists = List.map (List.map (f e)) ll;
+    parsing_binders = bl;
+    parsing_binderlists = List.map (fun bl -> snd (map_local_binders f g e bl)) bll }
+
 let map_constr_expr_with_binders g f e = CAst.map (function
     | CAppExpl (r,l) -> CAppExpl (r,List.map (f e) l)
     | CApp ((p,a),l) ->
@@ -406,10 +419,8 @@ let map_constr_expr_with_binders g f e = CAst.map (function
     | CLetIn (na,a,t,b) ->
       CLetIn (na,f e a,Option.map (f e) t,f (Name.fold_right g (na.CAst.v) e) b)
     | CCast (a,c) -> CCast (f e a, Glob_ops.map_cast_type (f e) c)
-    | CNotation (inscope,n,(l,ll,bl,bll)) ->
-      (* This is an approximation because we don't know what binds what *)
-      CNotation (inscope,n,(List.map (f e) l,List.map (List.map (f e)) ll, bl,
-                    List.map (fun bl -> snd (map_local_binders f g e bl)) bll))
+    | CNotation (inscope,n,subst) ->
+      CNotation (inscope,n,map_constr_notation_substitution g f e subst)
     | CGeneralization (b,a,c) -> CGeneralization (b,a,f e c)
     | CDelimiters (s,a) -> CDelimiters (s,f e a)
     | CHole _ | CEvar _ | CPatVar _ | CSort _
@@ -469,7 +480,9 @@ let locs_of_notation ?loc locs ntn =
     | (ba,ea)::l -> if Int.equal pos ba then aux ea l else (pos,ba)::aux ea l
   in aux bl (List.sort (fun l1 l2 -> fst l1 - fst l2) locs)
 
-let ntn_loc ?loc (args,argslist,binders,binderslist) =
+let ntn_loc ?loc
+      { parsing_terms = args; parsing_termlists = argslist;
+        parsing_binders = binders; parsing_binderlists = binderslist } =
   locs_of_notation ?loc
     (List.map constr_loc (args@List.flatten argslist)@
      List.map cases_pattern_expr_loc binders@
@@ -600,7 +613,7 @@ let rec coerce_to_cases_pattern_expr c = CAst.map_with_loc (fun ?loc -> function
      (mkAppPattern (coerce_to_cases_pattern_expr p) (List.map (fun (a,_) -> coerce_to_cases_pattern_expr a) args)).CAst.v
   | CAppExpl ((None,r,i),args) ->
      CPatCstr (r,Some (List.map coerce_to_cases_pattern_expr args),[])
-  | CNotation (inscope,ntn,(c,cl,[],[])) ->
+  | CNotation (inscope,ntn,{parsing_terms=c;parsing_termlists=cl;parsing_binders=[];parsing_binderlists=[]}) ->
      CPatNotation (inscope,ntn,(List.map coerce_to_cases_pattern_expr c,
                         List.map (List.map coerce_to_cases_pattern_expr) cl),[])
   | CPrim p ->
@@ -648,3 +661,10 @@ let interp_univ_decl_opt env l =
   match l with
   | None -> Evd.from_env env, UState.default_univ_decl
   | Some decl -> interp_univ_decl env decl
+
+let subst_notation_of_terms l = {
+    parsing_terms = l;
+    parsing_termlists = [];
+    parsing_binders = [];
+    parsing_binderlists = [];
+}

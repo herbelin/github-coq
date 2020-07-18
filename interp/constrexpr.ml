@@ -144,11 +144,12 @@ and local_binder_expr =
   | CLocalDef     of lname * constr_expr * constr_expr option
   | CLocalPattern of (cases_pattern_expr * constr_expr option) CAst.t
 
-and constr_notation_substitution =
-    constr_expr list *      (* for constr subterms *)
-    constr_expr list list * (* for recursive notations *)
-    cases_pattern_expr list *   (* for binders *)
-    local_binder_expr list list (* for binder lists (recursive notations) *)
+and constr_notation_substitution = {
+    parsing_terms : constr_expr list; (* for constr subterms *)
+    parsing_termlists : constr_expr list list; (* for recursive notations *)
+    parsing_binders : cases_pattern_expr list; (* for binders *)
+    parsing_binderlists : local_binder_expr list list; (* for binder lists (recursive notations) *)
+}
 
 type constr_pattern_expr = constr_expr
 

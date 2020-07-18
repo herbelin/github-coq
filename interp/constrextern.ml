@@ -284,7 +284,7 @@ let insert_pat_alias ?loc p = function
 
 let rec insert_entry_coercion ?loc l c = match l with
   | [] -> c
-  | (inscope,ntn)::l -> CAst.make ?loc @@ CNotation (Some inscope,ntn,([insert_entry_coercion ?loc l c],[],[],[]))
+  | (inscope,ntn)::l -> CAst.make ?loc @@ CNotation (Some inscope,ntn,subst_notation_of_terms [insert_entry_coercion ?loc l c])
 
 let rec insert_pat_coercion ?loc l c = match l with
   | [] -> c
@@ -372,14 +372,16 @@ let make_notation_gen loc ntn mknot mkprim destprim l bl =
            | None -> mknot (loc,ntn,l,bl) end
         | _ -> mknot (loc,ntn,l,bl)
 
-let make_notation loc (inscope,ntn) (terms,termlists,binders,binderlists as subst) =
-  if not (List.is_empty termlists) || not (List.is_empty binderlists) then
+let make_notation loc (inscope,ntn) subst =
+  if not (List.is_empty subst.parsing_termlists) || not (List.is_empty subst.parsing_binderlists) then
     CAst.make ?loc @@ CNotation (Some inscope,ntn,subst)
   else
     make_notation_gen loc ntn
-      (fun (loc,ntn,l,bl) -> CAst.make ?loc @@ CNotation (Some inscope,ntn,(l,[],bl,[])))
+      (fun (loc,ntn,l,bl) ->
+        let subst = {parsing_terms=l;parsing_termlists=[];parsing_binders=bl;parsing_binderlists=[]} in
+        CAst.make ?loc @@ CNotation (Some inscope,ntn,subst))
       (fun (loc,p) -> CAst.make ?loc @@ CPrim p)
-      destPrim terms binders
+      destPrim subst.parsing_terms subst.parsing_binders
 
 let make_pat_notation ?loc (inscope,ntn) (terms,termlists as subst) args =
   if not (List.is_empty termlists) then (CAst.make ?loc @@ CPatNotation (Some inscope,ntn,subst,args)) else
@@ -1309,7 +1311,8 @@ and extern_notation (custom,scopes as allscopes) vars t rules =
                     List.map (fun (bl,(subentry,(scopt,scl))) ->
                       pi3 (extern_local_binder (subentry,(scopt,scl@scopes')) vars bl))
                       binderlists in
-                  let c = make_notation loc specific_ntn (l,ll,bl,bll) in
+                  let subst = { parsing_terms = l; parsing_termlists = ll; parsing_binders = bl; parsing_binderlists = bll } in
+                  let c = make_notation loc specific_ntn subst in
                   let c = insert_entry_coercion coercion (insert_delimiters c key) in
                   let args = fill_arg_scopes args argsscopes allscopes in
                   let args = extern_args (extern true) vars args in

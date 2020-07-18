@@ -222,21 +222,23 @@ let expand_notation_string ntn n =
 
 (* This contracts the special case of "{ _ }" for sumbool, sumor notations *)
 (* Remark: expansion of squash at definition is done in metasyntax.ml *)
-let contract_curly_brackets ntn (l,ll,bl,bll) =
+let contract_curly_brackets ntn subst =
   match ntn with
-  | InCustomEntry _,_ -> ntn,(l,ll,bl,bll)
+  | InCustomEntry _,_ -> ntn, subst
   | InConstrEntry, ntn ->
   let ntn' = ref ntn in
   let rec contract_squash n = function
     | [] -> []
-    | { CAst.v = CNotation (None,(InConstrEntry,"{ _ }"),([a],[],[],[])) } :: l ->
+    | { CAst.v = CNotation (None,(InConstrEntry,"{ _ }"),
+                            { parsing_terms = [a]; parsing_termlists = [];
+                              parsing_binders = []; parsing_binderlists = [] }) } :: l ->
         ntn' := expand_notation_string !ntn' n;
         contract_squash n (a::l)
     | a :: l ->
         a::contract_squash (n+1) l in
-  let l = contract_squash 0 l in
+  let parsing_terms = contract_squash 0 subst.parsing_terms in
   (* side effect; don't inline *)
-  (InConstrEntry,!ntn'),(l,ll,bl,bll)
+  (InConstrEntry,!ntn'), { subst with parsing_terms }
 
 let contract_curly_brackets_pat ntn (l,ll) =
   match ntn with
@@ -638,15 +640,29 @@ let option_mem_assoc id = function
   | Some (id',c) -> Id.equal id id'
   | None -> false
 
-let find_fresh_name renaming (terms,termlists,binders,binderlists) avoid id =
+type interp_notation_subst = {
+    interp_terms : (constr_expr * subscopes) Id.Map.t;
+    interp_termlists : (constr_expr list * subscopes) Id.Map.t;
+    interp_binders : (cases_pattern_expr * (bool * subscopes)) Id.Map.t;
+    interp_binderlists : (local_binder_expr list * subscopes) Id.Map.t;
+}
+
+let empty_interp_notation_subst = {
+    interp_terms = Id.Map.empty;
+    interp_termlists = Id.Map.empty;
+    interp_binders = Id.Map.empty;
+    interp_binderlists = Id.Map.empty;
+}
+
+let find_fresh_name renaming subst avoid id =
   let fold1 _ (c, _) accu = Id.Set.union (free_vars_of_constr_expr c) accu in
   let fold2 _ (l, _) accu =
     let fold accu c = Id.Set.union (free_vars_of_constr_expr c) accu in
     List.fold_left fold accu l
   in
   let fold3 _ x accu = Id.Set.add x accu in
-  let fvs1 = Id.Map.fold fold1 terms avoid in
-  let fvs2 = Id.Map.fold fold2 termlists fvs1 in
+  let fvs1 = Id.Map.fold fold1 subst.interp_terms avoid in
+  let fvs2 = Id.Map.fold fold2 subst.interp_termlists fvs1 in
   let fvs3 = Id.Map.fold fold3 renaming fvs2 in
   (* TODO binders *)
   next_ident_away_from id (fun id -> Id.Set.mem id fvs3)
@@ -674,13 +690,13 @@ let term_of_name = function
        let st = Evar_kinds.Define (not (Program.get_proofs_transparency ())) in
     DAst.make (GHole (Evar_kinds.QuestionMark { Evar_kinds.default_question_mark with Evar_kinds.qm_obligation=st }, IntroAnonymous, None))
 
-let traverse_binder intern_pat ntnvars (terms,_,binders,_ as subst) avoid (renaming,env) = function
+let traverse_binder intern_pat ntnvars subst avoid (renaming,env) = function
  | Anonymous -> (renaming,env), None, Anonymous
  | Name id ->
   let store,get = set_temporary_memory () in
   try
     (* We instantiate binder name with patterns which may be parsed as terms *)
-    let pat = coerce_to_cases_pattern_expr (fst (Id.Map.find id terms)) in
+    let pat = coerce_to_cases_pattern_expr (fst (Id.Map.find id subst.interp_terms)) in
     let env,((disjpat,ids),id),na = intern_pat ntnvars env pat in
     let pat, na = match disjpat with
     | [pat] when is_patvar_store store pat -> let na = get () in None, na
@@ -689,7 +705,7 @@ let traverse_binder intern_pat ntnvars (terms,_,binders,_ as subst) avoid (renam
   with Not_found ->
   try
     (* Trying to associate a pattern *)
-    let pat,(onlyname,scopes) = Id.Map.find id binders in
+    let pat,(onlyname,scopes) = Id.Map.find id subst.interp_binders in
     let env = set_env_scopes env scopes in
     if onlyname then
       (* Do not try to interpret a variable as a constructor *)
@@ -776,7 +792,8 @@ let rec adjust_env env = function
   | NList _ | NBinderList _ -> env (* to be safe, but restart should be ok *)
 
 let instantiate_notation_constr loc intern intern_pat ntnvars subst infos c =
-  let (terms,termlists,binders,binderlists) = subst in
+  let {interp_terms=terms;interp_termlists=termlists;
+       interp_binders=binders;interp_binderlists=binderlists} = subst in
   (* when called while defining a notation, avoid capturing the private binders
      of the expression by variables bound by the notation (see #3892) *)
   let avoid = Id.Map.domain ntnvars in
@@ -896,10 +913,10 @@ let instantiate_notation_constr loc intern intern_pat ntnvars subst infos c =
     with Not_found ->
     try
       let pat,(onlyname,scopes) = Id.Map.find id binders in
-      let env = set_env_scopes env scopes in
       if onlyname then
         term_of_name (out_patvar pat)
       else
+        let env = set_env_scopes env scopes in
         let env,((disjpat,ids),id),na = intern_pat ntnvars env pat in
         match disjpat with
         | [pat] -> glob_constr_of_cases_pattern (Global.env()) pat
@@ -929,38 +946,34 @@ let cases_pattern_of_name {loc;v=na} =
   let atom = match na with Name id -> Some (qualid_of_ident ?loc id) | Anonymous -> None in
   CAst.make ?loc (CPatAtom atom)
 
-let split_by_type ids subst =
-  let bind id scl l s =
-    match l with
-    | [] -> assert false
-    | a::l -> l, Id.Map.add id (a,scl) s in
-  let (terms,termlists,binders,binderlists),subst =
-    List.fold_left (fun ((terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')) (id,((_,scl),typ)) ->
-    match typ with
-    | NtnTypeConstr ->
-       let terms,terms' = bind id scl terms terms' in
-       (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeBinder NtnBinderParsedAsConstr (AsNameOrPattern | AsStrictPattern) ->
-       let a,terms = match terms with a::terms -> a,terms | _ -> assert false in
-       let binders' = Id.Map.add id (coerce_to_cases_pattern_expr a,(false,scl)) binders' in
-       (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeBinder NtnBinderParsedAsConstr AsIdent ->
-       let a,terms = match terms with a::terms -> a,terms | _ -> assert false in
-       let binders' = Id.Map.add id (cases_pattern_of_name (coerce_to_name a),(true,scl)) binders' in
-       (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeBinder (NtnParsedAsName | NtnParsedAsPattern _ as x) ->
-       let onlyname = (x = NtnParsedAsIdent) in
-       let binders,binders' = bind id (onlyname,scl) binders binders' in
-       (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeConstrList ->
-       let termlists,termlists' = bind id scl termlists termlists' in
-       (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists')
-    | NtnTypeBinderList ->
-       let binderlists,binderlists' = bind id scl binderlists binderlists' in
-       (terms,termlists,binders,binderlists),(terms',termlists',binders',binderlists'))
-                   (subst,(Id.Map.empty,Id.Map.empty,Id.Map.empty,Id.Map.empty)) ids in
-  assert (terms = [] && termlists = [] && binders = [] && binderlists = []);
-  subst
+let split_by_type ids parsing_subst =
+  let parsing_subst,interp_subst =
+    List.fold_left (fun (parsing_subst, interp_subst) (id,((_,scl),typ)) ->
+    match typ, parsing_subst with
+    | NtnTypeConstr, {parsing_terms = a :: parsing_terms} ->
+       let interp_terms = Id.Map.add id (a,scl) interp_subst.interp_terms in
+       ({ parsing_subst with parsing_terms}, {interp_subst with interp_terms})
+    | NtnTypeBinder NtnBinderParsedAsConstr expected, {parsing_terms = a :: parsing_terms} ->
+       let binder, onlyname = match expected with
+           | AsNameOrPattern | AsStrictPattern -> coerce_to_cases_pattern_expr a, false
+           | AsIdent -> cases_pattern_of_name (coerce_to_name a), true in
+       let interp_binders = Id.Map.add id (binder,(onlyname,scl)) interp_subst.interp_binders in
+       ({ parsing_subst with parsing_terms}, {interp_subst with interp_binders})
+    | NtnTypeBinder (NtnParsedAsName | NtnParsedAsPattern _ as x), {parsing_binders = a :: parsing_binders} ->
+       let onlyname = (x = NtnParsedAsName) in
+       let interp_binders = Id.Map.add id (a,(onlyname,scl)) interp_subst.interp_binders in
+       ({ parsing_subst with parsing_binders}, {interp_subst with interp_binders})
+    | NtnTypeConstrList, {parsing_termlists = a :: parsing_termlists} ->
+       let interp_termlists = Id.Map.add id (a,scl) interp_subst.interp_termlists in
+       ({ parsing_subst with parsing_termlists}, {interp_subst with interp_termlists})
+    | NtnTypeBinderList, {parsing_binderlists = a :: parsing_binderlists}  ->
+       let interp_binderlists = Id.Map.add id (a,scl) interp_subst.interp_binderlists in
+       ({ parsing_subst with parsing_binderlists}, {interp_subst with interp_binderlists})
+    | _ -> assert false)
+      (parsing_subst,empty_interp_notation_subst) ids in
+  assert (parsing_subst.parsing_terms = [] && parsing_subst.parsing_termlists = [] &&
+          parsing_subst.parsing_binders = [] && parsing_subst.parsing_binderlists = []);
+  interp_subst
 
 let split_by_type_pat ?loc ids subst =
   let bind id (_,scopes) l s =
@@ -1116,7 +1129,7 @@ let intern_qualid ?(no_secvar=false) qid intern env ntnvars us args =
       if List.length args < nids then error_not_enough_arguments ?loc;
       let args1,args2 = List.chop nids args in
       check_no_explicitation args1;
-      let subst = split_by_type ids (List.map fst args1,[],[],[]) in
+      let subst = split_by_type ids (subst_notation_of_terms (List.map fst args1)) in
       let infos = (Id.Map.empty, env) in
       let c = instantiate_notation_constr loc intern intern_cases_pattern_as_binder ntnvars subst infos c in
       let loc = c.loc in
@@ -2006,10 +2019,10 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
         DAst.make ?loc @@
         GLetIn (na.CAst.v, inc1, int,
           intern_restart_binders (push_name_env ntnvars (impls_term_list 1 inc1) env na) c2)
-    | CNotation (_,(InConstrEntry,"- _"), ([a],[],[],[])) when is_non_zero a ->
+    | CNotation (_,(InConstrEntry,"- _"), {parsing_terms=[a];parsing_termlists=[];parsing_binders=[];parsing_binderlists=[]}) when is_non_zero a ->
       let p = match a.CAst.v with CPrim (Numeral (_, p)) -> p | _ -> assert false in
        intern env (CAst.make ?loc @@ CPrim (Numeral (SMinus,p)))
-    | CNotation (_,(InConstrEntry,"( _ )"),([a],[],[],[])) -> intern env a
+    | CNotation (_,(InConstrEntry,"( _ )"), {parsing_terms=[a];parsing_termlists=[];parsing_binders=[];parsing_binderlists=[]}) -> intern env a
     | CNotation (_,ntn,args) ->
         let c = intern_notation intern env ntnvars loc ntn args in
         let x, impl, scopes = find_appl_head_data c in
