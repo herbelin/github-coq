@@ -871,6 +871,7 @@ let argument_extend (type a b c) ~name (arg : (a, b, c) tactic_argument) =
   | Vernacextend.Arg_rules rules ->
     let e = Pcoq.create_generic_entry Pcoq.utactic name (Genarg.rawwit wit) in
     let () = Pcoq.grammar_extend e {pos=None; data=[(None, None, rules)]} in
+    register_grammars_by_name name [AnyEntry e];
     e
   in
   let (rpr, gpr, tpr) = arg.arg_printer in

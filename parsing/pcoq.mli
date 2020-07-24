@@ -134,6 +134,7 @@ val uprim : gram_universe
 val uconstr : gram_universe
 val utactic : gram_universe
 
+val make_registered_entry : string -> 'a Entry.t
 
 val register_grammar : ('raw, 'glb, 'top) genarg_type -> 'raw Entry.t -> unit
 val genarg_grammar : ('raw, 'glb, 'top) genarg_type -> 'raw Entry.t

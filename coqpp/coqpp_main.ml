@@ -115,7 +115,7 @@ let print_local fmt ext =
   match locals with
   | [] -> ()
   | e :: locals ->
-    let mk_e fmt e = fprintf fmt "Pcoq.Entry.make \"%s\"" e in
+    let mk_e fmt e = fprintf fmt "Pcoq.make_registered_entry \"%s\"" e in
     let () = fprintf fmt "@[<hv 2>let %s =@ @[%a@]@]@ " e mk_e e in
     let iter e = fprintf fmt "@[<hv 2>and %s =@ @[%a@]@]@ " e mk_e e in
     let () = List.iter iter locals in

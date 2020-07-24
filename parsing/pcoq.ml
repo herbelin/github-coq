@@ -449,6 +449,12 @@ let find_grammars_by_name name =
     in
     EntryDataMap.fold fold !camlp5_entries []
 
+let make_registered_entry name =
+  let e = Entry.make name in
+  Printf.printf "Name = %s\n%!" name;
+  register_grammars_by_name name [AnyEntry e];
+  e
+
 (** Summary functions: the state of the lexer is included in that of the parser.
    Because the grammar affects the set of keywords when adding or removing
    grammar rules. *)

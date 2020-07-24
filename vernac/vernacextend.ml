@@ -249,6 +249,7 @@ let vernac_argument_extend ~name arg =
   | Arg_rules rules ->
     let e = Pcoq.create_generic_entry Pcoq.utactic name (Genarg.rawwit wit) in
     let () = Pcoq.grammar_extend e {Pcoq.pos=None; data=[(None, None, rules)]} in
+    Pcoq.register_grammars_by_name name [Pcoq.AnyEntry e];
     e
   in
   let pr = arg.arg_printer in
