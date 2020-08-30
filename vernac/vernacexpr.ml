@@ -321,6 +321,7 @@ type nonrec vernac_expr =
       scope_name option
   | VernacNotationAddFormat of string * string * string
   | VernacDeclareCustomEntry of string
+  | VernacToggleNotation of bool * Notation.notation_use * qualid Notation.interp_rule_gen
 
   (* Gallina *)
   | VernacDefinition of (discharge * Decls.definition_object_kind) * name_decl * definition_expr

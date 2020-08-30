@@ -32,6 +32,16 @@ let syntax_table =
 let add_syntax_constant kn syndef =
   syntax_table := KNmap.add kn syndef !syntax_table
 
+let activate_syntactic_definition ~on kn =
+  let sp = Nametab.path_of_syndef kn in
+  if on then
+    begin
+      Nametab.push_syndef (Nametab.Until 1) sp kn;
+      Nametab.push_syndef (Nametab.Exactly 1) sp kn
+    end
+  else
+    Nametab.remove_syndef sp kn
+
 let load_syntax_constant i ((sp,kn),(_local,syndef)) =
   if Nametab.exists_cci sp then
     user_err ~hdr:"cache_syntax_constant"

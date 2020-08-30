@@ -242,9 +242,11 @@ val availability_of_prim_token :
 (** {6 Declare and interpret back and forth a notation } *)
 
 (** Binds a notation in a given scope to an interpretation *)
-type interp_rule =
+type 'a interp_rule_gen =
   | NotationRule of specific_notation
-  | SynDefRule of KerName.t
+  | SynDefRule of 'a
+
+type interp_rule = KerName.t interp_rule_gen
 
 type notation_use =
   | OnlyPrinting
@@ -288,6 +290,8 @@ val availability_of_notation : specific_notation -> subscopes ->
   (scope_name option * delimiters option) option
 
 val is_printing_inactive_rule : interp_rule -> interpretation -> bool
+val toggle_notation : on:bool -> notation_with_optional_scope * notation ->
+  use:notation_use -> interpretation option -> unit
 
 (** {6 Miscellaneous} *)
 
@@ -333,6 +337,7 @@ val symbol_eq : symbol -> symbol -> bool
 (** Make/decompose a notation of the form "_ U _" *)
 val make_notation_key : notation_entry -> symbol list -> notation
 val decompose_notation_key : notation -> notation_entry * symbol list
+val interpret_notation_string : notation_key -> notation_key
 
 (** Decompose a notation of the form "a 'U' b" together with the lists
     of pairs of recursive variables and the list of all variables

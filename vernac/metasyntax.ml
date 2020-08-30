@@ -1855,6 +1855,41 @@ let add_syntactic_definition ~local deprecation env ident (vars,c) modl =
   Syntax_def.declare_syntactic_definition ~local ~also_in_cases_pattern deprecation ident ~onlyparsing (vars,pat)
 
 (**********************************************************************)
+(* Activating/deactivating notations                                  *)
+
+let load_notation_toggle _ _ = ()
+
+let open_notation_toggle _ (_,(local,(on,use,pat,rule))) =
+  match rule with
+  | NotationRule ntn -> toggle_notation ~on ntn ~use pat
+  | SynDefRule kn -> Syntax_def.activate_syntactic_definition ~on kn
+
+let cache_notation_toggle o =
+  load_notation_toggle 1 o;
+  open_notation_toggle 1 o
+
+let subst_notation_toggle (subst,x) = x (* TODO: pat *)
+
+let classify_notation_toggle (local,s as o) =
+  if local then Dispose else Substitute o
+
+let inNotationActivation : locality_flag * (bool * notation_use * interpretation option * interp_rule) -> obj =
+  declare_object {(default_object "NOTATION-TOGGLE") with
+      cache_function = cache_notation_toggle;
+      open_function = simple_open open_notation_toggle;
+      load_function = load_notation_toggle;
+      subst_function = subst_notation_toggle;
+      classify_function = classify_notation_toggle}
+
+let interpret_notation_rule = function
+  | NotationRule (sc,(custom,ntn)) -> NotationRule (sc,(custom,interpret_notation_string ntn))
+  | SynDefRule _ as x -> x
+
+let declare_notation_toggle local ~on ~use s =
+  let s = interpret_notation_rule s in
+  Lib.add_anonymous_leaf (inNotationActivation (local,(on,use,None,s)))
+
+(**********************************************************************)
 (* Declaration of custom entry                                        *)
 
 let warn_custom_entry =

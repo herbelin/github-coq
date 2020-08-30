@@ -533,6 +533,16 @@ let vernac_notation ~atts =
 let vernac_custom_entry ~module_local s =
   Metasyntax.declare_custom_entry module_local s
 
+let vernac_toggle_notation ~module_local ~on ~use rule =
+  let open Notation in
+  let rule = match rule with
+    | NotationRule (sc,s) -> NotationRule (sc,s)
+    | SynDefRule qid ->
+      match Nametab.locate_extended qid with
+      | Globnames.TrueGlobal _ -> user_err (str "Not a notation.")
+      | Globnames.SynDef kn -> SynDefRule kn in
+  Metasyntax.declare_notation_toggle module_local ~on ~use rule
+
 (***********)
 (* Gallina *)
 
@@ -2110,6 +2120,8 @@ let translate_vernac ?loc ~atts v = let open Vernacextend in match v with
         Metasyntax.add_notation_extra_printing_rule n k v)
   | VernacDeclareCustomEntry s ->
     VtDefault(fun () -> with_module_locality ~atts vernac_custom_entry s)
+  | VernacToggleNotation (on,use,rule) ->
+    VtDefault(fun () -> with_module_locality ~atts vernac_toggle_notation ~on ~use rule)
 
   (* Gallina *)
 

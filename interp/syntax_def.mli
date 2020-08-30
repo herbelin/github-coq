@@ -10,13 +10,16 @@
 
 open Names
 open Notation_term
+open Globnames
 
 (** Syntactic definitions. *)
 
 val declare_syntactic_definition : local:bool -> ?also_in_cases_pattern:bool -> Deprecation.t option -> Id.t ->
   onlyparsing:bool -> interpretation -> unit
 
-val search_syntactic_definition : ?loc:Loc.t -> KerName.t -> interpretation
+val search_syntactic_definition : ?loc:Loc.t -> syndef_name -> interpretation
 
 val search_filtered_syntactic_definition : ?loc:Loc.t ->
-  (interpretation -> 'a option) -> KerName.t -> 'a option
+  (interpretation -> 'a option) -> syndef_name -> 'a option
+
+val activate_syntactic_definition : on:bool -> syndef_name -> unit
