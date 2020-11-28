@@ -2446,7 +2446,7 @@ let check_thin_clash_then id thin avoid tac =
   else
     tac thin
 
-let make_tmp_naming avoid l = function
+let rec make_naming_action avoid l = function
   (* In theory, we could use a tmp id like "wild_id" for all actions
      but we prefer to avoid it to avoid this kind of "ugly" names *)
   (* Alternatively, we could have called check_thin_clash_then on
@@ -2454,7 +2454,16 @@ let make_tmp_naming avoid l = function
      case of IntroFresh, we should use check_thin_clash_then anyway to
      prevent the case of an IntroFresh precisely using the wild_id *)
   | IntroWildcard -> NamingBasedOn (wild_id, Id.Set.union avoid (explicit_intro_names l))
-  | pat -> NamingAvoid(Id.Set.union avoid (explicit_intro_names ((CAst.make @@ IntroAction pat)::l)))
+  | IntroApplyOn (_,{CAst.v=pat;loc}) -> make_naming avoid ?loc l pat
+  | (IntroOrAndPattern _ | IntroInjection _ | IntroRewrite _) as pat ->
+    NamingAvoid(Id.Set.union avoid (explicit_intro_names ((CAst.make @@ IntroAction pat)::l)))
+
+and make_naming ?loc avoid l = function
+  | IntroNaming IntroAnonymous -> NamingAvoid(Id.Set.union avoid (explicit_intro_names l))
+  | IntroNaming (IntroIdentifier id) -> NamingMustBe (CAst.make ?loc id)
+  | IntroNaming (IntroFresh id) -> NamingBasedOn(id,Id.Set.union avoid (explicit_intro_names l))
+  | IntroAction pat -> make_naming_action avoid l pat
+  | IntroForthcoming _ -> NamingAvoid (Id.Set.union avoid (explicit_intro_names l))
 
 let fit_bound n = function
   | None -> true
@@ -2500,7 +2509,7 @@ let rec intro_patterns_core with_evars avoid ids thin destopt bound n tac =
         (fun ids -> intro_patterns_core with_evars avoid ids thin destopt bound
           (n+List.length ids) tac l)
   | IntroAction pat ->
-      intro_then_gen (make_tmp_naming avoid l pat)
+      intro_then_gen (make_naming_action avoid l pat)
         destopt true false
         (intro_pattern_action ?loc with_evars pat thin destopt
           (fun thin bound' -> intro_patterns_core with_evars avoid ids thin destopt bound' 0
@@ -2537,22 +2546,18 @@ and intro_pattern_action ?loc with_evars pat thin destopt tac id =
   | IntroRewrite l2r ->
       rewrite_hyp_then with_evars thin l2r id (fun thin -> tac thin None [])
   | IntroApplyOn ({CAst.loc=loc';v=f},{CAst.loc;v=pat}) ->
-      let naming,tac_ipat =
+      let naming = NamingMustBe (CAst.make ?loc id) in
+      let _,tac_ipat =
         prepare_intros ?loc with_evars (IntroIdentifier id) destopt pat in
-      let doclear =
-        if naming = NamingMustBe (CAst.make ?loc id) then
-          Proofview.tclUNIT () (* apply_in_once do a replacement *)
-        else
-          clear [id] in
       let f env sigma = let (sigma, c) = f env sigma in (sigma,(c, NoBindings))
       in
       apply_in_delayed_once true true with_evars naming id (None,CAst.make ?loc:loc' f)
-        (fun id -> Tacticals.New.tclTHENLIST [doclear; tac_ipat id; tac thin None []])
+        (fun id -> Tacticals.New.tclTHENLIST [tac_ipat id; tac thin None []])
 
 and prepare_intros ?loc with_evars dft destopt = function
   | IntroNaming ipat ->
       prepare_naming ?loc ipat,
-      (fun id -> move_hyp id destopt)
+      (fun _ -> Proofview.tclUNIT ())
   | IntroAction ipat ->
       prepare_naming ?loc dft,
       (let tac thin bound =
