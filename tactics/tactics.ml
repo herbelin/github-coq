@@ -1521,7 +1521,6 @@ let general_case_analysis with_evars clear_flag (c,lbindc as cx) =
         general_case_analysis_in_context with_evars clear_flag cx
 
 let simplest_case c = general_case_analysis false None (c,NoBindings)
-let simplest_ecase c = general_case_analysis true None (c,NoBindings)
 
 (* Elimination tactic with bindings but using the default elimination
  * constant associated with the type. *)
@@ -2328,22 +2327,15 @@ let intro_decomp_eq ?loc l thin tac id =
     Tacticals.New.tclZEROMSG ~info (str "Not a primitive equality here.")
   end
 
-let intro_or_and_pattern ?loc with_evars ll thin tac id =
+let destruct_function = ref (fun _ -> failwith "Not implemented")
+
+let intro_or_and_pattern ?loc with_evars ll tac id =
   Proofview.Goal.enter begin fun gl ->
   let c = mkVar id in
   let env = Proofview.Goal.env gl in
   let sigma = Proofview.Goal.sigma gl in
   let sigma, t = Typing.type_of env sigma c in
-  let (ind,t) = reduce_to_quantified_ind env sigma t in
-  let branchsigns = compute_constructor_signatures ~rec_flag:false ind in
-  let nv_with_let = Array.map List.length branchsigns in
-  let ll = fix_empty_or_and_pattern (Array.length branchsigns) ll in
-  let ll = get_and_check_or_and_pattern ?loc ll branchsigns in
-  Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma)
-    (Tacticals.New.tclTHENLASTn
-       (Tacticals.New.tclTHEN (simplest_ecase c) (clear [id]))
-       (Array.map2 (fun n l -> tac thin (Some n) l)
-          nv_with_let ll))
+  Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma) (!destruct_function id ll tac)
   end
 
 let rewrite_hyp_then with_evars thin l2r id tac =
@@ -2517,7 +2509,7 @@ and intro_pattern_action ?loc with_evars pat thin destopt tac id =
   | IntroWildcard ->
       tac (CAst.(make ?loc id)::thin) None []
   | IntroOrAndPattern ll ->
-      intro_or_and_pattern ?loc with_evars ll thin tac id
+      intro_or_and_pattern ?loc with_evars ll (fun thin' -> tac (thin@thin') None []) id
   | IntroInjection l' ->
       intro_decomp_eq ?loc l' thin tac id
   | IntroRewrite l2r ->
@@ -3329,7 +3321,7 @@ let induct_discharge with_evars dests avoid' tac (avoid,ra) names =
         let env = Proofview.Goal.env gl in
         let sigma = Proofview.Goal.sigma gl in
         check_unused_names env sigma names;
-        Tacticals.New.tclTHEN (clear_wildcards thin) (tac dests)
+        tac thin dests
         end
   in
   peel_tac ra dests names []
@@ -4348,7 +4340,7 @@ let induction_tac with_evars params indvars elim =
    hypotheses from the context, replacing the main hypothesis on which
    induction applies with the induction hypotheses *)
 
-let apply_induction_in_context with_evars hyp0 inhyps elim indvars names induct_tac =
+let apply_induction_in_context with_evars hyp0 inhyps elim indvars names induct_tac tac =
   Proofview.Goal.enter begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let env = Proofview.Goal.env gl in
@@ -4378,19 +4370,20 @@ let apply_induction_in_context with_evars hyp0 inhyps elim indvars names induct_
       ])
       (Array.map2
          (induct_discharge with_evars lhyp0 avoid
-            (re_intro_dependent_hypotheses statuslists))
+            (fun thin dest ->
+              Tacticals.New.tclTHEN (re_intro_dependent_hypotheses statuslists dest) (tac thin)))
          indsign names)
     in
     Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma) tac
   end
 
-let induction_with_atomization_of_ind_arg isrec with_evars elim names hyp0 inhyps =
+let induction_with_atomization_of_ind_arg isrec with_evars elim names hyp0 tac inhyps =
   Proofview.Goal.enter begin fun gl ->
   let sigma, elim_info = find_induction_type isrec elim hyp0 gl in
   tclEVARSTHEN sigma
     (atomize_param_of_ind_then elim_info hyp0 (fun indvars ->
          apply_induction_in_context with_evars (Some hyp0) inhyps (pi3 elim_info) indvars names
-           (fun elim -> induction_tac with_evars [] [hyp0] elim)))
+           (fun elim -> induction_tac with_evars [] [hyp0] elim) tac))
   end
 
 let msg_not_right_number_induction_arguments scheme =
@@ -4439,7 +4432,7 @@ let induction_without_atomization isrec with_evars elim names lid =
     induction_tac with_evars params realindvars elim;
   ] in
   let elim = ElimUsing (({ elimindex = Some (-1); elimbody = Option.get scheme.elimc }, scheme.elimt), indsign) in
-  apply_induction_in_context with_evars None [] elim indvars names induct_tac
+  apply_induction_in_context with_evars None [] elim indvars names induct_tac clear_wildcards
   end
 
 (* assume that no occurrences are selected *)
@@ -4598,7 +4591,7 @@ let has_generic_occurrences_but_goal cls id env sigma ccl =
   (cls.concl_occs != NoOccurrences || not (occur_var env sigma id ccl))
 
 let induction_gen clear_flag isrec with_evars elim
-    ((_pending,(c,lbind)),(eqname,names) as arg) cls =
+    ((_pending,(c,lbind)),(eqname,names) as arg) cls tac =
   let inhyps = match cls with
   | Some {onhyps=Some hyps} -> List.map (fun ((_,id),_) -> id) hyps
   | _ -> [] in
@@ -4624,7 +4617,7 @@ let induction_gen clear_flag isrec with_evars elim
     Tacticals.New.tclTHEN
       (clear_unselected_context id inhyps cls)
       (induction_with_atomization_of_ind_arg
-         isrec with_evars elim names id inhyps)
+         isrec with_evars elim names id tac inhyps)
   else
   (* Otherwise, we look for the pattern, possibly adding missing arguments and
      declaring the induction argument as a new local variable *)
@@ -4639,8 +4632,16 @@ let induction_gen clear_flag isrec with_evars elim
     pose_induction_arg_then
       isrec with_evars info_arg elim id arg t inhyps cls
     (induction_with_atomization_of_ind_arg
-       isrec with_evars elim names id)
+       isrec with_evars elim names id tac)
   end
+
+let () =
+  destruct_function :=
+    (fun id names tac ->
+      Proofview.Goal.enter begin fun gl ->
+        let sigma = Proofview.Goal.sigma gl in
+        induction_gen None false false None ((sigma,(mkVar id,NoBindings)),(None,Some (CAst.make names))) None tac
+        end)
 
 (* Induction on a list of arguments. First make induction arguments
    atomic (using letins), then do induction. The specificity here is
@@ -4710,7 +4711,7 @@ let induction_destruct isrec with_evars (lc,elim) =
     | _ ->
       (* standard induction *)
       onOpenInductionArg env sigma
-      (fun clear_flag c -> induction_gen clear_flag isrec with_evars elim (c,allnames) cls) c
+      (fun clear_flag c -> induction_gen clear_flag isrec with_evars elim (c,allnames) cls clear_wildcards) c
     end
   | _ ->
     Proofview.Goal.enter begin fun gl ->
@@ -4727,13 +4728,13 @@ let induction_destruct isrec with_evars (lc,elim) =
       (* TODO *)
       Tacticals.New.tclTHEN
         (onOpenInductionArg env sigma (fun clear_flag a ->
-          induction_gen clear_flag isrec with_evars None (a,b) cl) a)
+          induction_gen clear_flag isrec with_evars None (a,b) cl clear_wildcards) a)
         (Tacticals.New.tclMAP (fun (a,b,cl) ->
           Proofview.Goal.enter begin fun gl ->
           let env = Proofview.Goal.env gl in
           let sigma = Tacmach.New.project gl in
           onOpenInductionArg env sigma (fun clear_flag a ->
-            induction_gen clear_flag false with_evars None (a,b) cl) a
+            induction_gen clear_flag false with_evars None (a,b) cl clear_wildcards) a
           end) l)
     | Some elim ->
       (* Several induction hyps with induction scheme *)
@@ -4757,11 +4758,11 @@ let induction_destruct isrec with_evars (lc,elim) =
 
 let induction ev clr c l e =
   induction_gen clr true ev e
-    ((Evd.empty,(c,NoBindings)),(None,l)) None
+    ((Evd.empty,(c,NoBindings)),(None,l)) None clear_wildcards
 
 let destruct ev clr c l e =
   induction_gen clr false ev e
-    ((Evd.empty,(c,NoBindings)),(None,l)) None
+    ((Evd.empty,(c,NoBindings)),(None,l)) None clear_wildcards
 
 (*
  *  Eliminations giving the type instead of the proof.
