@@ -382,7 +382,7 @@ val vars_of_global : env -> GlobRef.t -> Id.Set.t
 val really_needed : env -> Id.Set.t -> Id.Set.t
 
 (** like [really_needed] but computes a well ordered named context *)
-val keep_hyps : env -> Id.Set.t -> Constr.named_context
+val keep_hyps : env -> Id.Set.t -> Constr.section_context
 
 (** {5 Unsafe judgments. }
     We introduce here the pre-type of judgments, which is

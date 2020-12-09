@@ -103,7 +103,7 @@ type typing_flags = {
 (* some contraints are in constant_constraints, some other may be in
  * the OpaqueDef *)
 type 'opaque constant_body = {
-    const_hyps : Constr.named_context; (** New: younger hyp at top *)
+    const_hyps : Constr.section_context; (** New: younger hyp at top *)
     const_body : (Constr.t Mod_subst.substituted, 'opaque) constant_def;
     const_type : types;
     const_relevance : Sorts.relevance;
@@ -220,7 +220,7 @@ type mutual_inductive_body = {
 
     mind_ntypes : int;  (** Number of types in the block *)
 
-    mind_hyps : Constr.named_context;  (** Section hypotheses on which the block depends *)
+    mind_hyps : Constr.section_context;  (** Section hypotheses on which the block depends *)
 
     mind_nparams : int;  (** Number of expected parameters including non-uniform ones (i.e. length of mind_params_ctxt w/o let-in) *)
 

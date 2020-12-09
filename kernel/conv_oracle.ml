@@ -35,22 +35,22 @@ let is_transparent = function
 | _ -> false
 
 type oracle = {
-  var_opacity : level Id.Map.t;
+  var_opacity : level Var.Map.t;
   cst_opacity : level Cmap.t;
-  var_trstate : Id.Pred.t;
+  var_trstate : Var.Pred.t;
   cst_trstate : Cpred.t;
 }
 
 let empty = {
-  var_opacity = Id.Map.empty;
+  var_opacity = Var.Map.empty;
   cst_opacity = Cmap.empty;
-  var_trstate = Id.Pred.full;
+  var_trstate = Var.Pred.full;
   cst_trstate = Cpred.full;
 }
 
 let get_strategy { var_opacity; cst_opacity; _ } f = function
   | VarKey id ->
-      (try Id.Map.find id var_opacity
+      (try Var.Map.find id var_opacity
       with Not_found -> default)
   | ConstKey c ->
       (try Cmap.find (f c) cst_opacity
@@ -61,12 +61,12 @@ let set_strategy ({ var_opacity; cst_opacity; _ } as oracle) k l =
   match k with
   | VarKey id ->
     let var_opacity =
-      if is_default l then Id.Map.remove id var_opacity
-      else Id.Map.add id l var_opacity
+      if is_default l then Var.Map.remove id var_opacity
+      else Var.Map.add id l var_opacity
     in
     let var_trstate = match l with
-    | Opaque -> Id.Pred.remove id oracle.var_trstate
-    | _ -> Id.Pred.add id oracle.var_trstate
+    | Opaque -> Var.Pred.remove id oracle.var_trstate
+    | _ -> Var.Pred.add id oracle.var_trstate
     in
     { oracle with var_opacity; var_trstate; }
   | ConstKey c ->
@@ -84,7 +84,7 @@ let set_strategy ({ var_opacity; cst_opacity; _ } as oracle) k l =
 let fold_strategy f { var_opacity; cst_opacity; _ } accu =
   let fvar id lvl accu = f (VarKey id) lvl accu in
   let fcst cst lvl accu = f (ConstKey cst) lvl accu in
-  let accu = Id.Map.fold fvar var_opacity accu in
+  let accu = Var.Map.fold fvar var_opacity accu in
   Cmap.fold fcst cst_opacity accu
 
 let get_transp_state { var_trstate; cst_trstate; _ } =

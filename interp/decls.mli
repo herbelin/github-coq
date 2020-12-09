@@ -65,14 +65,14 @@ type variable_data = {
   kind:logical_kind;
 }
 
-val add_variable_data : variable -> variable_data -> unit
+val add_variable_data : Id.t -> variable_data -> unit
 
 (* Only used in dumpglob *)
-val variable_secpath : variable -> qualid
-val variable_kind : variable -> logical_kind
+val variable_secpath : Id.t -> qualid
+val variable_kind : Id.t -> logical_kind
 
 (* User in Lemma, Very dubious *)
-val variable_opacity : variable -> bool
+val variable_opacity : Id.t -> bool
 
 (* Used in declare, very dubious *)
-val variable_exists : variable -> bool
+val variable_exists : Id.t -> bool

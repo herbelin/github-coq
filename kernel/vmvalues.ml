@@ -245,13 +245,13 @@ type vswitch = {
 
 type id_key =
 | ConstKey of Constant.t
-| VarKey of Id.t
+| VarKey of Var.t
 | RelKey of Int.t
 | EvarKey of Evar.t
 
 let eq_id_key (k1 : id_key) (k2 : id_key) = match k1, k2 with
 | ConstKey c1, ConstKey c2 -> Constant.CanOrd.equal c1 c2
-| VarKey id1, VarKey id2 -> Id.equal id1 id2
+| VarKey id1, VarKey id2 -> Var.equal id1 id2
 | RelKey n1, RelKey n2 -> Int.equal n1 n2
 | EvarKey evk1, EvarKey evk2 -> Evar.equal evk1 evk2
 | _ -> false
@@ -477,7 +477,7 @@ struct
   open Hashset.Combine
   let hash : t -> tag = function
   | ConstKey c -> combinesmall 1 (Constant.CanOrd.hash c)
-  | VarKey id -> combinesmall 2 (Id.hash id)
+  | VarKey id -> combinesmall 2 (Var.hash id)
   | RelKey i -> combinesmall 3 (Int.hash i)
   | EvarKey evk -> combinesmall 4 (Evar.hash evk)
 end

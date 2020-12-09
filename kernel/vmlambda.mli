@@ -5,7 +5,7 @@ open Environ
 
 type lambda =
   | Lrel          of Name.t * int
-  | Lvar          of Id.t
+  | Lvar          of Var.t
   | Levar         of Evar.t * lambda array
   | Lprod         of lambda * lambda
   | Llam          of Name.t Context.binder_annot array * lambda

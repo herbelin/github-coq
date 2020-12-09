@@ -66,7 +66,7 @@ type instruction =
 and bytecodes = instruction list
 
 type fv_elem =
-  | FVnamed of Id.t
+  | FVnamed of Var.t
   | FVrel of int
   | FVuniv_var of int
   | FVevar of Evar.t
@@ -80,7 +80,7 @@ open Util
 let pp_lbl lbl = str "L" ++ int lbl
 
 let pp_fv_elem = function
-  | FVnamed id -> str "FVnamed(" ++ Id.print id ++ str ")"
+  | FVnamed id -> str "FVnamed(" ++ Var.print id ++ str ")"
   | FVrel i -> str "Rel(" ++ int i ++ str ")"
   | FVuniv_var v -> str "FVuniv(" ++ int v ++ str ")"
   | FVevar e -> str "FVevar(" ++ int (Evar.repr e) ++ str ")"

@@ -60,7 +60,7 @@ type gname =
   | Gnormtbl of Label.t option * int
   | Ginternal of string
   | Grel of int
-  | Gnamed of Id.t
+  | Gnamed of Var.t
 
 let eq_gname gn1 gn2 =
   match gn1, gn2 with
@@ -84,7 +84,7 @@ let eq_gname gn1 gn2 =
       Int.equal i1 i2 && Label.equal l1 l2
   | Ginternal s1, Ginternal s2 -> String.equal s1 s2
   | Grel i1, Grel i2 -> Int.equal i1 i2
-  | Gnamed id1, Gnamed id2 -> Id.equal id1 id2
+  | Gnamed id1, Gnamed id2 -> Var.equal id1 id2
   | (Gind _| Gconstant _ | Gproj _ | Gcase _ | Gpred _
     | Gfixtype _ | Gnorm _ | Gnormtbl _ | Ginternal _ | Grel _ | Gnamed _), _ ->
       false
@@ -106,7 +106,7 @@ let gname_hash gn = match gn with
 | Gnormtbl (l, i) -> combinesmall 7 (combine (Option.hash Label.hash l) (Int.hash i))
 | Ginternal s -> combinesmall 8 (String.hash s)
 | Grel i -> combinesmall 9 (Int.hash i)
-| Gnamed id -> combinesmall 10 (Id.hash id)
+| Gnamed id -> combinesmall 10 (Var.hash id)
 | Gproj (s, p, i) -> combinesmall 11 (combine (String.hash s) (combine (Ind.CanOrd.hash p) i))
 
 let case_ctr = ref (-1)
@@ -255,7 +255,7 @@ type primitive =
   | Mk_fix of rec_pos * int
   | Mk_cofix of int
   | Mk_rel of int
-  | Mk_var of Id.t
+  | Mk_var of Var.t
   | Mk_proj
   | Is_int
   | Is_float
@@ -299,7 +299,7 @@ let eq_primitive p1 p2 =
   | Mk_fix (rp1, i1), Mk_fix (rp2, i2) -> Int.equal i1 i2 && eq_rec_pos rp1 rp2
   | Mk_cofix i1, Mk_cofix i2 -> Int.equal i1 i2
   | Mk_rel i1, Mk_rel i2 -> Int.equal i1 i2
-  | Mk_var id1, Mk_var id2 -> Id.equal id1 id2
+  | Mk_var id1, Mk_var id2 -> Var.equal id1 id2
   | Cast_accu, Cast_accu -> true
   | Upd_cofix, Upd_cofix -> true
   | Force_cofix, Force_cofix -> true
@@ -324,7 +324,7 @@ let primitive_hash = function
   | Mk_rel i ->
      combinesmall 8 (Int.hash i)
   | Mk_var id ->
-     combinesmall 9 (Id.hash id)
+     combinesmall 9 (Var.hash id)
   | Is_int -> 11
   | Cast_accu -> 12
   | Upd_cofix -> 13
@@ -767,7 +767,7 @@ type env =
       env_bound : int; (* length of env_rel *)
       (* free variables *)
       env_urel : (int * mllambda) list ref; (* list of unbound rel *)
-      env_named : (Id.t * mllambda) list ref;
+      env_named : (Var.t * mllambda) list ref; (* TODO: can we have goal variables here? *)
       env_univ : lname option}
 
 let empty_env univ =
@@ -807,9 +807,9 @@ let get_rel env id i =
       local
 
 let get_var env id =
-  try Id.List.assoc id !(env.env_named)
+  try List.assoc_f Var.equal id !(env.env_named)
   with Not_found ->
-    let local = MLlocal (fresh_lname (Name id)) in
+    let local = MLlocal (fresh_lname (Name (Var.base id))) in
     env.env_named := (id, local)::!(env.env_named);
     local
 
@@ -1619,7 +1619,7 @@ let string_of_gname g =
   | Grel i ->
       Format.sprintf "rel_%i" i
   | Gnamed id ->
-      Format.sprintf "named_%s" (string_of_id id)
+      Format.sprintf "named_%s" (Var.to_string id)
 
 let pp_gname fmt g =
   Format.fprintf fmt "%s" (string_of_gname g)
@@ -1791,7 +1791,7 @@ let pp_mllam fmt l =
     | Mk_cofix(start) -> Format.fprintf fmt "mk_cofix_accu %i" start
     | Mk_rel i -> Format.fprintf fmt "mk_rel_accu %i" i
     | Mk_var id ->
-        Format.fprintf fmt "mk_var_accu (Names.Id.of_string \"%s\")" (string_of_id id)
+        Format.fprintf fmt "mk_var_accu (Names.Id.of_string \"%s\")" (Var.to_string id)
     | Mk_proj -> Format.fprintf fmt "mk_proj_accu"
     | Is_int -> Format.fprintf fmt "is_int"
     | Is_float -> Format.fprintf fmt "is_float"

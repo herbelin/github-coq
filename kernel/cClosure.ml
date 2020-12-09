@@ -88,7 +88,7 @@ module type RedFlagsSig = sig
   val fCOFIX : red_kind
   val fZETA : red_kind
   val fCONST : Constant.t -> red_kind
-  val fVAR : Id.t -> red_kind
+  val fVAR : Var.t -> red_kind
   val no_red : reds
   val red_add : reds -> red_kind -> reds
   val red_sub : reds -> red_kind -> reds
@@ -119,7 +119,7 @@ module RedFlags : RedFlagsSig = struct
 
   type red_kind = BETA | DELTA | ETA | MATCH | FIX
               | COFIX | ZETA
-              | CONST of Constant.t | VAR of Id.t
+              | CONST of Constant.t | VAR of Var.t
   let fBETA = BETA
   let fDELTA = DELTA
   let fETA = ETA
@@ -152,7 +152,7 @@ module RedFlags : RedFlagsSig = struct
     | ZETA -> { red with r_zeta = true }
     | VAR id ->
       let r = red.r_const in
-      { red with r_const = { r with tr_var = Id.Pred.add id r.tr_var } }
+      { red with r_const = { r with tr_var = Var.Pred.add id r.tr_var } }
 
   let red_sub red = function
     | BETA -> { red with r_beta = false }
@@ -167,7 +167,7 @@ module RedFlags : RedFlagsSig = struct
     | ZETA -> { red with r_zeta = false }
     | VAR id ->
       let r = red.r_const in
-      { red with r_const = { r with tr_var = Id.Pred.remove id r.tr_var } }
+      { red with r_const = { r with tr_var = Var.Pred.remove id r.tr_var } }
 
   let red_transparent red = red.r_const
 
@@ -237,7 +237,7 @@ struct
   let equal = Names.eq_table_key eq_pconstant_key
   let hash = function
   | ConstKey (c, _) -> combinesmall 1 (Constant.UserOrd.hash c)
-  | VarKey id -> combinesmall 2 (Id.hash id)
+  | VarKey id -> combinesmall 2 (Var.hash id)
   | RelKey i -> combinesmall 3 (Int.hash i)
 end
 

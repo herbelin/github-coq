@@ -46,7 +46,7 @@ type arity_error =
 
 type ('constr, 'types) ptype_error =
   | UnboundRel of int
-  | UnboundVar of variable
+  | UnboundVar of Id.t
   | NotAType of ('constr, 'types) punsafe_judgment
   | BadAssumption of ('constr, 'types) punsafe_judgment
   | ReferenceVariables of Id.t * GlobRef.t
@@ -98,7 +98,7 @@ exception InductiveError of inductive_error
 
 val error_unbound_rel : env -> int -> 'a
 
-val error_unbound_var : env -> variable -> 'a
+val error_unbound_var : env -> Id.t -> 'a
 
 val error_not_type : env -> unsafe_judgment -> 'a
 

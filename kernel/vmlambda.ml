@@ -12,7 +12,7 @@ let pr_con sp = str(Names.Label.to_string (Constant.label sp))
 
 type lambda =
   | Lrel          of Name.t * int
-  | Lvar          of Id.t
+  | Lvar          of Var.t
   | Levar         of Evar.t * lambda array
   | Lprod         of lambda * lambda
   | Llam          of Name.t Context.binder_annot array * lambda
@@ -62,7 +62,7 @@ let pp_sort s =
 let rec pp_lam lam =
   match lam with
   | Lrel (id,n) -> pp_rel id n
-  | Lvar id -> Id.print id
+  | Lvar id -> Var.print id
   | Levar (evk, args) ->
     hov 1 (str "evar(" ++ Evar.print evk ++ str "," ++ spc () ++
       prlist_with_sep spc pp_lam (Array.to_list args) ++ str ")")

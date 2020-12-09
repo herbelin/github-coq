@@ -101,7 +101,7 @@ struct
 type t = fv_elem
 
 let compare e1 e2 = match e1, e2 with
-| FVnamed id1, FVnamed id2 -> Id.compare id1 id2
+| FVnamed id1, FVnamed id2 -> Var.compare id1 id2
 | FVnamed _, (FVrel _ | FVuniv_var _ | FVevar _) -> -1
 | FVrel _, FVnamed _ -> 1
 | FVrel r1, FVrel r2 -> Int.compare r1 r2

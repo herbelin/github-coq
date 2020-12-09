@@ -12,7 +12,7 @@ open Util
 open Names
 open Univ
 
-module NamedDecl = Context.Named.Declaration
+module ShortNamedDecl = Context.ShortNamed.Declaration
 
 type section_entry =
 | SecDefinition of Constant.t
@@ -118,7 +118,7 @@ let push_constant ~poly con s = push_global ~poly (SecDefinition con) s
 let push_inductive ~poly ind s = push_global ~poly (SecInductive ind) s
 
 type abstr_info = {
-  abstr_ctx : Constr.named_context;
+  abstr_ctx : Constr.section_context;
   abstr_subst : Instance.t;
   abstr_uctx : AUContext.t;
 }
@@ -133,7 +133,7 @@ let extract_hyps sec vars used =
   (* Keep the section-local segment of variables *)
   let vars = List.firstn sec.context vars in
   (* Only keep the part that is used by the declaration *)
-  List.filter (fun d -> Id.Set.mem (NamedDecl.get_id d) used) vars
+  List.filter (fun d -> Id.Set.mem (ShortNamedDecl.get_id d) used) vars
 
 let section_segment_of_entry vars e hyps sec =
   (* [vars] are the named hypotheses, [hyps] the subset that is declared by the
@@ -148,18 +148,18 @@ let section_segment_of_entry vars e hyps sec =
 
 let segment_of_constant env con s =
   let body = Environ.lookup_constant con env in
-  let vars = Environ.named_context env in
-  let used = Context.Named.to_vars body.Declarations.const_hyps in
+  let vars = Environ.section_context env in
+  let used = Context.ShortNamed.to_vars body.Declarations.const_hyps in
   section_segment_of_entry vars (SecDefinition con) used s
 
 let segment_of_inductive env mind s =
   let mib = Environ.lookup_mind mind env in
-  let vars = Environ.named_context env in
-  let used = Context.Named.to_vars mib.Declarations.mind_hyps in
+  let vars = Environ.section_context env in
+  let used = Context.ShortNamed.to_vars mib.Declarations.mind_hyps in
   section_segment_of_entry vars (SecInductive mind) used s
 
 let instance_from_variable_context =
-  List.rev %> List.filter NamedDecl.is_local_assum %> List.map NamedDecl.get_id %> Array.of_list
+  List.rev %> List.filter ShortNamedDecl.is_local_assum %> List.map ShortNamedDecl.get_id %> Array.of_list
 
 let extract_worklist info =
   let args = instance_from_variable_context info.abstr_ctx in
@@ -175,8 +175,9 @@ let is_in_section env gr sec =
   let open GlobRef in
   match gr with
   | VarRef id ->
-    let vars = List.firstn sec.context (Environ.named_context env) in
-    List.exists (fun decl -> Id.equal id (NamedDecl.get_id decl)) vars
+    Var.is_secvar id &&
+    let vars = List.firstn sec.context (Environ.section_context env) in
+    List.exists (fun decl -> Id.equal (Var.base id) (ShortNamedDecl.get_id decl)) vars
   | ConstRef con ->
     Cmap.mem con (fst sec.data)
   | IndRef (ind, _) | ConstructRef ((ind, _), _) ->

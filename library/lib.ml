@@ -14,9 +14,9 @@ open Util
 open Names
 open Libnames
 open Libobject
-open Context.Named.Declaration
+open Context.ShortNamed.Declaration
 
-module NamedDecl = Context.Named.Declaration
+module ShortNamedDecl = Context.ShortNamed.Declaration
 
 type is_type = bool (* Module Type or just Module *)
 type export = bool option (* None for a Module Type *)
@@ -403,7 +403,7 @@ let find_opening_node id =
 *)
 
 let instance_from_variable_context =
-  List.rev %> List.filter is_local_assum %> List.map NamedDecl.get_id %> Array.of_list
+  List.rev %> List.filter is_local_assum %> List.map ShortNamedDecl.get_id %> Array.of_list
 
 let extract_worklist info =
   let args = instance_from_variable_context info.Section.abstr_ctx in

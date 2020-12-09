@@ -45,7 +45,7 @@ type arity_error =
 
 type ('constr, 'types) ptype_error =
   | UnboundRel of int
-  | UnboundVar of variable
+  | UnboundVar of Id.t
   | NotAType of ('constr, 'types) punsafe_judgment
   | BadAssumption of ('constr, 'types) punsafe_judgment
   | ReferenceVariables of Id.t * GlobRef.t

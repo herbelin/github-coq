@@ -69,7 +69,7 @@ val all_poly_univs : 'a t -> Univ.Level.t array
    monomorphic globals. *)
 
 type abstr_info = private {
-  abstr_ctx : Constr.named_context;
+  abstr_ctx : Constr.section_context;
   (** Section variables of this prefix *)
   abstr_subst : Univ.Instance.t;
   (** Actual names of the abstracted variables *)

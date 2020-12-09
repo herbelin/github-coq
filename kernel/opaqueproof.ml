@@ -13,12 +13,12 @@ open Univ
 open Constr
 open Mod_subst
 
-type work_list = (Instance.t * Var.t array) Cmap.t *
-  (Instance.t * Var.t array) Mindmap.t
+type work_list = (Instance.t * Id.t array) Cmap.t *
+  (Instance.t * Id.t array) Mindmap.t
 
 type cooking_info = {
   modlist : work_list;
-  abstract : Constr.named_context * Univ.Instance.t * Univ.AUContext.t }
+  abstract : Constr.section_context * Univ.Instance.t * Univ.AUContext.t }
 
 type 'a delayed_universes =
 | PrivateMonomorphic of 'a

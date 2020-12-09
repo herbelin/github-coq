@@ -33,7 +33,7 @@ type sorts = Sorts.t = private
 (* Other term constructors *)
 (***************************)
 
-let name_annot = map_annot Name.mk_name
+let name_annot = map_annot (fun id -> Name.mk_name (Var.base id))
 
 let mkNamedProd id typ c = mkProd (name_annot id, typ, subst_var id.binder_name c)
 let mkNamedLambda id typ c = mkLambda (name_annot id, typ, subst_var id.binder_name c)

@@ -63,9 +63,9 @@ open Util
 open Names
 open Declarations
 open Constr
-open Context.Named.Declaration
+open Context.ShortNamed.Declaration
 
-module NamedDecl = Context.Named.Declaration
+module ShortNamedDecl = Context.ShortNamed.Declaration
 
 (** {6 Safe environments }
 
@@ -505,21 +505,21 @@ let check_required current_libs needed =
     hypothesis many many times, and the check performed here would
     cost too much. *)
 
-let safe_push_named d env =
-  let id = NamedDecl.get_id d in
+let safe_push_section d env =
+  let id = ShortNamedDecl.get_id d in
   let _ =
     try
-      let _ = Environ.lookup_named id env in
+      let _ = Environ.lookup_section_name id env in
       CErrors.user_err Pp.(pr_sequence str ["Identifier"; Id.to_string id; "already defined."])
     with Not_found -> () in
-  Environ.push_named d env
+  Environ.push_section_name d env
 
 let push_named_def (id,de) senv =
   let sections = get_section senv.sections in
   let sections = Section.push_local sections in
   let c, r, typ = Term_typing.translate_local_def senv.env id de in
   let x = Context.make_annot id r in
-  let env'' = safe_push_named (LocalDef (x, c, typ)) senv.env in
+  let env'' = safe_push_section (LocalDef (x, c, typ)) senv.env in
   { senv with sections=Some sections; env = env'' }
 
 let push_named_assum (x,t) senv =
@@ -527,7 +527,7 @@ let push_named_assum (x,t) senv =
   let sections = Section.push_local sections in
   let t, r = Term_typing.translate_local_assum senv.env t in
   let x = Context.make_annot x r in
-  let env'' = safe_push_named (LocalAssum (x,t)) senv.env in
+  let env'' = safe_push_section (LocalAssum (x,t)) senv.env in
   { senv with sections=Some sections; env = env'' }
 
 let push_section_context (nas, ctx) senv =
@@ -785,7 +785,7 @@ let constant_entry_of_side_effect eff =
   if Declareops.is_opaque cb then
   OpaqueEff {
     opaque_entry_body = p;
-    opaque_entry_secctx = Context.Named.to_vars cb.const_hyps;
+    opaque_entry_secctx = Context.ShortNamed.to_vars cb.const_hyps;
     opaque_entry_feedback = None;
     opaque_entry_type = cb.const_type;
     opaque_entry_universes = univs;
@@ -793,7 +793,7 @@ let constant_entry_of_side_effect eff =
   else
   DefinitionEff {
     const_entry_body = p;
-    const_entry_secctx = Some (Context.Named.to_vars cb.const_hyps);
+    const_entry_secctx = Some (Context.ShortNamed.to_vars cb.const_hyps);
     const_entry_feedback = None;
     const_entry_type = Some cb.const_type;
     const_entry_universes = univs;

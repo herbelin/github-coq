@@ -41,7 +41,7 @@ module type RedFlagsSig = sig
   val fCOFIX : red_kind
   val fZETA : red_kind
   val fCONST : Constant.t -> red_kind
-  val fVAR : Id.t -> red_kind
+  val fVAR : Var.t -> red_kind
 
   (** No reduction at all *)
   val no_red : reds

@@ -67,7 +67,7 @@ and bytecodes = instruction list
 val pp_bytecodes : bytecodes -> Pp.t
 
 type fv_elem =
-  FVnamed of Id.t
+  FVnamed of Var.t
 | FVrel of int
 | FVuniv_var of int
 | FVevar of Evar.t

@@ -93,7 +93,7 @@ val cofix_upd_code : to_update -> tcode
 
 type id_key =
 | ConstKey of Constant.t
-| VarKey of Id.t
+| VarKey of Var.t
 | RelKey of Int.t
 | EvarKey of Evar.t
 
@@ -140,7 +140,7 @@ val pr_stack : stack -> Pp.t
 
 val val_of_str_const : structured_constant -> values
 val val_of_rel : int -> values
-val val_of_named : Id.t -> values
+val val_of_named : Var.t -> values
 val val_of_constant : Constant.t -> values
 val val_of_evar : Evar.t -> values
 val val_of_proj : Projection.Repr.t -> values -> values

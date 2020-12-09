@@ -404,7 +404,7 @@ struct
           LocalDef (map_annot f na, v, t)
 
     let to_rel_decl =
-      let name x = {binder_name=Name.mk_name x.binder_name;binder_relevance=x.binder_relevance} in
+      let name x = {binder_name=Name.Name (Var.base x.binder_name);binder_relevance=x.binder_relevance} in
       function
       | LocalAssum (id,t) ->
           Rel.Declaration.LocalAssum (name id, t)

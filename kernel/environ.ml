@@ -367,7 +367,7 @@ let fold_rel_context f env ~init =
 
 let named_context_of_val c = c.env_named_ctx
 
-let ids_of_named_context_val c = Var.Map.domain c.env_named_map
+let ids_of_named_context_val c = Var.Map.fold (fun id _ -> Id.Set.add (Var.base id)) c.env_named_map Id.Set.empty
 
 let empty_named_context = Context.Named.empty
 
@@ -682,11 +682,11 @@ let add_mind kn mib env =
 
 let lookup_constant_variables c env =
   let cmap = lookup_constant c env in
-  Context.Named.to_vars cmap.const_hyps
+  Context.ShortNamed.to_vars cmap.const_hyps
 
 let lookup_inductive_variables (kn,_i) env =
   let mis = lookup_mind kn env in
-  Context.Named.to_vars mis.mind_hyps
+  Context.ShortNamed.to_vars mis.mind_hyps
 
 let lookup_constructor_variables (ind,_) env =
   lookup_inductive_variables ind env
@@ -730,12 +730,10 @@ let global_vars_set env constr =
    contained in the types of the needed variables. *)
 
 let really_needed env needed =
-  let open! Context.Named.Declaration in
-  Context.Named.fold_inside
+  let open! Context.ShortNamed.Declaration in
+  Context.ShortNamed.fold_inside
     (fun need decl ->
-      let id = get_id decl in
-      assert (Var.is_secvar id);
-      if Id.Set.mem (Var.base id) need then
+      if Id.Set.mem (get_id decl) need then
         let globc =
           match decl with
             | LocalAssum _ -> Id.Set.empty
@@ -745,19 +743,17 @@ let really_needed env needed =
           (Id.Set.union globc need)
       else need)
     ~init:needed
-    (named_context env)
+    (section_context env)
 
 let keep_hyps env needed =
-  let open Context.Named.Declaration in
+  let open Context.ShortNamed.Declaration in
   let really_needed = really_needed env needed in
-  Context.Named.fold_outside
+  Context.ShortNamed.fold_outside
     (fun d nsign ->
-      let id = get_id decl in
-      assert (Var.is_secvar id);
-      if Id.Set.mem (Var.base id) really_needed then Context.Named.add d nsign
+      if Id.Set.mem (get_id d) really_needed then Context.ShortNamed.add d nsign
       else nsign)
-    (named_context env)
-    ~init:empty_named_context
+    (section_context env)
+    ~init:empty_section_context
 
 (* Modules *)
 

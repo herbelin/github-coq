@@ -24,7 +24,6 @@ open Inductive
 open Type_errors
 
 module RelDecl = Context.Rel.Declaration
-module NamedDecl = Context.Named.Declaration
 
 exception NotConvertibleVect of int
 
@@ -118,12 +117,12 @@ let type_of_variable env id =
    Order does not have to be checked assuming that all names are distinct *)
 let check_hyps_inclusion env ?evars c sign =
   let conv env a b = conv env ?evars a b in
-  Context.Named.fold_outside
+  Context.ShortNamed.fold_outside
     (fun d1 () ->
-      let open Context.Named.Declaration in
-      let id = NamedDecl.get_id d1 in
+      let open Context.ShortNamed.Declaration in
+      let id = get_id d1 in
       try
-        let d2 = lookup_named id env in
+        let d2 = lookup_section_name id env in
         conv env (get_type d2) (get_type d1);
         (match d2,d1 with
         | LocalAssum _, LocalAssum _ -> ()

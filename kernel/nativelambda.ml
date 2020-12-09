@@ -22,7 +22,7 @@ type prefix = string
 
 type lambda =
   | Lrel          of Name.t * int
-  | Lvar          of Id.t
+  | Lvar          of Var.t
   | Lmeta         of metavariable * lambda (* type *)
   | Levar         of Evar.t * lambda array (* arguments *)
   | Lprod         of lambda * lambda
