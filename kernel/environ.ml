@@ -30,6 +30,7 @@ open Vars
 open Declarations
 open Context.Rel.Declaration
 
+module ShortNamedDecl = Context.ShortNamed.Declaration
 module NamedDecl = Context.Named.Declaration
 
 (* The type of environments. *)
@@ -83,6 +84,12 @@ let force_lazy_val vk = match !vk with
 let dummy_lazy_val () = ref VKnone
 let build_lazy_val vk key = vk := VKvalue (CEphemeron.create key)
 
+type section_context_val = {
+  env_section_ctx : Constr.section_context;
+  env_section_map : (Constr.section_declaration * lazy_val) Id.Map.t;
+  env_section_var : Constr.t list;
+}
+
 type named_context_val = {
   env_named_ctx : Constr.named_context;
   env_named_map : (Constr.named_declaration * lazy_val) Var.Map.t;
@@ -96,6 +103,7 @@ type rel_context_val = {
 
 type env = {
   env_globals       : Globals.t;
+  env_section_context : section_context_val; (* section variables *)
   env_named_context : named_context_val; (* section variables *)
   env_rel_context   : rel_context_val;
   env_nb_rel        : int;
@@ -103,6 +111,12 @@ type env = {
   env_typing_flags  : typing_flags;
   retroknowledge : Retroknowledge.retroknowledge;
   indirect_pterms : Opaqueproof.opaquetab;
+}
+
+let empty_section_context_val = {
+  env_section_ctx = [];
+  env_section_map = Id.Map.empty;
+  env_section_var = [];
 }
 
 let empty_named_context_val = {
@@ -123,6 +137,7 @@ let empty_env = {
     ; modules = MPmap.empty
     ; modtypes = MPmap.empty
     };
+  env_section_context = empty_section_context_val;
   env_named_context = empty_named_context_val;
   env_rel_context = empty_rel_context_val;
   env_nb_rel = 0;
@@ -174,6 +189,27 @@ let env_of_rel n env =
     env_rel_context = rel_skipn n env.env_rel_context;
     env_nb_rel = env.env_nb_rel - n
   }
+
+(* Section context *)
+
+let empty_section_context = Context.ShortNamed.empty
+
+let lookup_section_name id env =
+  fst (Id.Map.find id env.env_section_context.env_section_map)
+
+let push_section_context_val_val d rval ctxt =
+(*   assert (not (Id.Map.mem (NamedDecl.get_id d) ctxt.env_section_map)); *)
+  {
+    env_section_ctx = Context.ShortNamed.add d ctxt.env_section_ctx;
+    env_section_map = Id.Map.add (ShortNamedDecl.get_id d) (d, rval) ctxt.env_section_map;
+    env_section_var = mkVar (Var.secvar (ShortNamedDecl.get_id d)) :: ctxt.env_section_var;
+  }
+
+let push_section_context_val d ctxt =
+  push_section_context_val_val d (ref VKnone) ctxt
+
+let push_section_name d env =
+  {env with env_section_context = push_section_context_val d env.env_section_context}
 
 (* Named context *)
 
@@ -291,6 +327,7 @@ let set_universes_lbound env lbound =
   let env_stratification = { env.env_stratification with env_universes_lbound = lbound } in
   { env with env_stratification }
 
+let section_context env = env.env_section_context.env_section_ctx
 let named_context env = env.env_named_context.env_named_ctx
 let named_context_val env = env.env_named_context
 let rel_context env = env.env_rel_context.env_rel_ctx

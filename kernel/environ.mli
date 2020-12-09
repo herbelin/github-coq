@@ -65,9 +65,15 @@ type stratification = {
   env_engagement : engagement
 }
 
+type section_context_val = {
+  env_section_ctx : Constr.section_context;
+  env_section_map : (Constr.section_declaration * lazy_val) Id.Map.t;
+  env_section_var : Constr.t list;
+}
+
 type named_context_val = private {
   env_named_ctx : Constr.named_context;
-  env_named_map : (Constr.named_declaration * lazy_val) Id.Map.t;
+  env_named_map : (Constr.named_declaration * lazy_val) Var.Map.t;
   (** Identifier-indexed version of [env_named_ctx] *)
   env_named_var : Constr.t list;
   (** List of identifiers in [env_named_ctx], in the same order, including
@@ -82,6 +88,7 @@ type rel_context_val = private {
 
 type env = private {
   env_globals       : Globals.t;
+  env_section_context : section_context_val; (* section variables *)
   env_named_context : named_context_val; (* section variables *)
   env_rel_context   : rel_context_val;
   env_nb_rel        : int;
@@ -101,6 +108,7 @@ val empty_env : env
 val universes     : env -> UGraph.t
 val universes_lbound : env -> UGraph.Bound.t
 val set_universes_lbound : env -> UGraph.Bound.t -> env
+val section_context   : env -> Constr.section_context
 val rel_context   : env -> Constr.rel_context
 val named_context : env -> Constr.named_context
 val named_context_val : env -> named_context_val
@@ -163,10 +171,15 @@ val push_named_context : Constr.named_context -> env -> env
 val push_named_context_val  :
     Constr.named_declaration -> named_context_val -> named_context_val
 
+(** Looks up in the context of section variables ([section_context])
+   raises [Not_found] if the Id.t is not found *)
 
+val lookup_section_name : Id.t -> env -> Constr.section_declaration
+
+val push_section_name : Constr.section_declaration -> env -> env
 
 (** Looks up in the context of local vars referred by names ([named_context])
-   raises [Not_found] if the Id.t is not found *)
+   raises [Not_found] if the variable is not found *)
 
 val lookup_named     : variable -> env -> Constr.named_declaration
 val lookup_named_val : variable -> env -> lazy_val
