@@ -91,7 +91,7 @@ type ('constr, 'univs) case_invert =
    de Bruijn indices. *)
 type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | Rel       of int
-  | Var       of Id.t
+  | Var       of variable
   | Meta      of metavariable
   | Evar      of 'constr pexistential
   | Sort      of 'sort
@@ -332,7 +332,7 @@ let isRelN n c =
   match kind c with Rel n' -> Int.equal n n' | _ -> false
 (* Tests if a variable *)
 let isVar c = match kind c with Var _ -> true | _ -> false
-let isVarId id c = match kind c with Var id' -> Id.equal id id' | _ -> false
+let isVarId id c = match kind c with Var id' -> Var.equal id id' | _ -> false
 (* Tests if an inductive *)
 let isInd c = match kind c with Ind _ -> true | _ -> false
 let isProd c = match kind c with | Prod _ -> true | _ -> false
@@ -356,7 +356,7 @@ let isRefX x c =
   | ConstRef c, Const (c', _) -> Constant.CanOrd.equal c c'
   | IndRef i, Ind (i', _) -> Ind.CanOrd.equal i i'
   | ConstructRef i, Construct (i', _) -> Construct.CanOrd.equal i i'
-  | VarRef id, Var id' -> Id.equal id id'
+  | VarRef id, Var id' -> Var.equal id id'
   | _ -> false
 
 (* Destructs a de Bruijn index *)
@@ -891,7 +891,7 @@ let compare_head_gen_leq_with kind1 kind2 leq_universes leq_sorts eq leq nargs t
   | Cast _, _ | _, Cast _ -> assert false (* kind_nocast *)
   | Rel n1, Rel n2 -> Int.equal n1 n2
   | Meta m1, Meta m2 -> Int.equal m1 m2
-  | Var id1, Var id2 -> Id.equal id1 id2
+  | Var id1, Var id2 -> Var.equal id1 id2
   | Int i1, Int i2 -> Uint63.equal i1 i2
   | Float f1, Float f2 -> Float64.equal f1 f2
   | Sort s1, Sort s2 -> leq_sorts s1 s2
@@ -1071,7 +1071,7 @@ let constr_ord_int f t1 t2 =
     | _, App (Cast(c2, _,_),l2) -> f t1 (mkApp (c2,l2))
     | Rel n1, Rel n2 -> Int.compare n1 n2
     | Rel _, _ -> -1 | _, Rel _ -> 1
-    | Var id1, Var id2 -> Id.compare id1 id2
+    | Var id1, Var id2 -> Var.compare id1 id2
     | Var _, _ -> -1 | _, Var _ -> 1
     | Meta m1, Meta m2 -> Int.compare m1 m2
     | Meta _, _ -> -1 | _, Meta _ -> 1
@@ -1250,7 +1250,7 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
   let rec hash_term t =
     match t with
       | Var i ->
-        (Var (sh_id i), combinesmall 1 (Id.hash i))
+        (Var (sh_id i), combinesmall 1 (Var.hash i))
       | Sort s ->
         (Sort (sh_sort s), combinesmall 2 (Sorts.hash s))
       | Cast (c, k, t) ->
@@ -1379,7 +1379,7 @@ let hashcons (sh_sort,sh_ci,sh_construct,sh_ind,sh_con,sh_na,sh_id) =
 
 let rec hash t =
   match kind t with
-    | Var i -> combinesmall 1 (Id.hash i)
+    | Var i -> combinesmall 1 (Var.hash i)
     | Sort s -> combinesmall 2 (Sorts.hash s)
     | Cast (c, k, t) ->
       let hc = hash c in
@@ -1490,7 +1490,7 @@ let hcons =
      hcons_ind,
      hcons_con,
      hcons_annot,
-     Id.hcons)
+     Var.hcons)
 
 (* let hcons_types = hcons_constr *)
 
@@ -1522,7 +1522,7 @@ let rec debug_print c =
   match kind c with
   | Rel n -> str "#"++int n
   | Meta n -> str "Meta(" ++ int n ++ str ")"
-  | Var id -> Id.print id
+  | Var id -> Var.print id
   | Sort s -> Sorts.debug_print s
   | Cast (c,_, t) -> hov 1
       (str"(" ++ debug_print c ++ cut() ++

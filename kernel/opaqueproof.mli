@@ -32,8 +32,8 @@ val empty_opaquetab : opaquetab
 (** From a [proofterm] to some [opaque]. *)
 val create : DirPath.t -> proofterm -> opaquetab -> opaque * opaquetab
 
-type work_list = (Univ.Instance.t * Id.t array) Cmap.t *
-  (Univ.Instance.t * Id.t array) Mindmap.t
+type work_list = (Univ.Instance.t * Var.t array) Cmap.t *
+  (Univ.Instance.t * Var.t array) Mindmap.t
 
 type cooking_info = {
   modlist : work_list;

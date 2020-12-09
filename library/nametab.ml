@@ -523,7 +523,7 @@ let exists_universe kn = UnivTab.exists kn !the_univtab
 let path_of_global ref =
   let open GlobRef in
   match ref with
-    | VarRef id -> make_path DirPath.empty id
+    | VarRef id -> make_path (if Var.is_secvar id then dirpath_of_string "Top" (* TODO *) else DirPath.empty) (Var.base id)
     | _ -> ExtRefMap.find (TrueGlobal ref) !the_globrevtab
 
 let dirpath_of_global ref =
@@ -549,7 +549,7 @@ let path_of_universe mp =
 let shortest_qualid_of_global ?loc ctx ref =
   let open GlobRef in
   match ref with
-    | VarRef id -> make_qualid ?loc DirPath.empty id
+    | VarRef id -> make_qualid ?loc DirPath.empty (Var.base id) (* TODO *)
     | _ ->
         let sp = ExtRefMap.find (TrueGlobal ref) !the_globrevtab in
         ExtRefTab.shortest_qualid ?loc ctx sp !the_ccitab

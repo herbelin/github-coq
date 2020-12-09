@@ -79,6 +79,47 @@ sig
 
 end
 
+module Var :
+sig
+  type t
+
+  val base : t -> Id.t
+
+  val is_secvar : t -> bool
+
+  val secvar : Id.t -> t
+
+  val compare : t -> t -> int
+  (** Comparison over named variables. *)
+
+  val equal : t -> t -> bool
+  (** Equality over named variables. *)
+
+  val hash : t -> int
+  (** Hash over named variables. *)
+
+  val hcons : t -> t
+  (** Hashconsing over named variables. *)
+
+  val print : t -> Pp.t
+  (** Pretty-printer. *)
+
+  module Set : Set.S with type elt = t
+  (** Finite sets of named variables. *)
+
+  module Map : Map.ExtS with type key = t and module Set := Set
+  (** Finite maps of named variables. *)
+
+  module Pred : Predicate.S with type elt = t
+  (** Predicates over named variables. *)
+
+  val to_string : t -> string
+  (** Print non-empty directory paths as ["coq_root.module.submodule"] *)
+
+end
+
+type variable = Var.t
+
 (** Representation and operations on identifiers that are allowed to be anonymous
     (i.e. "_" in concrete syntax). *)
 module Name :
@@ -117,7 +158,6 @@ end
 type name = Name.t = Anonymous | Name of Id.t
 [@@ocaml.deprecated "Use Name.t"]
 
-type variable = Id.t
 type module_ident = Id.t
 
 module ModIdset : Set.S with type elt = module_ident
@@ -595,7 +635,7 @@ val hcons_construct : constructor -> constructor
 
 type 'a tableKey =
   | ConstKey of 'a
-  | VarKey of Id.t
+  | VarKey of Var.t
   | RelKey of Int.t
 
 type inv_rel_key = int (** index in the [rel_context] part of environment
@@ -717,7 +757,7 @@ end
 (** Better to have it here that in Closure, since required in grammar.cma *)
 (* XXX: Move to a module *)
 type evaluable_global_reference =
-  | EvalVarRef of Id.t
+  | EvalVarRef of variable
   | EvalConstRef of Constant.t
 
 val eq_egr : evaluable_global_reference ->  evaluable_global_reference -> bool

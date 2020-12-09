@@ -282,7 +282,7 @@ let abstract_lc ~ntypes expmod (newparams,subst) c =
       if RelDecl.is_local_def d then None
       else match RelDecl.get_name d with
         | Anonymous -> assert false
-        | Name id -> Some (mkVar id))
+        | Name id -> Some (mkVar (Var.secvar id)))
       newparams)
   in
   let diff = List.length newparams in

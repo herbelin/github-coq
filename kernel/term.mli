@@ -23,9 +23,9 @@ val mkArrowR : types -> types -> constr
 (** For an always-relevant domain *)
 
 (** Named version of the functions from [Term]. *)
-val mkNamedLambda : Id.t Context.binder_annot -> types -> constr -> constr
-val mkNamedLetIn : Id.t Context.binder_annot -> constr -> types -> constr -> constr
-val mkNamedProd : Id.t Context.binder_annot -> types -> types -> types
+val mkNamedLambda : Var.t Context.binder_annot -> types -> constr -> constr
+val mkNamedLetIn : Var.t Context.binder_annot -> constr -> types -> constr -> constr
+val mkNamedProd : Var.t Context.binder_annot -> types -> types -> types
 
 (** Constructs either [(x:t)c] or [[x=b:t]c] *)
 val mkProd_or_LetIn : Constr.rel_declaration -> types -> types

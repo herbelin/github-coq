@@ -79,7 +79,7 @@ type types = constr
 val mkRel : int -> constr
 
 (** Constructs a Variable *)
-val mkVar : Id.t -> constr
+val mkVar : Var.t -> constr
 
 (** Constructs a machine integer *)
 val mkInt : Uint63.t -> constr
@@ -221,7 +221,7 @@ type 'constr pexistential = Evar.t * 'constr list
 type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | Rel       of int                                  (** Gallina-variable introduced by [forall], [fun], [let-in], [fix], or [cofix]. *)
 
-  | Var       of Id.t                                 (** Gallina-variable that was introduced by Vernacular-command that extends
+  | Var       of Var.t                                (** Gallina-variable that was introduced by Vernacular-command that extends
                                                           the local context of the currently open section
                                                           (i.e. [Variable] or [Let]). *)
 
@@ -267,7 +267,7 @@ val kind_nocast : constr -> (constr, types, Sorts.t, Univ.Instance.t) kind_of_te
 val isRel  : constr -> bool
 val isRelN : int -> constr -> bool
 val isVar  : constr -> bool
-val isVarId : Id.t -> constr -> bool
+val isVarId : Var.t -> constr -> bool
 val isRef : constr -> bool
 val isRefX : GlobRef.t -> constr -> bool
 val isInd  : constr -> bool
@@ -307,7 +307,7 @@ val destRel : constr -> int
 val destMeta : constr -> metavariable
 
 (** Destructs a variable *)
-val destVar : constr -> Id.t
+val destVar : constr -> Var.t
 
 (** Destructs a sort. [is_Prop] recognizes the sort [Prop], whether
    [isprop] recognizes both [Prop] and [Set]. *)

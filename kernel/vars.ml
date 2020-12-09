@@ -185,14 +185,14 @@ let rec thin_val = function
   | (id, c) :: tl ->
     match Constr.kind c with
     | Constr.Var v ->
-      if Id.equal id v then thin_val tl
+      if Var.equal id v then thin_val tl
       else (id, make_substituend c) :: (thin_val tl)
     | _ -> (id, make_substituend c) :: (thin_val tl)
 
 let rec find_var id = function
 | [] -> raise Not_found
 | (idc, c) :: subst ->
-  if Id.equal id idc then c
+  if Var.equal id idc then c
   else find_var id subst
 
 (* (replace_vars sigma M) applies substitution sigma to term M *)

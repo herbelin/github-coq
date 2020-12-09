@@ -269,8 +269,8 @@ struct
   struct
     (** local declaration *)
     type ('constr, 'types) pt =
-      | LocalAssum of Id.t binder_annot * 'types             (** identifier, type *)
-      | LocalDef of Id.t binder_annot * 'constr * 'types    (** identifier, value, type *)
+      | LocalAssum of Var.t binder_annot * 'types             (** identifier, type *)
+      | LocalDef of Var.t binder_annot * 'constr * 'types    (** identifier, value, type *)
 
     let get_annot = function
       | LocalAssum (na,_) | LocalDef (na,_,_) -> na
@@ -326,9 +326,9 @@ struct
     let equal eq decl1 decl2 =
       match decl1, decl2 with
       | LocalAssum (id1, ty1), LocalAssum (id2, ty2) ->
-          eq_annot Id.equal id1 id2 && eq ty1 ty2
+          eq_annot Var.equal id1 id2 && eq ty1 ty2
       | LocalDef (id1, v1, ty1), LocalDef (id2, v2, ty2) ->
-          eq_annot Id.equal id1 id2 && eq v1 v2 && eq ty1 ty2
+          eq_annot Var.equal id1 id2 && eq v1 v2 && eq ty1 ty2
       | _ ->
           false
 
@@ -404,7 +404,7 @@ struct
           LocalDef (map_annot f na, v, t)
 
     let to_rel_decl =
-      let name x = {binder_name=Name x.binder_name;binder_relevance=x.binder_relevance} in
+      let name x = {binder_name=Name.mk_name x.binder_name;binder_relevance=x.binder_relevance} in
       function
       | LocalAssum (id,t) ->
           Rel.Declaration.LocalAssum (name id, t)
@@ -429,7 +429,7 @@ struct
 (** Return a declaration designated by a given identifier
     @raise Not_found if the designated identifier is not present in the designated named-context. *)
   let rec lookup id = function
-    | decl :: _ when Id.equal id (Declaration.get_id decl) -> decl
+    | decl :: _ when Var.equal id (Declaration.get_id decl) -> decl
     | _ :: sign -> lookup id sign
     | [] -> raise Not_found
 
@@ -450,9 +450,13 @@ struct
       Outermost declarations are processed first. *)
   let fold_outside f l ~init = List.fold_right f l init
 
-  (** Return the set of all identifiers bound in a given named-context. *)
+  (** Return the set of all identifiers bound in a given context of
+      variables expected to be section variables. *)
   let to_vars l =
-    List.fold_left (fun accu decl -> Id.Set.add (Declaration.get_id decl) accu) Id.Set.empty l
+    List.fold_left (fun accu decl ->
+        let id = Declaration.get_id decl in
+        assert (Var.is_secvar id);
+        Id.Set.add (Var.base id) accu) Id.Set.empty l
 
   let drop_bodies l = List.Smart.map Declaration.drop_body l
 
@@ -473,8 +477,8 @@ module Compacted =
     module Declaration =
       struct
         type ('constr, 'types) pt =
-          | LocalAssum of Id.t binder_annot list * 'types
-          | LocalDef of Id.t binder_annot list * 'constr * 'types
+          | LocalAssum of Var.t binder_annot list * 'types
+          | LocalDef of Var.t binder_annot list * 'constr * 'types
 
         let map_constr f = function
           | LocalAssum (ids, ty) as decl ->

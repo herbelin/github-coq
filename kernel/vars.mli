@@ -104,7 +104,7 @@ val subst1_decl : constr -> Constr.rel_declaration -> Constr.rel_declaration
 
 (** [replace_vars k [(id₁,c₁);...;(idn,cn)] t] substitutes [Var idj] by
     [cj] in [t]. *)
-val replace_vars : (Id.t * constr) list -> constr -> constr
+val replace_vars : (Var.t * constr) list -> constr -> constr
 
 (** [substn_vars k [id₁;...;idn] t] substitutes [Var idj] by [Rel j+k-1] in [t].
    If two names are identical, the one of least index is kept. In terms of
@@ -113,16 +113,16 @@ val replace_vars : (Id.t * constr) list -> constr -> constr
    then Γ\\{id₁,...,id{_n}\},x{_n}:U{_n},...,x₁:U₁,Γ' ⊢ [substn_vars
    (|Γ'|+1) [id₁;...;idn] t] : [substn_vars (|Γ'|+1) [id₁;...;idn]
    T]. *)
-val substn_vars : int -> Id.t list -> constr -> constr
+val substn_vars : int -> Var.t list -> constr -> constr
 
 (** [subst_vars [id1;...;idn] t] is a short-hand for [substn_vars
    [id1;...;idn] 1 t]: it substitutes [Var idj] by [Rel j] in [t]. If
    two names are identical, the one of least index is kept. *)
-val subst_vars : Id.t list -> constr -> constr
+val subst_vars : Var.t list -> constr -> constr
 
 (** [subst_var id t] is a short-hand for [substn_vars [id] 1 t]: it
     substitutes [Var id] by [Rel 1] in [t]. *)
-val subst_var : Id.t -> constr -> constr
+val subst_var : Var.t -> constr -> constr
 
 (** {3 Substitution of universes} *)
 

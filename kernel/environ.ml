@@ -85,7 +85,7 @@ let build_lazy_val vk key = vk := VKvalue (CEphemeron.create key)
 
 type named_context_val = {
   env_named_ctx : Constr.named_context;
-  env_named_map : (Constr.named_declaration * lazy_val) Id.Map.t;
+  env_named_map : (Constr.named_declaration * lazy_val) Var.Map.t;
   env_named_var : Constr.t list;
 }
 
@@ -107,7 +107,7 @@ type env = {
 
 let empty_named_context_val = {
   env_named_ctx = [];
-  env_named_map = Id.Map.empty;
+  env_named_map = Var.Map.empty;
   env_named_var = [];
 }
 
@@ -181,7 +181,7 @@ let push_named_context_val_val d rval ctxt =
 (*   assert (not (Id.Map.mem (NamedDecl.get_id d) ctxt.env_named_map)); *)
   {
     env_named_ctx = Context.Named.add d ctxt.env_named_ctx;
-    env_named_map = Id.Map.add (NamedDecl.get_id d) (d, rval) ctxt.env_named_map;
+    env_named_map = Var.Map.add (NamedDecl.get_id d) (d, rval) ctxt.env_named_map;
     env_named_var = mkVar (NamedDecl.get_id d) :: ctxt.env_named_var;
   }
 
@@ -191,8 +191,8 @@ let push_named_context_val d ctxt =
 let match_named_context_val c = match c.env_named_ctx with
 | [] -> None
 | decl :: ctx ->
-  let (_, v) = Id.Map.find (NamedDecl.get_id decl) c.env_named_map in
-  let map = Id.Map.remove (NamedDecl.get_id decl) c.env_named_map in
+  let (_, v) = Var.Map.find (NamedDecl.get_id decl) c.env_named_map in
+  let map = Var.Map.remove (NamedDecl.get_id decl) c.env_named_map in
   let cval = { env_named_ctx = ctx; env_named_map = map; env_named_var = List.tl c.env_named_var } in
   Some (decl, v, cval)
 
@@ -202,7 +202,7 @@ let map_named_val f ctxt =
     let d' = f d in
     let accu =
       if d == d' then accu
-      else Id.Map.modify (get_id d) (fun _ (_, v) -> (d', v)) accu
+      else Var.Map.modify (get_id d) (fun _ (_, v) -> (d', v)) accu
     in
     (accu, d')
   in
@@ -214,13 +214,13 @@ let push_named d env =
   {env with env_named_context = push_named_context_val d env.env_named_context}
 
 let lookup_named id env =
-  fst (Id.Map.find id env.env_named_context.env_named_map)
+  fst (Var.Map.find id env.env_named_context.env_named_map)
 
 let lookup_named_val id env =
-  snd(Id.Map.find id env.env_named_context.env_named_map)
+  snd (Var.Map.find id env.env_named_context.env_named_map)
 
 let lookup_named_ctxt id ctxt =
-  fst (Id.Map.find id ctxt.env_named_map)
+  fst (Var.Map.find id ctxt.env_named_map)
 
 let fold_constants f env acc =
   Cmap_env.fold (fun c (body,_) acc -> f c body acc) env.env_globals.Globals.constants acc
@@ -330,7 +330,7 @@ let fold_rel_context f env ~init =
 
 let named_context_of_val c = c.env_named_ctx
 
-let ids_of_named_context_val c = Id.Map.domain c.env_named_map
+let ids_of_named_context_val c = Var.Map.domain c.env_named_map
 
 let empty_named_context = Context.Named.empty
 
@@ -673,7 +673,7 @@ let universes_of_global env r =
 let vars_of_global env gr =
   let open GlobRef in
   match gr with
-  | VarRef id -> Id.Set.singleton id
+  | VarRef id -> assert (Var.is_secvar id); Id.Set.singleton (Var.base id)
   | ConstRef kn -> lookup_constant_variables kn env
   | IndRef ind -> lookup_inductive_variables ind env
   | ConstructRef cstr -> lookup_constructor_variables cstr env
@@ -696,7 +696,9 @@ let really_needed env needed =
   let open! Context.Named.Declaration in
   Context.Named.fold_inside
     (fun need decl ->
-      if Id.Set.mem (get_id decl) need then
+      let id = get_id decl in
+      assert (Var.is_secvar id);
+      if Id.Set.mem (Var.base id) need then
         let globc =
           match decl with
             | LocalAssum _ -> Id.Set.empty
@@ -713,7 +715,9 @@ let keep_hyps env needed =
   let really_needed = really_needed env needed in
   Context.Named.fold_outside
     (fun d nsign ->
-      if Id.Set.mem (get_id d) really_needed then Context.Named.add d nsign
+      let id = get_id decl in
+      assert (Var.is_secvar id);
+      if Id.Set.mem (Var.base id) really_needed then Context.Named.add d nsign
       else nsign)
     (named_context env)
     ~init:empty_named_context

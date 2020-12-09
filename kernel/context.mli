@@ -181,13 +181,13 @@ sig
   module Declaration :
   sig
     type ('constr, 'types) pt =
-      | LocalAssum of Id.t binder_annot * 'types             (** identifier, type *)
-      | LocalDef of Id.t binder_annot * 'constr * 'types    (** identifier, value, type *)
+      | LocalAssum of Var.t binder_annot * 'types             (** identifier, type *)
+      | LocalDef of Var.t binder_annot * 'constr * 'types    (** identifier, value, type *)
 
-    val get_annot : _ pt -> Id.t binder_annot
+    val get_annot : _ pt -> Var.t binder_annot
 
     (** Return the identifier bound by a given declaration. *)
-    val get_id : ('c, 't) pt -> Id.t
+    val get_id : ('c, 't) pt -> Var.t
 
     (** Return [Some value] for local-declarations and [None] for local-assumptions. *)
     val get_value : ('c, 't) pt -> 'c option
@@ -198,7 +198,7 @@ sig
     val get_relevance : ('c, 't) pt -> Sorts.relevance
 
     (** Set the identifier that is bound by a given declaration. *)
-    val set_id : Id.t -> ('c, 't) pt -> ('c, 't) pt
+    val set_id : Var.t -> ('c, 't) pt -> ('c, 't) pt
 
     (** Set the type of the bound variable in a given declaration. *)
     val set_type : 't -> ('c, 't) pt -> ('c, 't) pt
@@ -219,7 +219,7 @@ sig
     val equal : ('c -> 'c -> bool) -> ('c, 'c) pt -> ('c, 'c) pt -> bool
 
     (** Map the identifier bound by a given declaration. *)
-    val map_id : (Id.t -> Id.t) -> ('c, 't) pt -> ('c, 't) pt
+    val map_id : (Var.t -> Var.t) -> ('c, 't) pt -> ('c, 't) pt
 
     (** For local assumptions, this function returns the original local assumptions.
         For local definitions, this function maps the value in the local definition. *)
@@ -240,15 +240,15 @@ sig
     (** Reduce all terms in a given declaration to a single value. *)
     val fold_constr : ('c -> 'a -> 'a) -> ('c, 'c) pt -> 'a -> 'a
 
-    val to_tuple : ('c, 't) pt -> Id.t binder_annot * 'c option * 't
-    val of_tuple : Id.t binder_annot * 'c option * 't -> ('c, 't) pt
+    val to_tuple : ('c, 't) pt -> Var.t binder_annot * 'c option * 't
+    val of_tuple : Var.t binder_annot * 'c option * 't -> ('c, 't) pt
 
     (** Turn [LocalDef] into [LocalAssum], identity otherwise. *)
     val drop_body : ('c, 't) pt -> ('c, 't) pt
 
     (** Convert [Rel.Declaration.t] value to the corresponding [Named.Declaration.t] value.
         The function provided as the first parameter determines how to translate "names" to "ids". *)
-    val of_rel_decl : (Name.t -> Id.t) -> ('c, 't) Rel.Declaration.pt -> ('c, 't) pt
+    val of_rel_decl : (Name.t -> Var.t) -> ('c, 't) Rel.Declaration.pt -> ('c, 't) pt
 
     (** Convert [Named.Declaration.t] value to the corresponding [Rel.Declaration.t] value. *)
     (* TODO: Move this function to [Rel.Declaration] module and rename it to [of_named]. *)
@@ -271,7 +271,7 @@ sig
 
   (** Return a declaration designated by an identifier of the variable bound in that declaration.
       @raise Not_found if the designated identifier is not bound in a given named-context. *)
-  val lookup : Id.t -> ('c, 't) pt -> ('c, 't) Declaration.pt
+  val lookup : Var.t -> ('c, 't) pt -> ('c, 't) Declaration.pt
 
   (** Check whether given two named-contexts are equal. *)
   val equal : ('c -> 'c -> bool) -> ('c, 'c) pt -> ('c, 'c) pt -> bool
@@ -290,7 +290,8 @@ sig
       Outermost declarations are processed first. *)
   val fold_outside : (('c, 't) Declaration.pt -> 'a -> 'a) -> ('c, 't) pt -> init:'a -> 'a
 
-  (** Return the set of all identifiers bound in a given named-context. *)
+  (** Return the set of all identifiers bound in a given context of
+      variables expected to be section variables. *)
   val to_vars : ('c, 't) pt -> Id.Set.t
 
   (** Turn all [LocalDef] into [LocalAssum], leave [LocalAssum] unchanged. *)
@@ -300,7 +301,7 @@ sig
       that [Ω ⊢ args:Ω] where [Ω] is a named-context and with the local
       definitions of [Ω] skipped. Example: for [id1:T,id2:=c,id3:U], it
       gives [Var id1, Var id3]. All [idj] are supposed distinct. *)
-  val to_instance : (Id.t -> 'r) -> ('c, 't) pt -> 'r list
+  val to_instance : (Var.t -> 'r) -> ('c, 't) pt -> 'r list
 end
 
 module Compacted :
@@ -308,8 +309,8 @@ sig
   module Declaration :
   sig
     type ('constr, 'types) pt =
-      | LocalAssum of Id.t binder_annot list * 'types
-      | LocalDef of Id.t binder_annot list * 'constr * 'types
+      | LocalAssum of Var.t binder_annot list * 'types
+      | LocalDef of Var.t binder_annot list * 'constr * 'types
 
     val map_constr : ('c -> 'c) -> ('c, 'c) pt -> ('c, 'c) pt
     val of_named_decl : ('c, 't) Named.Declaration.pt -> ('c, 't) pt

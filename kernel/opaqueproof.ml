@@ -13,8 +13,8 @@ open Univ
 open Constr
 open Mod_subst
 
-type work_list = (Instance.t * Id.t array) Cmap.t *
-  (Instance.t * Id.t array) Mindmap.t
+type work_list = (Instance.t * Var.t array) Cmap.t *
+  (Instance.t * Var.t array) Mindmap.t
 
 type cooking_info = {
   modlist : work_list;

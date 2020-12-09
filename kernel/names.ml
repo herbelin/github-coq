@@ -82,6 +82,43 @@ struct
 
 end
 
+module Var =
+struct
+  type t = bool * Id.t
+
+  let base (_b,id) = id
+
+  let is_secvar (b,_id) = b
+
+  let secvar id = (true,id)
+
+  let equal (b1,id1) (b2,id2) = b1 = b2 && Id.equal id1 id2
+
+  let compare = Pervasives.compare
+
+  let hash (b,id) = if b then Id.hash id else Id.hash id + 1
+
+  let hcons (b,id) = (b,Id.hcons id) (* TODO *)
+
+  let print (_,id) = Id.print id (* TODO *)
+
+  module Self =
+  struct
+    type t = bool * Id.t
+    let compare = compare
+  end
+
+  module Set = Set.Make(Self)
+  module Map = CMap.Make(Self)
+
+  module Pred = Predicate.Make(Self)
+
+  let to_string (_,id) = id (* TODO *)
+
+end
+
+type variable = Var.t
+
 (** Representation and operations on identifiers that are allowed to be anonymous
     (i.e. "_" in concrete syntax). *)
 module Name =
@@ -143,8 +180,6 @@ end
 type name = Name.t = Anonymous | Name of Id.t
 
 (** {6 Various types based on identifiers } *)
-
-type variable = Id.t
 
 type module_ident = Id.t
 
@@ -791,7 +826,7 @@ let hcons_construct = Hashcons.simple_hcons Hconstruct.generate Hconstruct.hcons
 
 type 'a tableKey =
   | ConstKey of 'a
-  | VarKey of Id.t
+  | VarKey of Var.t
   | RelKey of Int.t
 
 type inv_rel_key = int (* index in the [rel_context] part of environment
@@ -802,7 +837,7 @@ let eq_table_key f ik1 ik2 =
   if ik1 == ik2 then true
   else match ik1,ik2 with
   | ConstKey c1, ConstKey c2 -> f c1 c2
-  | VarKey id1, VarKey id2 -> Id.equal id1 id2
+  | VarKey id1, VarKey id2 -> Var.equal id1 id2
   | RelKey k1, RelKey k2 -> Int.equal k1 k2
   | _ -> false
 
@@ -1018,7 +1053,7 @@ module GlobRefInternal = struct
     | ConstRef con1, ConstRef con2 -> Constant.equal con1 con2
     | IndRef kn1, IndRef kn2 -> eq_ind kn1 kn2
     | ConstructRef kn1, ConstructRef kn2 -> eq_constructor kn1 kn2
-    | VarRef v1, VarRef v2 -> Id.equal v1 v2
+    | VarRef v1, VarRef v2 -> Var.equal v1 v2
     | (ConstRef _ | IndRef _ | ConstructRef _ | VarRef _), _ -> false
 
   let global_eq_gen eq_cst eq_ind eq_cons x y =
@@ -1027,13 +1062,13 @@ module GlobRefInternal = struct
     | ConstRef cx, ConstRef cy -> eq_cst cx cy
     | IndRef indx, IndRef indy -> eq_ind indx indy
     | ConstructRef consx, ConstructRef consy -> eq_cons consx consy
-    | VarRef v1, VarRef v2 -> Id.equal v1 v2
+    | VarRef v1, VarRef v2 -> Var.equal v1 v2
     | (VarRef _ | ConstRef _ | IndRef _ | ConstructRef _), _ -> false
 
   let global_ord_gen ord_cst ord_ind ord_cons x y =
     if x == y then 0
     else match x, y with
-    | VarRef v1, VarRef v2 -> Id.compare v1 v2
+    | VarRef v1, VarRef v2 -> Var.compare v1 v2
     | VarRef _, _ -> -1
     | _, VarRef _ -> 1
     | ConstRef cx, ConstRef cy -> ord_cst cx cy
@@ -1050,7 +1085,7 @@ module GlobRefInternal = struct
     | ConstRef c -> combinesmall 1 (hash_cst c)
     | IndRef i -> combinesmall 2 (hash_ind i)
     | ConstructRef c -> combinesmall 3 (hash_cons c)
-    | VarRef id -> combinesmall 4 (Id.hash id)
+    | VarRef id -> combinesmall 4 (Var.hash id)
 
 end
 
@@ -1101,13 +1136,13 @@ module GlobRef = struct
 end
 
 type evaluable_global_reference =
-  | EvalVarRef of Id.t
+  | EvalVarRef of variable
   | EvalConstRef of Constant.t
 
 (* Better to have it here that in closure, since used in grammar.cma *)
 let eq_egr e1 e2 = match e1, e2 with
     EvalConstRef con1, EvalConstRef con2 -> Constant.equal con1 con2
-  | EvalVarRef id1, EvalVarRef id2 -> Id.equal id1 id2
+  | EvalVarRef id1, EvalVarRef id2 -> Var.equal id1 id2
   | _, _ -> false
 
 (** Located identifiers and objects with syntax. *)
