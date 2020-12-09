@@ -472,6 +472,216 @@ struct
     List.map_filter filter l
 end
 
+(** This module represents contexts that can capture non-anonymous variables.
+    Individual declarations are then designated by the identifiers they bind. *)
+module ShortNamed =
+struct
+  (** Representation of {e local declarations}. *)
+  module Declaration =
+  struct
+    (** local declaration *)
+    type ('constr, 'types) pt =
+      | LocalAssum of Id.t binder_annot * 'types             (** identifier, type *)
+      | LocalDef of Id.t binder_annot * 'constr * 'types    (** identifier, value, type *)
+
+    let get_annot = function
+      | LocalAssum (na,_) | LocalDef (na,_,_) -> na
+
+    (** Return the identifier bound by a given declaration. *)
+    let get_id x = (get_annot x).binder_name
+
+    (** Return [Some value] for local-declarations and [None] for local-assumptions. *)
+    let get_value = function
+      | LocalAssum _ -> None
+      | LocalDef (_,v,_) -> Some v
+
+    (** Return the type of the name bound by a given declaration. *)
+    let get_type = function
+      | LocalAssum (_,ty)
+      | LocalDef (_,_,ty) -> ty
+
+    let get_relevance x = (get_annot x).binder_relevance
+
+    (** Set the identifier that is bound by a given declaration. *)
+    let set_id id =
+      let set x = {x with binder_name = id} in
+      function
+      | LocalAssum (x,ty) -> LocalAssum (set x, ty)
+      | LocalDef (x, v, ty) -> LocalDef (set x, v, ty)
+
+    (** Set the type of the bound variable in a given declaration. *)
+    let set_type ty = function
+      | LocalAssum (id,_) -> LocalAssum (id, ty)
+      | LocalDef (id,v,_) -> LocalDef (id, v, ty)
+
+    (** Return [true] iff a given declaration is a local assumption. *)
+    let is_local_assum = function
+      | LocalAssum _ -> true
+      | LocalDef _ -> false
+
+    (** Return [true] iff a given declaration is a local definition. *)
+    let is_local_def = function
+      | LocalDef _ -> true
+      | LocalAssum _ -> false
+
+    (** Check whether any term in a given declaration satisfies a given predicate. *)
+    let exists f = function
+      | LocalAssum (_, ty) -> f ty
+      | LocalDef (_, v, ty) -> f v || f ty
+
+    (** Check whether all terms in a given declaration satisfy a given predicate. *)
+    let for_all f = function
+      | LocalAssum (_, ty) -> f ty
+      | LocalDef (_, v, ty) -> f v && f ty
+
+    (** Check whether the two given declarations are equal. *)
+    let equal eq decl1 decl2 =
+      match decl1, decl2 with
+      | LocalAssum (id1, ty1), LocalAssum (id2, ty2) ->
+          eq_annot Id.equal id1 id2 && eq ty1 ty2
+      | LocalDef (id1, v1, ty1), LocalDef (id2, v2, ty2) ->
+          eq_annot Id.equal id1 id2 && eq v1 v2 && eq ty1 ty2
+      | _ ->
+          false
+
+    (** Map the identifier bound by a given declaration. *)
+    let map_id f x =
+      let id = get_id x in
+      let id' = f id in
+      if id == id' then x else set_id id' x
+
+    (** For local assumptions, this function returns the original local assumptions.
+        For local definitions, this function maps the value in the local definition. *)
+    let map_value f = function
+      | LocalAssum _ as decl -> decl
+      | LocalDef (na, v, t) as decl ->
+          let v' = f v in
+          if v == v' then decl else LocalDef (na, v', t)
+
+    (** Map the type of the name bound by a given declaration. *)
+    let map_type f = function
+      | LocalAssum (id, ty) as decl ->
+          let ty' = f ty in
+          if ty == ty' then decl else LocalAssum (id, ty')
+      | LocalDef (id, v, ty) as decl ->
+          let ty' = f ty in
+          if ty == ty' then decl else LocalDef (id, v, ty')
+
+    (** Map all terms in a given declaration. *)
+    let map_constr f = function
+      | LocalAssum (id, ty) as decl ->
+          let ty' = f ty in
+          if ty == ty' then decl else LocalAssum (id, ty')
+      | LocalDef (id, v, ty) as decl ->
+          let v' = f v in
+          let ty' = f ty in
+          if v == v' && ty == ty' then decl else LocalDef (id, v', ty')
+
+    let map_constr_het f = function
+      | LocalAssum (id, ty) ->
+          let ty' = f ty in
+          LocalAssum (id, ty')
+      | LocalDef (id, v, ty) ->
+          let v' = f v in
+          let ty' = f ty in
+          LocalDef (id, v', ty')
+
+    (** Perform a given action on all terms in a given declaration. *)
+    let iter_constr f = function
+      | LocalAssum (_, ty) -> f ty
+      | LocalDef (_, v, ty) -> f v; f ty
+
+    (** Reduce all terms in a given declaration to a single value. *)
+    let fold_constr f decl a =
+      match decl with
+      | LocalAssum (_, ty) -> f ty a
+      | LocalDef (_, v, ty) -> a |> f v |> f ty
+
+    let to_tuple = function
+      | LocalAssum (id, ty) -> id, None, ty
+      | LocalDef (id, v, ty) -> id, Some v, ty
+
+    let of_tuple = function
+      | id, None, ty -> LocalAssum (id, ty)
+      | id, Some v, ty -> LocalDef (id, v, ty)
+
+    let drop_body = function
+      | LocalAssum _ as d -> d
+      | LocalDef (id, _v, ty) -> LocalAssum (id, ty)
+
+    let of_rel_decl f = function
+      | Rel.Declaration.LocalAssum (na,t) ->
+          LocalAssum (map_annot f na, t)
+      | Rel.Declaration.LocalDef (na,v,t) ->
+          LocalDef (map_annot f na, v, t)
+
+    let to_rel_decl =
+      let name x = {binder_name=Name.Name x.binder_name;binder_relevance=x.binder_relevance} in
+      function
+      | LocalAssum (id,t) ->
+          Rel.Declaration.LocalAssum (name id, t)
+      | LocalDef (id,v,t) ->
+          Rel.Declaration.LocalDef (name id,v,t)
+  end
+
+  (** Named-context is represented as a list of declarations.
+      Inner-most declarations are at the beginning of the list.
+      Outer-most declarations are at the end of the list. *)
+  type ('constr, 'types) pt = ('constr, 'types) Declaration.pt list
+
+  (** empty named-context *)
+  let empty = []
+
+  (** Return a new named-context enriched by with a given inner-most declaration. *)
+  let add d ctx = d :: ctx
+
+  (** Return the number of {e local declarations} in a given named-context. *)
+  let length = List.length
+
+(** Return a declaration designated by a given identifier
+    @raise Not_found if the designated identifier is not present in the designated named-context. *)
+  let rec lookup id = function
+    | decl :: _ when Id.equal id (Declaration.get_id decl) -> decl
+    | _ :: sign -> lookup id sign
+    | [] -> raise Not_found
+
+  (** Check whether given two named-contexts are equal. *)
+  let equal eq l = List.equal (fun c -> Declaration.equal eq c) l
+
+  (** Map all terms in a given named-context. *)
+  let map f = List.Smart.map (Declaration.map_constr f)
+
+  (** Perform a given action on every declaration in a given named-context. *)
+  let iter f = List.iter (Declaration.iter_constr f)
+
+  (** Reduce all terms in a given named-context to a single value.
+      Innermost declarations are processed first. *)
+  let fold_inside f ~init = List.fold_left f init
+
+  (** Reduce all terms in a given named-context to a single value.
+      Outermost declarations are processed first. *)
+  let fold_outside f l ~init = List.fold_right f l init
+
+  (** Return the set of all identifiers bound in a given context of
+      variables expected to be section variables. *)
+  let to_vars l =
+    List.fold_left (fun accu decl ->
+        Id.Set.add (Declaration.get_id decl) accu) Id.Set.empty l
+
+  let drop_bodies l = List.Smart.map Declaration.drop_body l
+
+  (** [instance_from_named_context Ω] builds an instance [args] such
+      that [Ω ⊢ args:Ω] where [Ω] is a named context and with the local
+      definitions of [Ω] skipped. Example: for [id1:T,id2:=c,id3:U], it
+      gives [Var id1, Var id3]. All [idj] are supposed distinct. *)
+  let to_instance mk l =
+    let filter = function
+      | Declaration.LocalAssum (id, _) -> Some (mk id.binder_name)
+      | _ -> None
+    in
+    List.map_filter filter l
+end
+
 module Compacted =
   struct
     module Declaration =
