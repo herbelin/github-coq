@@ -396,17 +396,6 @@ type 'types punsafe_type_judgment = {
 
 type unsafe_type_judgment = types punsafe_type_judgment
 
-exception Hyp_not_found
-
-(** [apply_to_hyp sign id f] split [sign] into [tail::(id,_,_)::head] and
-   return [tail::(f head (id,_,_) (rev tail))::head].
-   the value associated to id should not change *)
-val apply_to_hyp : named_context_val -> variable ->
-  (Constr.named_context -> Constr.named_declaration -> Constr.named_context -> Constr.named_declaration) ->
-    named_context_val
-
-val remove_hyps : Id.Set.t -> (Constr.named_declaration -> Constr.named_declaration) -> (lazy_val -> lazy_val) -> named_context_val -> named_context_val
-
 val is_polymorphic : env -> Names.GlobRef.t -> bool
 val is_template_polymorphic : env -> GlobRef.t -> bool
 val get_template_polymorphic_variables : env -> GlobRef.t -> Univ.Level.t list

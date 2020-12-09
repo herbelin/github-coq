@@ -764,40 +764,6 @@ type 'types punsafe_type_judgment = {
 
 type unsafe_type_judgment = types punsafe_type_judgment
 
-exception Hyp_not_found
-
-let apply_to_hyp ctxt id f =
-  let open Context.Named.Declaration in
-  let rec aux rtail ctxt =
-    match match_named_context_val ctxt with
-    | Some (d, v, ctxt) ->
-        if Id.equal (get_id d) id then
-          push_named_context_val_val (f ctxt.env_named_ctx d rtail) v ctxt
-        else
-          let ctxt' = aux (d::rtail) ctxt in
-          push_named_context_val_val d v ctxt'
-    | None -> raise Hyp_not_found
-  in aux [] ctxt
-
-(* To be used in Logic.clear_hyps *)
-let remove_hyps ids check_context check_value ctxt =
-  let rec remove_hyps ctxt = match match_named_context_val ctxt with
-  | None -> empty_named_context_val, false
-  | Some (d, v, rctxt) ->
-     let open Context.Named.Declaration in
-    let (ans, seen) = remove_hyps rctxt in
-    if Id.Set.mem (get_id d) ids then (ans, true)
-    else if not seen then ctxt, false
-    else
-      let rctxt' = ans in
-      let d' = check_context d in
-      let v' = check_value v in
-      if d == d' && v == v' && rctxt == rctxt' then
-        ctxt, true
-      else push_named_context_val_val d' v' rctxt', true
-  in
-  fst (remove_hyps ctxt)
-
 (* A general request *)
 
 let is_polymorphic env r =

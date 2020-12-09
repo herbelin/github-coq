@@ -596,6 +596,24 @@ let rec check_and_clear_in_constr env evdref err ids global c =
 
       | _ -> Constr.map (check_and_clear_in_constr env evdref err ids global) c
 
+let remove_hyps ids check_context check_value ctxt =
+  let rec remove_hyps ctxt = match match_named_context_val ctxt with
+  | None -> empty_named_context_val, false
+  | Some (d, v, rctxt) ->
+     let open Context.ShortNamed.Declaration in
+    let (ans, seen) = remove_hyps rctxt in
+    if Id.Set.mem (get_id d) ids then (ans, true)
+    else if not seen then ctxt, false
+    else
+      let rctxt' = ans in
+      let d' = check_context d in
+      let v' = check_value v in
+      if d == d' && v == v' && rctxt == rctxt' then
+        ctxt, true
+      else push_named_context_val_val d' v' rctxt', true
+  in
+  fst (remove_hyps ctxt)
+
 let clear_hyps_in_evi_main env sigma hyps terms ids =
   (* clear_hyps_in_evi erases hypotheses ids in hyps, checking if some
      hypothesis does not depend on a element of ids, and erases ids in

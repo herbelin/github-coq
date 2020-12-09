@@ -515,6 +515,24 @@ and treat_case ~check env sigma ci lbrty lf acc' =
           (lacc,sigma,fi::bacc))
     (acc',sigma,[]) lbrty lf ci.ci_pp_info.cstr_tags
 
+exception Hyp_not_found
+
+(** [apply_to_hyp sign id f] split [sign] into [tail::(id,_,_)::head] and
+   return [tail::(f head (id,_,_) (rev tail))::head].
+   the value associated to id should not change *)
+let apply_to_hyp ctxt id f =
+  let open Context.Named.Declaration in
+  let rec aux rtail ctxt =
+    match match_named_context_val ctxt with
+    | Some (d, v, ctxt) ->
+        if Id.equal (get_id d) id then
+          push_named_context_val_val (f ctxt.env_named_ctx d rtail) v ctxt
+        else
+          let ctxt' = aux (d::rtail) ctxt in
+          push_named_context_val_val d v ctxt'
+    | None -> raise Hyp_not_found
+  in aux [] ctxt
+
 let convert_hyp ~check ~reorder env sigma d =
   let id = NamedDecl.get_id d in
   let b = NamedDecl.get_value d in
