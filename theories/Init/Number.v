@@ -18,7 +18,8 @@ Notation UIntDec := UIntDecimal (only parsing).
 #[deprecated(since="8.13",note="Use UintHexadecimal instead.")]
 Notation UIntHex := UIntHexadecimal (only parsing).
 
-Variant int := IntDecimal (i:Decimal.int) | IntHexadecimal (i:Hexadecimal.int).
+Variant signed_int := IntDecimal (i:Decimal.int) | IntHexadecimal (i:Hexadecimal.int).
+Notation int := signed_int.
 #[deprecated(since="8.13",note="Use IntDecimal instead.")]
 Notation IntDec := IntDecimal (only parsing).
 #[deprecated(since="8.13",note="Use IntHexadecimal instead.")]
@@ -33,6 +34,8 @@ Notation Hex := Hexadecimal (only parsing).
 Scheme Equality for uint.
 Scheme Equality for int.
 Scheme Equality for number.
+Notation int_eq_dec := signed_int_eq_dec.
+Notation int_beq := signed_int_beq.
 
 Register uint as num.num_uint.type.
 Register int as num.num_int.type.
