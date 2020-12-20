@@ -1,0 +1,7 @@
+File "stdin", line 1, characters 0-32:
+Warning: Notations for numbers are primitive; skipping syntax modifiers.
+[primitive-token-modifier,parsing]
+1%nat
+     : nat
+The command has indeed failed with message:
+Notations for numbers are primitive and need not be reserved.
