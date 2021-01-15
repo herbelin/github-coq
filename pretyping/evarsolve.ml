@@ -505,8 +505,8 @@ let rec expand_vars_in_term_using env sigma aliases t = match EConstr.kind sigma
 let expand_vars_in_term env sigma = expand_vars_in_term_using env sigma (make_alias_map env sigma)
 
 let free_vars_and_rels_up_alias_expansion env sigma aliases c =
-  let acc1 = ref Int.Set.empty and acc2 = ref Id.Set.empty in
-  let acc3 = ref Int.Set.empty and acc4 = ref Id.Set.empty in
+  let fv_rels = ref Int.Set.empty and fv_ids = ref Id.Set.empty in
+  let let_rels = ref Int.Set.empty and let_ids = ref Id.Set.empty in
   let cache_rel = ref Int.Set.empty and cache_var = ref Id.Set.empty in
   let is_in_cache depth = function
     | RelAlias n -> Int.Set.mem (n-depth) !cache_rel
@@ -529,22 +529,22 @@ let free_vars_and_rels_up_alias_expansion env sigma aliases c =
       let expanded, c', l = expansion_of_var sigma aliases ck in
       (if expanded then (* expansion, hence a let-in *)
         List.iter (function
-        | VarAlias id -> acc4 := Id.Set.add id !acc4
-        | RelAlias n -> if n >= depth+1 then acc3 := Int.Set.add (n-depth) !acc3)
+        | VarAlias id -> let_ids := Id.Set.add id !let_ids
+        | RelAlias n -> if n >= depth+1 then let_rels := Int.Set.add (n-depth) !let_rels)
        (ck :: l));
       match c' with
-        | Some (VarAlias id) -> acc2 := Id.Set.add id !acc2
-        | Some (RelAlias n) -> if n >= depth+1 then acc1 := Int.Set.add (n-depth) !acc1
+        | Some (VarAlias id) -> fv_ids := Id.Set.add id !fv_ids
+        | Some (RelAlias n) -> if n >= depth+1 then fv_rels := Int.Set.add (n-depth) !fv_rels
         | None -> frec (aliases,depth) c end
     | Const _ | Ind _ | Construct _ ->
-        acc2 := Id.Set.union (vars_of_global env (fst @@ EConstr.destRef sigma c)) !acc2
+        fv_ids := Id.Set.union (vars_of_global env (fst @@ EConstr.destRef sigma c)) !fv_ids
     | _ ->
         iter_with_full_binders env sigma
           (fun d (aliases,depth) -> (extend_alias sigma d aliases,depth+1))
           frec (aliases,depth) c
   in
   frec (aliases,0) c;
-  (!acc1,!acc2,!acc3,!acc4)
+  (!fv_rels,!fv_ids,!let_rels,!let_ids)
 
 (********************************)
 (* Managing pattern-unification *)
