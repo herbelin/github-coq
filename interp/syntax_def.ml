@@ -48,9 +48,9 @@ let is_alias_of_already_visible_name sp = function
 
 let open_syntax_constant i ((sp,kn),(_local,syndef)) =
   let pat = syndef.syndef_pattern in
-  if not (Int.equal i 1 && is_alias_of_already_visible_name sp pat) then begin
+  if not (is_alias_of_already_visible_name sp pat) then begin
     Nametab.push_syndef (Nametab.Exactly i) sp kn;
-    if not syndef.syndef_onlyparsing then
+    if Int.equal i 1 && not syndef.syndef_onlyparsing then
       (* Redeclare it to be used as (short) name in case an other (distfix)
          notation was declared in between *)
       Notation.declare_uninterpretation ~also_in_cases_pattern:syndef.syndef_also_in_cases_pattern (Notation.SynDefRule kn) pat

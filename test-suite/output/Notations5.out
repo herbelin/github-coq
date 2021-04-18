@@ -320,3 +320,15 @@ fun a : T => match a with
              | _ => 2
              end
      : T -> nat
+x
+     : nat
+stuff.x
+     : nat
+x
+     : nat
+x
+     : nat
+stuff.x
+     : nat
+x
+     : nat

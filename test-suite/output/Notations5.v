@@ -406,3 +406,35 @@ Module AppliedPatternsPrinting.
   End H.
 
 End AppliedPatternsPrinting.
+
+Module AbbreviationImport1.
+
+  (* This was #14105 *)
+  Module stuff.
+  Definition x := 0.
+  Module buggy.
+  Notation y := x.
+  End buggy.
+  Check x. (* displayed `x` OK *)
+  End stuff.
+  Check stuff.x. (* displayed `stuff.x` OK *)
+  Import stuff.
+  Check x.
+
+End AbbreviationImport1.
+
+Module AbbreviationImport2.
+
+  (* This was #14105 *)
+  Module stuff.
+  Definition x := 0.
+  Module buggy.
+  Notation x := x.
+  End buggy.
+  Check x. (* displayed `x` OK *)
+  End stuff.
+  Check stuff.x. (* displayed `stuff.x` OK *)
+  Import stuff.
+  Check x.
+
+End AbbreviationImport2.
