@@ -333,6 +333,10 @@ module Latex = struct
       let space = 0.5 *. (float n) in
       printf "\\coqdocindent{%2.2fem}\n" space
 
+  let start_indentation n = indentation n
+
+  let end_indentation () = ()
+
   let ident_ref m fid typ s =
     let id = if fid <> "" then (m ^ "." ^ fid) else m in
     match find_module m with
@@ -574,6 +578,16 @@ module Html = struct
     end
 
   let indentation n = for _i = 1 to n do printf "&nbsp;" done
+
+  let start_indentation n =
+    if not !raw_comments then begin
+      printf "<table class=\"indented\"><tr><td class=\"indented\">";
+      indentation n;
+      printf "</td><td>\n"
+    end
+
+  let end_indentation () =
+    if not !raw_comments then printf "</td></tr></table>\n"
 
   let line_break () = printf "<br/>\n"
 
@@ -1003,6 +1017,9 @@ module TeXmacs = struct
 
   let indentation n = ()
 
+  let start_indentation n = indentation n
+  let end_indentation () = ()
+
   let keyword s =
     printf "<kw|"; raw_ident s; printf ">"
 
@@ -1138,6 +1155,9 @@ module Raw = struct
   let indentation n =
       for _i = 1 to n do printf " " done
 
+  let start_indentation n = indentation n
+  let end_indentation () = ()
+
   let keyword s = raw_ident s
   let ident s loc = raw_ident s
 
@@ -1237,6 +1257,8 @@ let end_inline_coq_block =
   select Latex.end_inline_coq_block Html.end_inline_coq_block TeXmacs.end_inline_coq_block Raw.end_inline_coq_block
 
 let indentation = select Latex.indentation Html.indentation TeXmacs.indentation Raw.indentation
+let start_indentation = select Latex.start_indentation Html.start_indentation TeXmacs.start_indentation Raw.start_indentation
+let end_indentation = select Latex.end_indentation Html.end_indentation TeXmacs.end_indentation Raw.end_indentation
 let paragraph = select Latex.paragraph Html.paragraph TeXmacs.paragraph Raw.paragraph
 let line_break = select Latex.line_break Html.line_break TeXmacs.line_break Raw.line_break
 let empty_line_of_code = select

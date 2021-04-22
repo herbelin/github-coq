@@ -48,6 +48,9 @@ val start_inline_coq_block : unit -> unit
 val end_inline_coq_block : unit -> unit
 
 val indentation : int -> unit
+val start_indentation : int -> unit
+val end_indentation : unit -> unit
+
 val line_break : unit -> unit
 val paragraph : unit -> unit
 val empty_line_of_code : unit -> unit

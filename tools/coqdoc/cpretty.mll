@@ -257,11 +257,10 @@
     with _ ->
       ()
 
-  let output_indented_keyword s lexbuf =
+  let get_keyword s lexbuf =
     let nbsp,isp = count_spaces s in
-    Output.indentation nbsp;
     let s = String.sub s isp (String.length s - isp) in
-    Output.keyword s
+    nbsp, s
 
   let only_gallina () =
     !Cdglobals.gallina && !in_proof <> None
@@ -495,16 +494,28 @@ rule coq_bol = parse
         then Output.empty_line_of_code ();
         coq_bol lexbuf }
   | space* "(**" (space_nl as s)
-    { if is_nl s then new_lines 1 lexbuf;
-      Output.end_coq (); Output.start_doc ();
-	let eol = doc_bol lexbuf in
-	  Output.end_doc (); Output.start_coq ();
-	  if eol then coq_bol lexbuf else coq lexbuf }
+      { if is_nl s then new_lines 1 lexbuf;
+        Output.end_coq ();
+        let s' = lexeme lexbuf in
+        let nbsp, isp = count_spaces s' in
+        Output.start_indentation nbsp;
+        Output.start_doc ();
+        let eol = doc_bol lexbuf in
+        Output.end_doc ();
+        Output.end_indentation ();
+        Output.start_coq ();
+        if eol then coq_bol lexbuf else coq lexbuf }
   | space* "Comments" (space_nl as s)
       { if is_nl s then new_lines 1 lexbuf;
-        Output.end_coq (); Output.start_doc ();
+        Output.end_coq ();
+        let s' = lexeme lexbuf in
+        let nbsp, isp = count_spaces s' in
+        Output.start_indentation nbsp;
+        Output.start_doc ();
         comments lexbuf;
-        Output.end_doc (); Output.start_coq ();
+        Output.end_doc ();
+        Output.end_indentation ();
+        Output.start_coq ();
         coq lexbuf }
   | space* begin_hide nl
       { new_lines 1 lexbuf; skip_hide lexbuf; coq_bol lexbuf }
@@ -526,16 +537,20 @@ rule coq_bol = parse
 	      if eol then (coq_bol lexbuf) else coq lexbuf
 	  else
 	    begin
-	      output_indented_keyword s lexbuf;
+              let nbsp, s = get_keyword s lexbuf in
+              Output.start_indentation nbsp;
+              Output.keyword s;
 	      let eol = body lexbuf in
-	      if eol then coq_bol lexbuf else coq lexbuf
+              if eol then (Output.end_indentation (); coq_bol lexbuf) else coq lexbuf
 	    end }
   | space* thm_token
       { let s = lexeme lexbuf in
-        output_indented_keyword s lexbuf;
+        let nbsp, s = get_keyword s lexbuf in
+        Output.start_indentation nbsp;
+        Output.keyword s;
         let eol = body lexbuf in
 	in_proof := Some eol;
-	if eol then coq_bol lexbuf else coq lexbuf }
+        if eol then (Output.end_indentation (); coq_bol lexbuf) else coq lexbuf }
   | space* prf_token
       { in_proof := Some true;
 	let eol =
@@ -558,21 +573,27 @@ rule coq_bol = parse
       {
 	in_proof := None;
 	let s = lexeme lexbuf in
-	output_indented_keyword s lexbuf;
+        let nbsp, s = get_keyword s lexbuf in
+        Output.start_indentation nbsp;
+        Output.keyword s;
 	let eol= body lexbuf in
-	if eol then coq_bol lexbuf else coq lexbuf }
+        if eol then (Output.end_indentation (); coq_bol lexbuf) else coq lexbuf }
   | space* prog_kw
       {
 	in_proof := None;
 	let s = lexeme lexbuf in
-	output_indented_keyword s lexbuf;
+        let nbsp, s = get_keyword s lexbuf in
+        Output.start_indentation nbsp;
+        Output.keyword s;
 	let eol= body lexbuf in
-	if eol then coq_bol lexbuf else coq lexbuf }
+        if eol then (Output.end_indentation (); coq_bol lexbuf) else coq lexbuf }
   | space* notation_kw
       {	let s = lexeme lexbuf in
-	output_indented_keyword s lexbuf;
+        let nbsp, s = get_keyword s lexbuf in
+        Output.start_indentation nbsp;
+        Output.keyword s;
 	let eol= start_notation_string lexbuf in
-	if eol then coq_bol lexbuf else coq lexbuf }
+        if eol then (Output.end_indentation (); coq_bol lexbuf) else coq lexbuf }
 
   | space* "(**" space+ "printing" space+ printing_token space+
       { let tok = lexeme lexbuf in
@@ -599,9 +620,11 @@ rule coq_bol = parse
           if parse_comments () then begin
             let s = lexeme lexbuf in
             let nbsp, isp = count_spaces s in
-            Output.indentation nbsp;
+            Output.start_indentation nbsp;
             Output.start_comment ();
-            comment lexbuf
+            let eol = comment lexbuf in
+            if eol then Output.end_indentation ();
+            eol
           end else skipped_comment lexbuf in
         if eol then coq_bol lexbuf else coq lexbuf }
   | space* "#[" {
@@ -889,6 +912,8 @@ and doc indents = parse
         | None -> ());
        (* this says - if there is a blank line between the two comments,
           insert one in the output too *)
+         (* Remark: we keep the indentation of the initial comment and discard the current one *)
+         (* Possible alternative: to fail if a different indentation? *)
          if nl_count > 1 then Output.paragraph ();
        doc_bol lexbuf
       }

@@ -20,6 +20,7 @@
 
 \begin{coqdoccode}
 \end{coqdoccode}
+\coqdocnoindent
 Various checks for coqdoc
 
 
@@ -141,6 +142,7 @@ Various checks for coqdoc
 \coqdockw{End} \coqref{Coqdoc.links.test2}{\coqdocsection{test2}}.\coqdoceol
 \coqdocemptyline
 \end{coqdoccode}
+\coqdocnoindent
 skip 
 
  skip 

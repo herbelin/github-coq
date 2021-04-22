@@ -20,6 +20,7 @@
 
 <div class="code">
 </div>
+<table class="indented"><tr><td class="indented"></td><td>
 
 <div class="doc">
 
@@ -100,6 +101,7 @@ A non-ended block verbatim to test line location
 *)
 </pre>
 </div>
+</td></tr></table>
 <div class="code">
 </div>
 </div>

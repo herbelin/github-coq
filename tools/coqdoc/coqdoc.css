@@ -128,6 +128,19 @@ h4.section {
     font-family: monospace;
  } 
 
+table.indented {
+  border: 0px;
+  margin: 0px;
+  border-collapse: collapse;
+  padding: 0px;
+}
+
+td.indented {
+  border: 0px;
+  margin: 0px;
+  padding: 0px;
+}
+
 table.infrule {
   border: 0px;
   margin-left: 50px;

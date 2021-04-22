@@ -20,6 +20,7 @@
 
 <div class="code">
 </div>
+<table class="indented"><tr><td class="indented">&nbsp;</td><td>
 
 <div class="doc">
 Xxx xxxx xx xxxxx xxxxxxx xxxxx xxx xxxxxxxx xxxxxxx xxx xxx xxxx
@@ -53,6 +54,7 @@ Xxx xxxx xx xxxxx xxxxxxx xxxxx xxx xxxxxxxx xxxxxxx xxx xxx xxxx
 </ul>
 
 </div>
+</td></tr></table>
 <div class="code">
 </div>
 </div>
