@@ -62,7 +62,7 @@ val rule : unit -> unit
 
 val nbsp : unit -> unit
 val char : char -> unit
-val keyword : string -> loc -> unit
+val keyword : string -> unit
 val ident : string -> loc option -> unit
 val sublexer : char -> loc -> unit
 val sublexer_in_doc : char -> unit

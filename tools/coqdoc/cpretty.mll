@@ -261,7 +261,7 @@
     let nbsp,isp = count_spaces s in
     Output.indentation nbsp;
     let s = String.sub s isp (String.length s - isp) in
-    Output.keyword s (lexeme_start lexbuf + isp)
+    Output.keyword s
 
   let only_gallina () =
     !Cdglobals.gallina && !in_proof <> None

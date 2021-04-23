@@ -404,7 +404,7 @@ module Latex = struct
   let translate s =
     match Tokens.translate s with Some s -> s | None -> escaped s
 
-  let keyword s loc =
+  let keyword s =
     printf "\\coqdockw{%s}" (translate s)
 
   let ident s loc =
@@ -686,7 +686,7 @@ module Html = struct
   let translate s =
     match Tokens.translate s with Some s -> s | None -> escaped s
 
-  let keyword s loc =
+  let keyword s =
     printf "<span class=\"id\" title=\"keyword\">%s</span>" (translate s)
 
   let ident s loc =
@@ -1010,7 +1010,6 @@ module TeXmacs = struct
     if is_keyword s then keyword s
     else raw_ident s
 
-  let keyword s loc = keyword s
   let ident s _ = if !in_doc then ident_true s else raw_ident s
 
   let output_sublexer_string doescape issymbchar tag s =
@@ -1139,7 +1138,7 @@ module Raw = struct
   let indentation n =
       for _i = 1 to n do printf " " done
 
-  let keyword s loc = raw_ident s
+  let keyword s = raw_ident s
   let ident s loc = raw_ident s
 
   let sublexer c l = char c
