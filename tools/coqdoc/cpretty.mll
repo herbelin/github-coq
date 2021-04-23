@@ -534,7 +534,7 @@ rule coq_bol = parse
       { let s = lexeme lexbuf in
 	  if !Cdglobals.light && section_or_end s then
 	    let eol = skip_to_dot lexbuf in
-	      if eol then (coq_bol lexbuf) else coq lexbuf
+              if eol then coq_bol lexbuf else coq lexbuf
 	  else
 	    begin
               let nbsp, s = get_keyword s lexbuf in
@@ -645,13 +645,15 @@ rule coq_bol = parse
 
 and coq = parse
   | nl
-    { new_lines 1 lexbuf; if not (only_gallina ()) then Output.line_break(); coq_bol lexbuf }
+      { new_lines 1 lexbuf; if not (only_gallina ()) then Output.line_break(); coq_bol lexbuf }
   | "(**" (space_nl as s)
-    { if is_nl s then new_lines 1 lexbuf;
-      Output.end_coq (); Output.start_doc ();
+      { if is_nl s then new_lines 1 lexbuf;
+        Output.end_coq ();
+        Output.start_doc ();
 	let eol = doc_bol lexbuf in
-	  Output.end_doc (); Output.start_coq ();
-	  if eol then coq_bol lexbuf else coq lexbuf }
+	Output.end_doc ();
+        Output.start_coq ();
+        if eol then coq_bol lexbuf else coq lexbuf }
   | "(*"
       { comment_level := 1;
         let eol =
@@ -1247,14 +1249,14 @@ and body = parse
           end
       }
   | '.' space+
-        { Tokens.flush_sublexer(); Output.char '.'; Output.char ' ';
-          if is_none !formatted then false else body lexbuf }
+      { Tokens.flush_sublexer(); Output.char '.'; Output.char ' ';
+        if is_none !formatted then false else body lexbuf }
   | "(**" (space_nl as s)
       { if is_nl s then new_line lexbuf;
         Tokens.flush_sublexer(); Output.end_coq (); Output.start_doc ();
 	let eol = doc_bol lexbuf in
-	  Output.end_doc (); Output.start_coq ();
-	  if eol then body_bol lexbuf else body lexbuf }
+        Output.end_doc (); Output.start_coq ();
+       if eol then body_bol lexbuf else body lexbuf }
   | "(*"
       { Tokens.flush_sublexer(); comment_level := 1;
         let eol =
