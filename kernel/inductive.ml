@@ -460,10 +460,37 @@ let contract_case env (ci, p, iv, c, br) =
 (************************************************************************)
 (* Type of case branches *)
 
+let build_branches_type_approx (ind,u) (_,mip as specif) params (retctx,ret) =
+  let rec keep_constructors a =
+    let a, l = decompose_appvect a in
+    match kind a with
+    | Construct _ -> mkApp (a, Array.map keep_constructors l)
+    | _ ->
+       (* By simplicity, we approximate non-constructors arguments
+          with Prop, even though it's ill-typed; what is important is
+          that it differs from Ind (and that it is compatible with reduction) *)
+       mkProp in
+  let build_one i (ctx, c) =
+    let cty = Term.it_mkProd_or_LetIn c ctx in
+    let typi = full_constructor_instantiate (ind,u,specif,params) cty in
+    let (cstrsign,ccl) = Term.decompose_prod_assum typi in
+    let nargs = Context.Rel.length cstrsign in
+    let (_,allargs) = decompose_app ccl in
+    let (lparams,vargs) = List.chop (inductive_params specif) allargs in
+    let vargs = List.map keep_constructors vargs in
+    let cargs =
+      let cstr = ith_constructor_of_inductive ind (i+1) in
+      let dep_cstr = Term.applist (mkConstructU (cstr,u),lparams@(Context.Rel.to_extended_list mkRel 0 cstrsign)) in
+      vargs @ [dep_cstr] in
+    let base = substl (List.rev cargs) (liftn nargs (Array.length retctx + 1) ret) in
+    (cstrsign,base) in
+  if noccur_with_meta 1 (Array.length retctx) ret then None
+  else Some (Array.mapi build_one mip.mind_nf_lc)
+
 (* [p] is the predicate, [i] is the constructor number (starting from 0),
    and [cty] is the type of the constructor (params not instantiated) *)
 let build_branches_type (ind,u) (_,mip as specif) params p =
-  let build_one_branch i (ctx, c) =
+  let build_one i (ctx, c) =
     let cty = Term.it_mkProd_or_LetIn c ctx in
     let typi = full_constructor_instantiate (ind,u,specif,params) cty in
     let (cstrsign,ccl) = Term.decompose_prod_assum typi in
@@ -476,7 +503,7 @@ let build_branches_type (ind,u) (_,mip as specif) params p =
       vargs @ [dep_cstr] in
     let base = Term.lambda_appvect_assum (mip.mind_nrealdecls+1) (lift nargs p) (Array.of_list cargs) in
     Term.it_mkProd_or_LetIn base cstrsign in
-  Array.mapi build_one_branch mip.mind_nf_lc
+  Array.mapi build_one mip.mind_nf_lc
 
 (* [p] is the predicate, [c] is the match object, [realargs] is the
    list of real args of the inductive type *)
@@ -1022,12 +1049,12 @@ let error_illegal_rec_call renv fx (arg_renv,arg) =
 let error_partial_apply renv fx =
   raise (FixGuardError (renv.env,NotEnoughArgumentsForFixCall fx))
 
-let filter_stack_domain env p stack =
-  let absctx, ar = dest_lam_assum env p in
-  (* Optimization: if the predicate is not dependent, no restriction is needed
-     and we avoid building the recargs tree. *)
-  if noccur_with_meta 1 (Context.Rel.length absctx) ar then stack
-  else let env = push_rel_context absctx env in
+let filter_stack_domain env brtyp k stack =
+  match brtyp with
+  | None -> stack
+  | Some brtyp ->
+  let (ctx,ar) = brtyp.(k) in
+  let env = push_rel_context ctx env in
   let rec filter_stack env ar stack =
     let t = whd_all env ar in
     match stack, kind t with
@@ -1111,8 +1138,10 @@ let check_one_fix renv recpos trees def =
               let case_spec =
                 branches_specif renv (lazy_subterm_specif renv [] c_0) ci in
               let stack' = push_stack_closures renv l stack in
-              let stack' = filter_stack_domain renv.env p stack' in
+              let specif = lookup_mind_specif renv.env ci.ci_ind in
+              let brtyp = build_branches_type_approx (ci.ci_ind,u) specif (Array.to_list pms) ret in
               lrest |> Array.iteri (fun k br' ->
+                let stack' = filter_stack_domain renv.env brtyp k stack' in
                 let stack_br = push_stack_args case_spec.(k) stack' in
                 check_rec_call renv stack_br br')
             with (FixGuardError _ as exn) ->
