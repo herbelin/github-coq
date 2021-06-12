@@ -552,7 +552,7 @@ let data_name { Data.id; Data.rdata; _ } =
   - prepares and declares the corresponding record projections, mainly taken care of by
     [declare_projections]
 *)
-let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls params template ?(kind=Decls.StructureComponent) ?name (record_data : Data.t list) =
+let declare_structure ~cumulative ~namespace finite ~ubind ~univs ~variances paramimpls params template ?(kind=Decls.StructureComponent) ?name (record_data : Data.t list) =
   let nparams = List.length params in
   let poly, ctx =
     match univs with
@@ -595,7 +595,7 @@ let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls par
     }
   in
   let impls = List.map (fun _ -> paramimpls, []) record_data in
-  let kn = DeclareInd.declare_mutual_inductive_with_eliminations mie ubind impls
+  let kn = DeclareInd.declare_mutual_inductive_with_eliminations ~namespace mie ubind impls
       ~primitive_expected:(primitive_flag ())
   in
   let map i { Data.is_coercion; coers; rdata = { DataR.implfs; fields; _}; _ } =
@@ -649,7 +649,7 @@ let build_class_constant ~univs ~rdata field implfs params paramimpls coers bind
   } in
   [cref, [m]]
 
-let build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template
+let build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template ~namespace
     fields params paramimpls coers id idbuild binder_name =
   let record_data =
     { Data.id
@@ -658,7 +658,7 @@ let build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template
     ; coers = List.map (fun _ -> { pf_subclass = false ; pf_canonical = true }) fields
     ; rdata
     } in
-  let inds = declare_structure ~cumulative Declarations.BiFinite ~ubind ~univs ~variances paramimpls
+  let inds = declare_structure ~cumulative ~namespace Declarations.BiFinite ~ubind ~univs ~variances paramimpls
       params template ~kind:Decls.Method ~name:[|binder_name|] [record_data]
   in
   let map ind =
@@ -694,7 +694,7 @@ let build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template
   2. declare the class, using the information from 1. in the form of [Classes.typeclass]
 
   *)
-let declare_class def ~cumulative ~ubind ~univs ~variances id idbuild paramimpls params
+let declare_class def ~cumulative ~namespace ~ubind ~univs ~variances id idbuild paramimpls params
     rdata template ?(kind=Decls.StructureComponent) coers =
   let implfs =
     (* Make the class implicit in the projections, and the params if applicable. *)
@@ -711,7 +711,7 @@ let declare_class def ~cumulative ~ubind ~univs ~variances id idbuild paramimpls
       let binder = {binder with binder_name=Name binder_name} in
       build_class_constant ~rdata ~univs field implfs params paramimpls coers binder id proj_name
     | _ ->
-      build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template
+      build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template ~namespace
         fields params paramimpls coers id idbuild binder_name
   in
   let univs, params, fields =
@@ -853,7 +853,7 @@ let extract_record_data records =
   ps, data
 
 (* declaring structures, common data to refactor *)
-let class_struture ~cumulative ~template ~ubind ~impargs ~univs ~params def records data =
+let class_structure ~cumulative ~template ~namespace ~ubind ~impargs ~univs ~params def records data =
   let { Ast.name; cfs; idbuild; _ }, rdata = match records, data with
     | [r], [d] -> r, d
     | _, _ ->
@@ -865,10 +865,10 @@ let class_struture ~cumulative ~template ~ubind ~impargs ~univs ~params def reco
       | Vernacexpr.NoInstance -> None)
       cfs
   in
-  declare_class def ~cumulative ~ubind ~univs name.CAst.v idbuild
+  declare_class def ~cumulative ~namespace ~ubind ~univs name.CAst.v idbuild
     impargs params rdata template coers
 
-let regular_structure ~cumulative ~template ~ubind ~impargs ~univs ~variances ~params ~finite
+let regular_structure ~cumulative ~template ~namespace ~ubind ~impargs ~univs ~variances ~params ~finite
     records data =
   let adjust_impls impls = impargs @ [CAst.make None] @ impls in
   let data = List.map (fun ({ DataR.implfs; _ } as d) -> { d with DataR.implfs = List.map adjust_impls implfs }) data in
@@ -883,7 +883,7 @@ let regular_structure ~cumulative ~template ~ubind ~impargs ~univs ~variances ~p
     { Data.id = name.CAst.v; idbuild; rdata; is_coercion; coers }
   in
   let data = List.map2 map data records in
-  let inds = declare_structure ~cumulative finite ~ubind ~univs ~variances
+  let inds = declare_structure ~cumulative ~namespace finite ~ubind ~univs ~variances
       impargs params template data
   in
   List.map (fun ind -> GlobRef.IndRef ind) inds
@@ -891,7 +891,7 @@ let regular_structure ~cumulative ~template ~ubind ~impargs ~univs ~variances ~p
 (** [fs] corresponds to fields and [ps] to parameters; [coers] is a
     list telling if the corresponding fields must me declared as coercions
     or subinstances. *)
-let definition_structure udecl kind ~template ~cumulative ~poly
+let definition_structure udecl kind ~template ~namespace ~cumulative ~poly
     finite (records : Ast.t list) : GlobRef.t list =
   let () = check_unique_names records in
   let () = check_priorities kind records in
@@ -908,10 +908,10 @@ let definition_structure udecl kind ~template ~cumulative ~poly
   let template = template, auto_template in
   match kind with
   | Class def ->
-    class_struture ~template ~ubind ~impargs ~cumulative ~params ~univs ~variances
+    class_structure ~template ~namespace ~ubind ~impargs ~cumulative ~params ~univs ~variances
       def records data
   | Inductive_kw | CoInductive | Variant | Record | Structure ->
-    regular_structure ~cumulative ~template ~ubind ~impargs ~univs ~variances ~params ~finite
+    regular_structure ~cumulative ~template ~namespace ~ubind ~impargs ~univs ~variances ~params ~finite
       records data
 
 module Internal = struct

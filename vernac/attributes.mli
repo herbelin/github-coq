@@ -59,6 +59,9 @@ val canonical_field : bool attribute
 val canonical_instance : bool attribute
 val using : string option attribute
 
+type inductive_namespace = Proper | Flat | Both
+val proper_namespace : inductive_namespace attribute
+
 (** Enable/Disable universe checking *)
 val typing_flags : Declarations.typing_flags option attribute
 

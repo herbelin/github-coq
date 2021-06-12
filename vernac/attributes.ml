@@ -300,6 +300,14 @@ let template =
        ~name:"Template"
        ~on:"template" ~off:"notemplate")
 
+type inductive_namespace = Proper | Flat | Both
+
+let proper_namespace =
+  let values = ["proper", Proper; "flat", Flat; "both", Both] in
+  fun attrs -> match key_value_attribute ~key:"namespace" ~default:None ~values attrs with
+  | extra, None -> extra, Both
+  | extra, Some b -> extra, b
+
 let polymorphic =
   qualify_attribute ukey polymorphic_base
 
