@@ -21,6 +21,7 @@ module Ast : sig
     ; cfs : (local_decl_expr * record_field_attr) list
     ; idbuild : Id.t
     ; sort : constr_expr option
+    ; binder_name : Id.t option
     }
 end
 

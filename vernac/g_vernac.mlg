@@ -378,7 +378,7 @@ GRAMMAR EXTEND Gram
   (* Inductives and records *)
   opt_constructors_or_fields:
     [ [ ":="; lc = constructors_or_record -> { lc }
-      | -> { RecordDecl (None, []) } ] ]
+      | id = record_binder_name -> { RecordDecl (None, [], id) } ] ]
   ;
   inductive_definition:
     [ [ oc = opt_coercion; id = cumul_ident_decl; indpar = binders;
@@ -392,10 +392,14 @@ GRAMMAR EXTEND Gram
       | id = identref ; c = constructor_type; "|"; l = LIST1 constructor SEP "|" ->
           { Constructors ((c id)::l) }
       | id = identref ; c = constructor_type -> { Constructors [ c id ] }
-      | cstr = identref; "{"; fs = record_fields; "}" ->
-          { RecordDecl (Some cstr,fs) }
-      | "{";fs = record_fields; "}" -> { RecordDecl (None,fs) }
+      | cstr = identref; "{"; fs = record_fields; "}"; id = record_binder_name ->
+          { RecordDecl (Some cstr,fs,id) }
+      | "{";fs = record_fields; "}"; id = record_binder_name -> { RecordDecl (None,fs,id) }
       |  -> { Constructors [] } ] ]
+  ;
+  record_binder_name:
+    [ [ "as"; id = identref -> { Some id }
+      | -> { None } ] ]
   ;
 (*
   csort:

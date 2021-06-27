@@ -794,13 +794,14 @@ let should_treat_as_uniform () =
   else ComInductive.NonUniformParameters
 
 let vernac_record ~template udecl ~cumulative k ~poly ?typing_flags finite records =
-  let map ((is_coercion, name), binders, sort, nameopt, cfs) =
+  let map ((is_coercion, name), binders, sort, nameopt, cfs, ido) =
     let idbuild = match nameopt with
     | None -> Nameops.add_prefix "Build_" name.v
     | Some lid ->
       let () = Dumpglob.dump_definition lid false "constr" in
       lid.v
     in
+    let binder_name = Option.map (fun CAst.{v=id} -> id) ido in
     let () =
       if Dumpglob.dump () then
         let () = Dumpglob.dump_definition name false "rec" in
@@ -811,7 +812,7 @@ let vernac_record ~template udecl ~cumulative k ~poly ?typing_flags finite recor
         in
         List.iter iter cfs
     in
-    Record.Ast.{ name; is_coercion; binders; cfs; idbuild; sort }
+    Record.Ast.{ name; is_coercion; binders; cfs; idbuild; sort; binder_name }
   in
   let records = List.map map records in
   match typing_flags with
@@ -890,7 +891,7 @@ let vernac_inductive ~atts kind indl =
     let coe' = if coe then BackInstance else NoInstance in
     let f = AssumExpr ((make ?loc:lid.loc @@ Name lid.v), [], ce),
             { rf_subclass = coe' ; rf_priority = None ; rf_notation = [] ; rf_canonical = true } in
-    vernac_record ~template udecl ~cumulative (Class true) ~poly ?typing_flags finite [id, bl, c, None, [f]]
+    vernac_record ~template udecl ~cumulative (Class true) ~poly ?typing_flags finite [id, bl, c, None, [f], None]
   else if List.for_all is_record indl then
     (* Mutual record case *)
     let () = match kind with
@@ -905,12 +906,12 @@ let vernac_inductive ~atts kind indl =
     in
     let () = List.iter check_where indl in
     let unpack ((id, bl, c, decl), _) = match decl with
-    | RecordDecl (oc, fs) ->
+    | RecordDecl (oc, fs, ido) ->
       let bl = match bl with
         | bl, None -> bl
         | _ -> CErrors.user_err Pp.(str "Records do not support the \"|\" syntax.")
       in
-      (id, bl, c, oc, fs)
+      (id, bl, c, oc, fs, ido)
     | Constructors _ -> assert false (* ruled out above *)
     in
     let kind = match kind with Class _ -> Class false | _ -> kind in

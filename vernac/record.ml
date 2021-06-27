@@ -156,6 +156,7 @@ module Data = struct
   ; is_coercion : bool
   ; coers : projection_flags list
   ; rdata : DataR.t
+  ; binder_name : Id.t
   }
 end
 
@@ -533,7 +534,7 @@ let bound_names_rdata { DataR.fields; _ } : Id.Set.t =
   List.fold_left add_names Id.Set.empty fields
 
 (** Pick a variable name for a record, avoiding names bound in its fields. *)
-let data_name { Data.id; Data.rdata; _ } =
+let data_name id rdata =
   let name = Id.of_string (Unicode.lowercase_first_char (Id.to_string id)) in
   Namegen.next_ident_away name (bound_names_rdata rdata)
 
@@ -552,7 +553,7 @@ let data_name { Data.id; Data.rdata; _ } =
   - prepares and declares the corresponding record projections, mainly taken care of by
     [declare_projections]
 *)
-let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls params template ?(kind=Decls.StructureComponent) ?name (record_data : Data.t list) =
+let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls params template ?(kind=Decls.StructureComponent) (record_data : Data.t list) =
   let nparams = List.length params in
   let poly, ctx =
     match univs with
@@ -560,11 +561,6 @@ let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls par
       false, Monomorphic_entry Univ.ContextSet.empty
     | Polymorphic_entry (nas, ctx) ->
       true, Polymorphic_entry (nas, ctx)
-  in
-  let binder_name =
-    match name with
-    | None -> Array.map_of_list data_name record_data
-    | Some n -> n
   in
   let ntypes = List.length record_data in
   let mk_block i { Data.id; idbuild; rdata = { DataR.min_univ; arity; fields; _ }; _ } =
@@ -585,7 +581,7 @@ let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls par
   in
   let mie =
     { mind_entry_params = params;
-      mind_entry_record = Some (if primitive then Some binder_name else None);
+      mind_entry_record = Some (if primitive then Some (Array.map_of_list (fun a -> a.Data.binder_name) record_data) else None);
       mind_entry_finite = finite;
       mind_entry_inds = blocks;
       mind_entry_private = None;
@@ -598,10 +594,10 @@ let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls par
   let kn = DeclareInd.declare_mutual_inductive_with_eliminations mie ubind impls
       ~primitive_expected:(primitive_flag ())
   in
-  let map i { Data.is_coercion; coers; rdata = { DataR.implfs; fields; _}; _ } =
+  let map i { Data.is_coercion; coers; rdata = { DataR.implfs; fields; _}; binder_name; id; _ } =
     let rsp = (kn, i) in (* This is ind path of idstruc *)
     let cstr = (rsp, 1) in
-    let projections = declare_projections rsp ctx ~kind binder_name.(i) coers implfs fields in
+    let projections = declare_projections rsp ctx ~kind binder_name coers implfs fields in
     let build = GlobRef.ConstructRef cstr in
     let () = if is_coercion then ComCoercion.try_add_new_coercion build ~local:false ~poly in
     let struc = Structure.make (Global.env ()) rsp projections in
@@ -657,9 +653,10 @@ let build_record_constant ~rdata ~ubind ~univs ~variances ~cumulative ~template
     ; is_coercion = false
     ; coers = List.map (fun _ -> { pf_subclass = false ; pf_canonical = true }) fields
     ; rdata
+    ; binder_name
     } in
   let inds = declare_structure ~cumulative Declarations.BiFinite ~ubind ~univs ~variances paramimpls
-      params template ~kind:Decls.Method ~name:[|binder_name|] [record_data]
+      params template ~kind:Decls.Method [record_data]
   in
   let map ind =
     let map decl b y = {
@@ -804,6 +801,7 @@ module Ast = struct
     ; cfs : (local_decl_expr * record_field_attr) list
     ; idbuild : Id.t
     ; sort : constr_expr option
+    ; binder_name : Id.t option
     }
 
   let to_datai { name; is_coercion; cfs; idbuild; sort } =
@@ -873,14 +871,19 @@ let regular_structure ~cumulative ~template ~ubind ~impargs ~univs ~variances ~p
   let adjust_impls impls = impargs @ [CAst.make None] @ impls in
   let data = List.map (fun ({ DataR.implfs; _ } as d) -> { d with DataR.implfs = List.map adjust_impls implfs }) data in
   (* let map (min_univ, arity, fieldimpls, fields) { Ast.name; is_coercion; cfs; idbuild; _ } = *)
-  let map rdata { Ast.name; is_coercion; cfs; idbuild; _ } =
+  let map rdata { Ast.name; is_coercion; cfs; idbuild; binder_name; _ } =
     let coers = List.map (fun (_, { rf_subclass ; rf_canonical }) ->
         { pf_subclass =
             (match rf_subclass with Vernacexpr.BackInstance -> true | Vernacexpr.NoInstance -> false);
           pf_canonical = rf_canonical })
         cfs
     in
-    { Data.id = name.CAst.v; idbuild; rdata; is_coercion; coers }
+    let binder_name =
+      match binder_name with
+      | None -> data_name name.CAst.v rdata
+      | Some n -> n
+    in
+    { Data.id = name.CAst.v; idbuild; rdata; is_coercion; coers; binder_name }
   in
   let data = List.map2 map data records in
   let inds = declare_structure ~cumulative finite ~ubind ~univs ~variances
