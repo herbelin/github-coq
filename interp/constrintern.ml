@@ -1939,7 +1939,7 @@ let set_hole_implicit i b c =
   | _ -> anomaly (Pp.str "Only refs have implicits.")
 
 let exists_implicit_name id =
-  List.exists (fun imp -> is_status_implicit imp && match name_of_implicit imp with Evar_kinds.ExplByName id' -> Id.equal id id' | ExplByPos k -> Id.equal (name_of_pos k) id)
+  List.exists (fun imp -> is_status_implicit imp && match_implicit imp (ExplByName id))
 
 let print_allowed_named_implicit imps =
   let l = List.map_filter (function Some ((Name id,_,_),_,_) -> Some id | _ -> None) imps in
@@ -2409,7 +2409,7 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
       match (impl,rargs) with
       | (imp::impl', rargs) when is_status_implicit imp ->
           begin try
-            let eargs',(_,(_,a)) = List.extract_first (fun (pos,a) -> match_implicit imp pos) eargs in
+            let eargs',(_,(_,a)) = List.extract_first (fun (pos,a) -> match_implicit ~warn:false imp pos) eargs in
             intern_no_implicit enva a :: aux (n+1) impl' subscopes' eargs' rargs
           with Not_found ->
           if List.is_empty rargs && List.is_empty eargs && not (maximal_insertion_of imp) then
