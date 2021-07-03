@@ -40,7 +40,7 @@ let evar_suggested_name evk sigma =
   match evar_ident evk' sigma with
   | Some id -> id
   | None -> match evi.evar_source with
-  | _,Evar_kinds.ImplicitArg (c,(n,Some id),b) -> id
+  | _,Evar_kinds.ImplicitArg (c,(n,Some (Evar_kinds.ExplByName id)),b) -> id
   | _,Evar_kinds.VarInstance id -> id
   | _,Evar_kinds.QuestionMark {Evar_kinds.qm_name = Name id} -> id
   | _,Evar_kinds.GoalEvar -> Id.of_string "Goal"
@@ -132,9 +132,12 @@ let pr_evar_source env sigma = function
      str "type of " ++ pp
   | Evar_kinds.ImplicitArg (c,(n,ido),b) ->
       let open Globnames in
+      let open Evar_kinds in
       let print_constr = print_kconstr in
-      let id = Option.get ido in
-      str "parameter " ++ Id.print id ++ spc () ++ str "of" ++
+      let pos = match ido with
+        | Some (ExplByName id) -> str "parameter " ++ Id.print id
+        | Some (ExplByPos n) -> str "parameter at non-dependent position " ++ int n | None -> str "some parameter" in
+      pos ++ spc () ++ str "of" ++
       spc () ++ print_constr env sigma (EConstr.of_constr @@ printable_constr_of_global c)
   | Evar_kinds.InternalHole -> str "internal placeholder"
   | Evar_kinds.TomatchTypeParameter (ind,n) ->

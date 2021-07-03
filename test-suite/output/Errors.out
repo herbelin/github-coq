@@ -11,8 +11,8 @@ Instance is not well-typed in the environment of ?x.
 The command has indeed failed with message:
 Cannot infer ?T in the partial instance "?T -> nat" found for the type of f.
 The command has indeed failed with message:
-Cannot infer ?T in the partial instance "?T -> nat" found for the implicit
-parameter A of id whose type is "Type".
+Cannot infer ?T in the partial instance "?T -> nat" found for
+the implicit parameter A of id whose type is "Type".
 The command has indeed failed with message:
 Cannot infer ?T in the partial instance "forall x : nat, ?T" found for the
 type of f in environment:

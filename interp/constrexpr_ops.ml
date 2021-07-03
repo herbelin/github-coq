@@ -17,6 +17,7 @@ open Namegen
 open Glob_term
 open Notation
 open Constrexpr
+open Evar_kinds
 
 (***********)
 (* Universes *)
