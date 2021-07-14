@@ -180,7 +180,7 @@ let check_inductive env mind mb =
   check "mind_record" (check_same_record mb.mind_record mind_record);
   check "mind_finite" (mb.mind_finite == mind_finite);
   check "mind_ntypes" Int.(equal mb.mind_ntypes mind_ntypes);
-  check "mind_hyps" (Context.Named.equal Constr.equal mb.mind_hyps mind_hyps);
+  check "mind_hyps" (List.for_all2 Constant.CanOrd.equal mb.mind_hyps mind_hyps);
   check "mind_nparams" Int.(equal mb.mind_nparams mind_nparams);
 
   check "mind_nparams_rec" (mb.mind_nparams_rec <= mind_nparams_rec);

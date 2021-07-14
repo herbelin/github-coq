@@ -58,6 +58,12 @@ module Globals : sig
   val view : t -> view
 end
 
+type section_context_val = private {
+  env_section_ctx : Constr.section_context;
+  env_section_vars : Id.Set.t;
+  env_section_csts : Cset.t;
+}
+
 type named_context_val = private {
   env_named_ctx : Constr.named_context;
   env_named_map : (Constr.named_declaration * lazy_val) Id.Map.t;
@@ -76,7 +82,8 @@ type rel_context_val = private {
 
 type env = private {
   env_globals       : Globals.t;
-  env_named_context : named_context_val; (* section variables *)
+  env_section_context : section_context_val; (* section variables *)
+  env_named_context : named_context_val; (* goal variables *)
   env_rel_context   : rel_context_val;
   env_nb_rel        : int;
   env_universes : UGraph.t;
@@ -99,6 +106,7 @@ val set_universes_lbound : env -> UGraph.Bound.t -> env
 val rel_context   : env -> Constr.rel_context
 val named_context : env -> Constr.named_context
 val named_context_val : env -> named_context_val
+val section_context : env -> section_context
 
 val set_universes : UGraph.t -> env -> env
 
@@ -118,6 +126,15 @@ val is_impredicative_family : env -> Sorts.family -> bool
 
 (** is the local context empty *)
 val empty_context : env -> bool
+
+(** {5 Context of section variables ([section_context]) } *)
+
+val exists_section_id : Id.t -> env -> bool
+val section_full_name : Id.t -> env -> Constant.t
+(*
+val lookup_section   : Id.t -> env -> Constr.section_declaration
+*)
+val push_section     : Constr.section_declaration -> env -> env
 
 (** {5 Context of de Bruijn variables ([rel_context]) } *)
 
@@ -362,15 +379,19 @@ val universes_of_global : env -> GlobRef.t -> AbstractContext.t
    directly as [Var id] in [c] or indirectly as a section variable
    dependent in a global reference occurring in [c] *)
 
+val global_section_set : env -> constr -> Cset.t
+
 val global_vars_set : env -> constr -> Id.Set.t
 
 val vars_of_global : env -> GlobRef.t -> Id.Set.t
 
+(*
 (** closure of the input id set w.r.t. dependency *)
 val really_needed : env -> Id.Set.t -> Id.Set.t
 
 (** like [really_needed] but computes a well ordered named context *)
 val keep_hyps : env -> Id.Set.t -> Constr.named_context
+*)
 
 (** {5 Unsafe judgments. }
     We introduce here the pre-type of judgments, which is

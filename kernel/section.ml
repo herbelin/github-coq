@@ -12,8 +12,7 @@ open Util
 open Names
 open Univ
 open Declarations
-
-module NamedDecl = Context.Named.Declaration
+open Context.Section.Declaration
 
 type section_entry =
 | SecDefinition of Constant.t * constant_body
@@ -154,3 +153,20 @@ let is_in_section _env gr sec =
     Cmap.mem con (fst sec.expand_info_map)
   | IndRef (ind, _) | ConstructRef ((ind, _), _) ->
     Mindmap.mem ind (snd sec.expand_info_map)
+
+(*
+let get_section_assum_name = function
+  | SectionAssum (cst,_) -> Some cst.Context.binder_name
+  | SectionDef _ -> None
+
+let is_in_section env gr sec =
+  let open GlobRef in
+  match gr with
+  | VarRef id ->
+    let vars = Environ.section_context env in
+    List.exists (fun decl -> Id.equal id (Constant.basename (get_section_decl_name decl))) vars
+  | ConstRef con ->
+    Cmap.mem con (fst sec.expand_info_map)
+  | IndRef (ind, _) | ConstructRef ((ind, _), _) ->
+    Mindmap.mem ind (snd sec.expand_info_map)
+*)

@@ -63,8 +63,8 @@ open Util
 open Names
 open Declarations
 open Constr
-open Context.Named.Declaration
 
+module SectionDecl = Context.Section.Declaration
 module NamedDecl = Context.Named.Declaration
 
 (** {6 Safe environments }
@@ -498,29 +498,34 @@ let check_required current_libs needed =
     hypothesis many many times, and the check performed here would
     cost too much. *)
 
-let safe_push_named d env =
-  let id = NamedDecl.get_id d in
-  let _ =
-    try
-      let _ = Environ.lookup_named id env in
-      CErrors.user_err Pp.(pr_sequence str ["Identifier"; Id.to_string id; "already defined."])
-    with Not_found -> () in
-  Environ.push_named d env
+let safe_push_section d env =
+  let id = SectionDecl.get_section_decl_basename d in
+  if Environ.exists_section_id id env then
+    CErrors.user_err Pp.(pr_sequence str ["Identifier"; Id.to_string id; "already defined."]);
+  Environ.push_section d env
 
 let push_named_def (id,de) senv =
-  let sections = get_section senv.sections in
+  let cst = Constant.make2 senv.modpath (Label.of_id id) in
   let c, r, typ = Term_typing.translate_local_def senv.env id de in
-  let d = LocalDef (Context.make_annot id r, c, typ) in
-  let env'' = safe_push_named d senv.env in
-  let sections = Section.push_local d sections in
+  let cst = Context.make_annot cst r in
+  let sections = get_section senv.sections in
+  let env' = safe_push_section (SectionDecl.SectionDef (cst, c, typ)) senv.env in
+  (* TO REMOVE *)
+  let id = Context.make_annot id r in
+  let env'' = Environ.push_named (NamedDecl.LocalDef (id, c, typ)) env' in
+  (* END REMOVE *)
   { senv with sections=Some sections; env = env'' }
 
-let push_named_assum (x,t) senv =
+let push_named_assum (id,t) senv =
+  let cst = Constant.make2 senv.modpath (Label.of_id id) in
   let sections = get_section senv.sections in
   let t, r = Term_typing.translate_local_assum senv.env t in
-  let d = LocalAssum (Context.make_annot x r, t) in
-  let sections = Section.push_local d sections in
-  let env'' = safe_push_named d senv.env in
+  let cst = Context.make_annot cst r in
+  let env' = safe_push_section (SectionDecl.SectionAssum (cst, t)) senv.env in
+  (* TO REMOVE *)
+  let id = Context.make_annot id r in
+  let env'' = Environ.push_named (NamedDecl.LocalAssum (id, t)) env' in
+  (* END REMOVE *)
   { senv with sections=Some sections; env = env'' }
 
 let push_section_context uctx senv =
@@ -778,7 +783,7 @@ let constant_entry_of_side_effect eff =
   if Declareops.is_opaque cb then
   OpaqueEff {
     opaque_entry_body = p;
-    opaque_entry_secctx = Context.Named.to_vars cb.const_hyps;
+    opaque_entry_secctx = Cset.of_list cb.const_hyps;
     opaque_entry_feedback = None;
     opaque_entry_type = cb.const_type;
     opaque_entry_universes = univs;
@@ -786,7 +791,7 @@ let constant_entry_of_side_effect eff =
   else
   DefinitionEff {
     const_entry_body = p;
-    const_entry_secctx = Some (Context.Named.to_vars cb.const_hyps);
+    const_entry_secctx = Some (Cset.of_list cb.const_hyps);
     const_entry_feedback = None;
     const_entry_type = Some cb.const_type;
     const_entry_universes = univs;

@@ -166,6 +166,7 @@ val section_segment_of_inductive: MutInd.t -> Declarations.cooking_info
 val section_segment_of_reference : GlobRef.t -> Declarations.cooking_info
 
 val section_instance : GlobRef.t -> Declarations.abstr_inst_info
+val variable_section_segment_of_reference : GlobRef.t -> Constr.named_context
 val is_in_section : GlobRef.t -> bool
 
 (** {6 Discharge: decrease the section level if in the current section } *)

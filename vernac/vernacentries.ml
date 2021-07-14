@@ -564,14 +564,13 @@ let vernac_set_used_variables ~pstate using : Declare.Proof.t =
   let initial_goals pf = Proofview.initial_goals Proof.((data pf).entry) in
   let terms = List.map snd (initial_goals (Declare.Proof.get pstate)) in
   let using = Proof_using.definition_using env sigma ~using ~terms in
-  let vars = Environ.named_context env in
-  Names.Id.Set.iter (fun id ->
-      if not (List.exists (NamedDecl.get_id %> Id.equal id) vars) then
+  let vars = Environ.section_context env in
+  Cset.iter (fun id ->
+      if not (List.exists (Context.Section.Declaration.get_section_decl_name %> Constant.CanOrd.equal id) vars) then
         user_err ~hdr:"vernac_set_used_variables"
-          (str "Unknown variable: " ++ Id.print id))
+          (str "Unknown variable: " ++ Id.print (Constant.basename id)))
     using;
-  let _, pstate = Declare.Proof.set_used_variables pstate ~using in
-  pstate
+  Declare.Proof.set_used_variables pstate ~using
 
 let vernac_set_used_variables_opt ?using pstate =
   match using with

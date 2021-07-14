@@ -11,7 +11,7 @@
 (** Utility code for section variables handling in Proof using... *)
 
 (** At some point it would be good to make this abstract *)
-type t = Names.Id.Set.t
+type t = Names.Cset.t
 
 (** Process a [using] expression in definitions to provide the list of
     used terms *)
@@ -34,3 +34,9 @@ val proof_using_opt_name : string list
 (** For the stm *)
 
 val using_from_string : string -> Vernacexpr.section_subset_expr
+
+val really_needed : Environ.env -> t -> t
+
+val keep_ordered_hyps : Environ.env -> t -> Names.Constant.t list
+
+val compute_used_variables : Environ.env -> t -> t

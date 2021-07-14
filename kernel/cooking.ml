@@ -23,8 +23,8 @@ open Declarations
 open Univ
 open Context
 
-module NamedDecl = Context.Named.Declaration
 module RelDecl = Context.Rel.Declaration
+module SectionDecl = Context.Section.Declaration
 
 (*s Cooking the constants. *)
 
@@ -157,19 +157,21 @@ let abstract_context expand_info abstr_info hyps =
   let cache = RefTable.create 13 in
   let fold decl abstr_info =
     let id, decl = match decl with
-    | NamedDecl.LocalDef (id, b, t) ->
+    | SectionDecl.SectionDef (cst, b, t) ->
       let b = expand_subst cache expand_info abstr_info b in
       let t = expand_subst cache expand_info abstr_info t in
+      let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
       id, RelDecl.LocalDef (map_annot Name.mk_name id, b, t)
-    | NamedDecl.LocalAssum (id, t) ->
+    | SectionDecl.SectionAssum (cst, t) ->
       let t = expand_subst cache expand_info abstr_info t in
+      let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
       id, RelDecl.LocalAssum (map_annot Name.mk_name id, t)
     in
     { abstr_info with
         abstr_ctx = decl :: abstr_info.abstr_ctx;
         abstr_subst = id.binder_name :: abstr_info.abstr_subst }
   in
-  Context.Named.fold_outside fold hyps ~init:abstr_info
+  List.fold_right fold hyps ([], [])
 
 (** Turn a named context [Δ] (hyps) and a universe named context
     [G] (uctx) into a rel context and abstract universe context
@@ -190,6 +192,14 @@ let make_cooking_info expand_info hyps uctx =
   let names_info = Context.Named.to_vars hyps in
   { expand_info; abstr_info; abstr_inst_info; names_info }
 
+let abstract_as_type t (hyps, subst) =
+  let t = Vars.subst_vars subst t in
+  List.fold_left (fun c d -> mkProd_wo_LetIn d c) t hyps
+
+let abstract_as_body c (hyps, subst) =
+  let c = Vars.subst_vars subst c in
+  it_mkLambda_or_LetIn c hyps
+
 type recipe = { from : constant_body; info : cooking_info }
 
 type inline = bool
@@ -200,7 +210,7 @@ type 'opaque result = {
   cook_universes : universes;
   cook_relevance : Sorts.relevance;
   cook_inline : inline;
-  cook_context : Id.Set.t option;
+  cook_context : Cset.t option;
   cook_flags : typing_flags;
 }
 
@@ -265,6 +275,10 @@ let lift_private_univs info = function
     let univs = AbstractContext.size auctx in
     let ctx = (private_univs, UContext.constraints (AbstractContext.repr auctx)) in
     info, Opaqueproof.PrivatePolymorphic (univs, ctx)
+
+let map_dischargeable_constant f = function
+  | SectionDecl.SectionAssum (cst, ty) -> SectionDecl.SectionAssum (cst, f ty)
+  | SectionDecl.SectionDef (cst, v, ty) -> SectionDecl.SectionDef (cst, f v, f ty)
 
 (********************************)
 (* Discharging opaque proof terms *)

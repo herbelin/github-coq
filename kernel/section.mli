@@ -45,6 +45,7 @@ val push_local : Constr.named_declaration -> 'a t -> 'a t
 (** Extend the current section with a local definition (cf. push_named). *)
 
 val push_local_universe_context : UContext.t -> 'a t -> 'a t
+
 (** Extend the current section with a local universe context. Assumes that the
     last opened section is polymorphic. *)
 

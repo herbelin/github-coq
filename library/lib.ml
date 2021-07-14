@@ -419,6 +419,11 @@ let section_segment_of_reference = let open GlobRef in function
   section_segment_of_inductive kn
 | VarRef _ -> empty_segment
 
+(*
+let variable_section_segment_of_reference gr =
+  List.map SectionDecl.named_of_section (section_segment_of_reference gr).Declarations.abstr_ctx
+*)
+
 let is_in_section ref = match sections () with
   | None -> false
   | Some sec ->
@@ -426,6 +431,22 @@ let is_in_section ref = match sections () with
 
 let section_instance ref =
   (section_segment_of_reference ref).Declarations.abstr_inst_info
+
+(*
+let section_context () =
+  List.map SectionDecl.named_of_section (Environ.section_context (Global.env ()))
+
+let section_instance = let open GlobRef in function
+  | VarRef id ->
+    if is_in_section (VarRef id) then (Univ.Instance.empty, [||])
+    else raise Not_found
+  | ConstRef con ->
+    let data = section_segment_of_constant con in
+    extract_worklist data
+  | IndRef (kn,_) | ConstructRef ((kn,_),_) ->
+    let data = section_segment_of_mutual_inductive kn in
+    extract_worklist data
+*)
 
 (*************)
 (* Sections. *)

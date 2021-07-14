@@ -23,6 +23,7 @@ open Context.Rel.Declaration
 open Class_tactics
 open Libobject
 
+module SectionDecl = Context.Section.Declaration
 module RelDecl = Context.Rel.Declaration
 (*i*)
 

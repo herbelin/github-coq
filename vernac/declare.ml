@@ -100,7 +100,7 @@ end
 type 'a proof_entry = {
   proof_entry_body   : 'a Entries.const_entry_body;
   (* List of section variables *)
-  proof_entry_secctx : Id.Set.t option;
+  proof_entry_secctx : Cset.t option;
   (* State id on which the completion of type checking is reported *)
   proof_entry_feedback : Stateid.t option;
   proof_entry_type        : Constr.types option;
@@ -220,15 +220,12 @@ let export_side_effects eff =
   List.iter register_side_effect export
 
 let record_aux env s_ty s_bo =
-  let open Environ in
-  let in_ty = keep_hyps env s_ty in
   let v =
     String.concat " "
-      (CList.map_filter (fun decl ->
-          let id = NamedDecl.get_id decl in
-          if List.exists (NamedDecl.get_id %> Id.equal id) in_ty then None
-          else Some (Id.to_string id))
-        (keep_hyps env s_bo)) in
+      (CList.map_filter (fun cst ->
+          if Cset.mem cst s_ty then None
+          else Some (Id.to_string (Constant.basename cst)))
+        (Proof_using.keep_ordered_hyps env s_bo)) in
   Aux_file.record_in_aux "context_used" v
 
 let pure_definition_entry ?(opaque=false) ?(inline=false) ?types
@@ -285,9 +282,9 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a proo
     let env = Global.env () in
     let hyp_typ, hyp_def =
       if List.is_empty (Environ.named_context env) then
-        Id.Set.empty, Id.Set.empty
+        Cset.empty, Cset.empty
       else
-        let ids_typ = global_vars_set env typ in
+        let ids_typ = global_section_set env typ in
         let pf, env = match entry with
         | PureEntry ->
           let (pf, _), () = Future.force e.proof_entry_body in
@@ -297,11 +294,11 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a proo
           let env = Safe_typing.push_private_constants env eff in
           pf, env
         in
-        let vars = global_vars_set env pf in
+        let vars = global_section_set env pf in
         ids_typ, vars
     in
     let () = if Aux_file.recording () then record_aux env hyp_typ hyp_def in
-    Environ.really_needed env (Id.Set.union hyp_typ hyp_def)
+    Proof_using.really_needed env (Cset.union hyp_typ hyp_def)
   | Some hyps -> hyps
   in
   let (body, univs : b * _) = match entry with
@@ -1334,7 +1331,7 @@ end
 
 type t =
   { endline_tactic : Genarg.glob_generic_argument option
-  ; using : Id.Set.t option
+  ; using : Proof_using.t option
   ; proof : Proof.t
   ; initial_euctx : UState.t
   (** The initial universe context (for the statement) *)
@@ -1485,28 +1482,11 @@ let get_used_variables pf = pf.using
 let get_universe_decl pf = pf.pinfo.Proof_info.info.Info.udecl
 
 let set_used_variables ps ~using =
-  let open Context.Named.Declaration in
-  let env = Global.env () in
-  let ctx = Environ.keep_hyps env using in
-  let ctx_set =
-    List.fold_right Id.Set.add (List.map NamedDecl.get_id ctx) Id.Set.empty in
-  let vars_of = Environ.global_vars_set in
-  let aux env entry (ctx, all_safe as orig) =
-    match entry with
-    | LocalAssum ({Context.binder_name=x},_) ->
-       if Id.Set.mem x all_safe then orig
-       else (ctx, all_safe)
-    | LocalDef ({Context.binder_name=x},bo, ty) as decl ->
-       if Id.Set.mem x all_safe then orig else
-       let vars = Id.Set.union (vars_of env bo) (vars_of env ty) in
-       if Id.Set.subset vars all_safe
-       then (decl :: ctx, Id.Set.add x all_safe)
-       else (ctx, all_safe) in
-  let ctx, _ =
-    Environ.fold_named_context aux env ~init:(ctx,ctx_set) in
   if not (Option.is_empty ps.using) then
     CErrors.user_err Pp.(str "Used section variables can be declared only once");
-  ctx, { ps with using = Some (Context.Named.to_vars ctx) }
+  let env = Global.env () in
+  let ids = Proof_using.compute_used_variables env using in
+  { ps with using = Some ids }
 
 let get_open_goals ps =
   let Proof.{ goals; stack; sigma } = Proof.data ps.proof in
@@ -1811,7 +1791,7 @@ module MutualEntry : sig
   val declare_variable
     : pinfo:Proof_info.t
     -> uctx:UState.t
-    -> sec_vars:Id.Set.t option
+    -> sec_vars:Cset.t option
     -> univs:Entries.universes_entry
     -> Names.GlobRef.t list
 
@@ -1914,11 +1894,11 @@ let compute_proof_using_for_admitted proof typ pproofs =
     | Some _ as x, _ -> x
     | None, pproof :: _ ->
       let env = Global.env () in
-      let ids_typ = Environ.global_vars_set env typ in
+      let ids_typ = Environ.global_section_set env typ in
       (* [pproof] is evar-normalized by [partial_proof]. We don't
          count variables appearing only in the type of evars. *)
-      let ids_def = Environ.global_vars_set env (EConstr.Unsafe.to_constr pproof) in
-      Some (Environ.really_needed env (Id.Set.union ids_typ ids_def))
+      let ids_def = Environ.global_section_set env (EConstr.Unsafe.to_constr pproof) in
+      Some (Cset.union ids_typ ids_def)
     | _ -> None
 
 let finish_admitted ~pm ~pinfo ~uctx ~sec_vars ~univs =
