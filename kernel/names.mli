@@ -701,7 +701,7 @@ end
 module GlobRef : sig
 
   type t =
-    | VarRef of variable           (** A reference to the section-context. *)
+    | VarRef of Id.t               (** A reference to the section-context. *)
     | ConstRef of Constant.t       (** A reference to the environment. *)
     | IndRef of inductive          (** A reference to an inductive type. *)
     | ConstructRef of constructor  (** A reference to a constructor of an inductive type. *)

@@ -30,6 +30,7 @@ open Vars
 open Declarations
 open Context.Rel.Declaration
 
+module SectionDecl = Context.Section.Declaration
 module NamedDecl = Context.Named.Declaration
 
 (* The type of environments. *)
@@ -76,6 +77,12 @@ let force_lazy_val vk = match !vk with
 let dummy_lazy_val () = ref VKnone
 let build_lazy_val vk key = vk := VKvalue (CEphemeron.create key)
 
+type section_context_val = {
+  env_section_ctx : Constr.section_context;
+  env_section_vars : Id.Set.t;
+  env_section_csts : Cset.t;
+}
+
 type named_context_val = {
   env_named_ctx : Constr.named_context;
   env_named_map : (Constr.named_declaration * lazy_val) Id.Map.t;
@@ -90,7 +97,8 @@ type rel_context_val = {
 
 type env = {
   env_globals       : Globals.t;
-  env_named_context : named_context_val; (* section variables *)
+  env_section_context : section_context_val; (* section variables *)
+  env_named_context : named_context_val; (* goal variables *)
   env_rel_context   : rel_context_val;
   env_nb_rel        : int;
   env_universes : UGraph.t;
@@ -98,6 +106,12 @@ type env = {
   env_typing_flags  : typing_flags;
   retroknowledge : Retroknowledge.retroknowledge;
   indirect_pterms : Opaqueproof.opaquetab;
+}
+
+let empty_section_context = {
+  env_section_ctx = [];
+  env_section_vars = Id.Set.empty;
+  env_section_csts = Cset.empty;
 }
 
 let empty_named_context_val = {
@@ -119,6 +133,7 @@ let empty_env = {
     ; modules = MPmap.empty
     ; modtypes = MPmap.empty
     };
+  env_section_context = empty_section_context;
   env_named_context = empty_named_context_val;
   env_rel_context = empty_rel_context_val;
   env_nb_rel = 0;
@@ -129,6 +144,22 @@ let empty_env = {
   indirect_pterms = Opaqueproof.empty_opaquetab;
 }
 
+(* Section context *)
+
+let exists_section_id id env =
+  Id.Set.mem id env.env_section_context.env_section_vars
+
+let section_full_name id env =
+  SectionDecl.get_section_decl_name (Context.Section.lookup id env.env_section_context.env_section_ctx)
+
+let push_section_val d ctx = {
+  env_section_ctx = d :: ctx.env_section_ctx;
+  env_section_vars = Id.Set.add (SectionDecl.get_section_decl_basename d) ctx.env_section_vars;
+  env_section_csts = Cset.add (SectionDecl.get_section_decl_name d) ctx.env_section_csts;
+}
+
+let push_section d env =
+  { env with env_section_context = push_section_val d env.env_section_context }
 
 (* Rel context *)
 
@@ -291,6 +322,7 @@ let set_universes g env =
 
 let set_universes_lbound env lbound = { env with env_universes_lbound = lbound }
 
+let section_context env = env.env_section_context.env_section_ctx
 let named_context env = env.env_named_context.env_named_ctx
 let named_context_val env = env.env_named_context
 let rel_context env = env.env_rel_context.env_rel_ctx
@@ -332,7 +364,7 @@ let named_context_of_val c = c.env_named_ctx
 
 let ids_of_named_context_val c = Id.Map.domain c.env_named_map
 
-let empty_named_context = Context.Named.empty
+let _empty_named_context = Context.Named.empty
 
 let push_named_context = List.fold_right (fun d env -> push_named d env)
 
@@ -671,11 +703,11 @@ let add_mind kn mib env =
 
 let lookup_constant_variables c env =
   let cmap = lookup_constant c env in
-  Context.Named.to_vars cmap.const_hyps
+  Cset.of_list cmap.const_hyps
 
 let lookup_inductive_variables (kn,_i) env =
   let mis = lookup_mind kn env in
-  Context.Named.to_vars mis.mind_hyps
+  Cset.of_list mis.mind_hyps
 
 let lookup_constructor_variables (ind,_) env =
   lookup_inductive_variables ind env
@@ -694,26 +726,47 @@ let universes_of_global env r =
       let mib = lookup_mind mind env in
       Declareops.inductive_polymorphic_context mib
 
-(* Returns the list of global variables in a term *)
+(* Returns the list of section variables in a term *)
 
-let vars_of_global env gr =
+let rec section_set_of_global env gr =
   let open GlobRef in
   match gr with
-  | VarRef id -> Id.Set.singleton id
+  | VarRef id ->
+     (match lookup_named id env with
+      | NamedDecl.LocalAssum (_,t) -> global_section_set env t
+      | NamedDecl.LocalDef (_,c,t) -> Cset.union (global_section_set env c) (global_section_set env t))
   | ConstRef kn -> lookup_constant_variables kn env
   | IndRef ind -> lookup_inductive_variables ind env
   | ConstructRef cstr -> lookup_constructor_variables cstr env
 
-let global_vars_set env constr =
+and global_section_set env constr =
+  let open GlobRef in
   let rec filtrec acc c =
     match destRef c with
+    | ConstRef cst as gr, _ when Cset.mem cst env.env_section_context.env_section_csts ->
+      Cset.union (section_set_of_global env gr) (Cset.add cst acc)
     | gr, _ ->
-      Id.Set.union (vars_of_global env gr) acc
+      Cset.union (section_set_of_global env gr) acc
     | exception DestKO -> Constr.fold filtrec acc c
   in
-  filtrec Id.Set.empty constr
+  filtrec Cset.empty constr
 
+let _section_set_of_global_closure env gr =
+  let open GlobRef in
+  let cst = match gr with
+  | VarRef id -> section_full_name id env
+  | ConstRef cst -> cst
+  | IndRef _ | ConstructRef _ -> anomaly (Pp.str "Cannot include an inductive or constructor to a dependent closure.")
+  in
+  Cset.add cst (section_set_of_global env gr)
 
+let global_vars_set env constr =
+  Cset.fold (fun cst -> Id.Set.add (Constant.basename cst)) (global_section_set env constr) Id.Set.empty
+
+let vars_of_global env gr =
+  Cset.fold (fun cst -> Id.Set.add (Constant.basename cst)) (section_set_of_global env gr) Id.Set.empty
+
+(*
 (* [keep_hyps env ids] keeps the part of the section context of [env] which
    contains the variables of the set [ids], and recursively the variables
    contained in the types of the needed variables. *)
@@ -721,15 +774,15 @@ let global_vars_set env constr =
 let really_needed env needed =
   let open! Context.Named.Declaration in
   Context.Named.fold_inside
-    (fun need decl ->
-      if Id.Set.mem (get_id decl) need then
+    (fun need cst ->
+      if Cset.mem cst need then
         let globc =
           match decl with
-            | LocalAssum _ -> Id.Set.empty
+            | LocalAssum _ -> Cset.empty
             | LocalDef (_,c,_) -> global_vars_set env c in
-        Id.Set.union
+        Cset.union
           (global_vars_set env (get_type decl))
-          (Id.Set.union globc need)
+          (Cset.union globc need)
       else need)
     ~init:needed
     (named_context env)
@@ -743,6 +796,7 @@ let keep_hyps env needed =
       else nsign)
     (named_context env)
     ~init:empty_named_context
+*)
 
 (* Modules *)
 

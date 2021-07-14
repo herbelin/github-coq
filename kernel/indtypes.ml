@@ -408,9 +408,8 @@ let fold_inductive_blocks f acc params inds =
     acc inds
 
 let used_section_variables env params inds =
-  let fold l c = Id.Set.union (Environ.global_vars_set env c) l in
-  let ids = fold_inductive_blocks fold Id.Set.empty params inds in
-  keep_hyps env ids
+  let fold l c = Cset.union (Environ.global_section_set env c) l in
+  Cset.elements (fold_inductive_blocks fold Cset.empty params inds) (* TODO: do we need a specific order? *)
 
 let rel_vect n m = Array.init m (fun i -> mkRel(n+m-i))
 let rel_list n m = Array.to_list (rel_vect n m)

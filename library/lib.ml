@@ -14,9 +14,6 @@ open Util
 open Names
 open Libnames
 open Libobject
-open Context.Named.Declaration
-
-module NamedDecl = Context.Named.Declaration
 
 type is_type = bool (* Module Type or just Module *)
 type export = bool option (* None for a Module Type *)
@@ -402,8 +399,14 @@ let find_opening_node id =
    - the list of substitution to do at section closing
 *)
 
+module SectionDecl = Context.Section.Declaration
+
+let get_section_assum_name = function
+  | SectionDecl.SectionAssum (cst,_) -> Some cst.Context.binder_name
+  | SectionDecl.SectionDef _ -> None
+
 let instance_from_variable_context =
-  List.rev %> List.filter is_local_assum %> List.map NamedDecl.get_id %> Array.of_list
+  List.rev %> List.map_filter get_section_assum_name %> Array.of_list
 
 let extract_worklist info =
   let args = instance_from_variable_context info.Declarations.abstr_ctx in
@@ -433,12 +436,17 @@ let section_segment_of_reference = let open GlobRef in function
 | VarRef _ -> empty_segment
 
 let variable_section_segment_of_reference gr =
-  (section_segment_of_reference gr).Declarations.abstr_ctx
+  List.map SectionDecl.named_of_section (section_segment_of_reference gr).Declarations.abstr_ctx
 
 let is_in_section ref = match sections () with
   | None -> false
   | Some sec ->
     Section.is_in_section (Global.env ()) ref sec
+
+(*
+let section_context () =
+  List.map SectionDecl.named_of_section (Environ.section_context (Global.env ()))
+*)
 
 let section_instance = let open GlobRef in function
   | VarRef id ->

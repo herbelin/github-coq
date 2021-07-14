@@ -24,6 +24,7 @@ open Context.Rel.Declaration
 open Class_tactics
 open Libobject
 
+module SectionDecl = Context.Section.Declaration
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
 (*i*)
@@ -245,7 +246,7 @@ let discharge_class (_,cl) =
   try
     let info = abs_context cl in
     let ctx = info.Declarations.abstr_ctx in
-    let ctx, subst = rel_of_variable_context ctx in
+    let ctx, subst = rel_of_variable_context (List.map SectionDecl.named_of_section ctx) in
     let usubst, cl_univs' = Lib.discharge_abstract_universe_context info cl.cl_univs in
     let context = discharge_context ctx (subst, usubst) cl.cl_context in
     let props = discharge_rel_context (subst, usubst) (succ (List.length cl.cl_context)) cl.cl_props in

@@ -102,12 +102,12 @@ type typing_flags = {
 
 }
 
-type work_list = (Univ.Instance.t * Id.t array) Cmap.t *
-  (Univ.Instance.t * Id.t array) Mindmap.t
+type work_list = (Univ.Instance.t * Constant.t array) Cmap.t *
+  (Univ.Instance.t * Constant.t array) Mindmap.t
 
 (** Data needed to abstract over the section variable and universe hypotheses *)
 type abstr_info = {
-  abstr_ctx : Constr.named_context;
+  abstr_ctx : section_context;
   (** Section variables of this prefix *)
   abstr_subst : Univ.Instance.t;
   (** Actual names of the abstracted variables *)
@@ -123,7 +123,7 @@ type cooking_info = {
 (* some contraints are in constant_constraints, some other may be in
  * the OpaqueDef *)
 type 'opaque pconstant_body = {
-    const_hyps : Constr.named_context; (** New: younger hyp at top *)
+    const_hyps : Constant.t list; (** New: younger hyp at top *)
     const_body : (Constr.t, 'opaque) constant_def;
     const_type : types;
     const_relevance : Sorts.relevance;
@@ -242,7 +242,7 @@ type mutual_inductive_body = {
 
     mind_ntypes : int;  (** Number of types in the block *)
 
-    mind_hyps : Constr.named_context;  (** Section hypotheses on which the block depends *)
+    mind_hyps : Constant.t list;  (** Section hypotheses on which the block depends *)
 
     mind_nparams : int;  (** Number of expected parameters including non-uniform ones (i.e. length of mind_params_ctxt w/o let-in) *)
 

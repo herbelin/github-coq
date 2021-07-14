@@ -252,7 +252,7 @@ let mkRef (gr,u) = let open GlobRef in match gr with
   | ConstRef c -> mkConstU (c,u)
   | IndRef ind -> mkIndU (ind,u)
   | ConstructRef c -> mkConstructU (c,u)
-  | VarRef cst -> mkConst cst
+  | VarRef id -> mkVar id (* TODO: remove *)
 
 (* Constructs a primitive integer *)
 let mkInt i = Int i
@@ -366,7 +366,7 @@ let isRefX x c =
   | ConstRef c, Const (c', _) -> Constant.CanOrd.equal c c'
   | IndRef i, Ind (i', _) -> Ind.CanOrd.equal i i'
   | ConstructRef i, Construct (i', _) -> Construct.CanOrd.equal i i'
-  | VarRef cst, Const (cst',_) -> Constant.CanOrd.equal cst cst'
+  | VarRef id, Var id' -> Id.equal id id'
   | _ -> false
 
 (* Destructs a de Bruijn index *)
@@ -451,6 +451,7 @@ let destCoFix c = match kind c with
   | _ -> raise DestKO
 
 let destRef c = let open GlobRef in match kind c with
+  | Var x -> VarRef x, Univ.Instance.empty
   | Const (c,u) -> ConstRef c, u
   | Ind (ind,u) -> IndRef ind, u
   | Construct (c,u) -> ConstructRef c, u

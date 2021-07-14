@@ -12,8 +12,7 @@ open Util
 open Names
 open Univ
 open Declarations
-
-module NamedDecl = Context.Named.Declaration
+open Context.Section.Declaration
 
 type section_entry =
 | SecDefinition of Constant.t
@@ -24,8 +23,6 @@ type 'a entry_map = 'a Cmap.t * 'a Mindmap.t
 type 'a t = {
   prev : 'a t option;
   (** Section surrounding the current one *)
-  context : int;
-  (** Length of the named context suffix that has been introduced locally *)
   mono_universes : ContextSet.t;
   poly_universes : Name.t array * UContext.t;
   (** Universes local to the section *)
@@ -56,9 +53,6 @@ let add_emap e v (cmap, imap) = match e with
 | SecDefinition con -> (Cmap.add con v cmap, imap)
 | SecInductive ind -> (cmap, Mindmap.add ind v imap)
 
-let push_local sec =
-  { sec with context = sec.context + 1 }
-
 let push_context (nas, ctx) sec =
   if UContext.is_empty ctx then sec
   else
@@ -88,7 +82,6 @@ let push_constraints uctx sec =
 let open_section ~custom prev =
   {
     prev;
-    context = 0;
     mono_universes = ContextSet.empty;
     poly_universes = ([||], UContext.empty);
     all_poly_univs = Option.cata (fun sec -> sec.all_poly_univs) [| |] prev;
@@ -124,16 +117,18 @@ let empty_segment = {
   abstr_uctx = AUContext.empty;
 }
 
-let extract_hyps sec vars used =
-  (* Keep the section-local segment of variables *)
-  let vars = List.firstn sec.context vars in
+let get_section_assum_name = function
+  | SectionAssum (cst,_) -> Some cst.Context.binder_name
+  | SectionDef _ -> None
+
+let extract_hyps vars used =
   (* Only keep the part that is used by the declaration *)
-  List.filter (fun d -> Id.Set.mem (NamedDecl.get_id d) used) vars
+  List.filter (fun decl -> Cset.mem (get_section_decl_name decl) used) vars
 
 let section_segment_of_entry vars e hyps sec =
   (* [vars] are the named hypotheses, [hyps] the subset that is declared by the
      global *)
-  let hyps = extract_hyps sec vars hyps in
+  let hyps = extract_hyps vars hyps in
   let inst, auctx = find_emap e sec.data in
   {
     abstr_ctx = hyps;
@@ -141,20 +136,20 @@ let section_segment_of_entry vars e hyps sec =
     abstr_uctx = auctx;
   }
 
-let segment_of_constant env con s =
+let segment_of_constant env con sec =
   let body = Environ.lookup_constant con env in
-  let vars = Environ.named_context env in
-  let used = Context.Named.to_vars body.Declarations.const_hyps in
-  section_segment_of_entry vars (SecDefinition con) used s
+  let vars = Environ.section_context env in
+  let used = Cset.of_list body.Declarations.const_hyps in
+  section_segment_of_entry vars (SecDefinition con) used sec
 
-let segment_of_inductive env mind s =
+let segment_of_inductive env mind sec =
   let mib = Environ.lookup_mind mind env in
-  let vars = Environ.named_context env in
-  let used = Context.Named.to_vars mib.Declarations.mind_hyps in
-  section_segment_of_entry vars (SecInductive mind) used s
+  let vars = Environ.section_context env in
+  let used = Cset.of_list mib.Declarations.mind_hyps in
+  section_segment_of_entry vars (SecInductive mind) used sec
 
 let instance_from_variable_context =
-  List.rev %> List.filter NamedDecl.is_local_assum %> List.map NamedDecl.get_id %> Array.of_list
+  List.rev %> List.map_filter get_section_assum_name %> Array.of_list
 
 let extract_worklist info =
   let args = instance_from_variable_context info.abstr_ctx in
@@ -170,8 +165,8 @@ let is_in_section env gr sec =
   let open GlobRef in
   match gr with
   | VarRef id ->
-    let vars = List.firstn sec.context (Environ.named_context env) in
-    List.exists (fun decl -> Id.equal id (NamedDecl.get_id decl)) vars
+    let vars = Environ.section_context env in
+    List.exists (fun decl -> Id.equal id (Constant.basename (get_section_decl_name decl))) vars
   | ConstRef con ->
     Cmap.mem con (fst sec.data)
   | IndRef (ind, _) | ConstructRef ((ind, _), _) ->

@@ -14,85 +14,150 @@ open Util
 open Vernacexpr
 open Context.Named.Declaration
 
-module NamedDecl = Context.Named.Declaration
+module SectionDecl = Context.Section.Declaration
 
 let known_names = Summary.ref [] ~name:"proofusing-nameset"
 
-let rec close_fwd env sigma s =
+module USet = Cset
+
+let deps env cst = global_section_set env (Constr.mkConst cst)
+(*
+let deps_id env id = deps env (Environ.section_full_name id env)
+let deps_vars env cst = global_vars_set env (Constr.mkConst cst)
+*)
+let really_needed env csts = Cset.fold (fun cst -> Cset.union (deps env cst)) csts Cset.empty
+(*
+let deps_vars_id env id = deps_vars env (Environ.section_full_name id env)
+let really_needed_id env ids = Id.Set.fold (fun id -> Id.Set.union (deps_vars_id env id)) ids Id.Set.empty
+*)
+
+let rec close_fwd env s =
   let s' =
     List.fold_left (fun s decl ->
-      let vb = match decl with
-               | LocalAssum _ -> Id.Set.empty
-               | LocalDef (_,b,_) -> Termops.global_vars_set env sigma b
-      in
-      let vty = Termops.global_vars_set env sigma (NamedDecl.get_type decl) in
-      let vbty = Id.Set.union vb vty in
-      if Id.Set.exists (fun v -> Id.Set.mem v s) vbty
-      then Id.Set.add (NamedDecl.get_id decl) (Id.Set.union s vbty) else s)
-    s (EConstr.named_context env)
+      let vbty = deps env (SectionDecl.get_section_decl_name decl) in
+      if USet.exists (fun v -> USet.mem v s) vbty
+      then USet.add (SectionDecl.get_section_decl_name decl) (USet.union s vbty) else s)
+    s (section_context env)
     in
-  if Id.Set.equal s s' then s else close_fwd env sigma s'
+  if USet.equal s s' then s else close_fwd env s'
 
-let set_of_type env sigma ty =
+let set_of_type env ty =
   List.fold_left (fun acc ty ->
-      Id.Set.union (Termops.global_vars_set env sigma ty) acc)
-    Id.Set.empty ty
+      USet.union (global_section_set env ty) acc)
+    USet.empty ty
 
 let full_set env =
-  List.fold_right Id.Set.add (List.map NamedDecl.get_id (named_context env)) Id.Set.empty
+  List.fold_right (fun d -> USet.add (SectionDecl.get_section_decl_name d))
+    (section_context env) USet.empty
 
-let process_expr env sigma e v_ty =
+let process_expr env e v_ty =
   let rec aux = function
-    | SsEmpty -> Id.Set.empty
+    | SsEmpty -> USet.empty
     | SsType -> v_ty
     | SsSingl { CAst.v = id } -> set_of_id id
-    | SsUnion(e1,e2) -> Id.Set.union (aux e1) (aux e2)
-    | SsSubstr(e1,e2) -> Id.Set.diff (aux e1) (aux e2)
-    | SsCompl e -> Id.Set.diff (full_set env) (aux e)
-    | SsFwdClose e -> close_fwd env sigma (aux e)
+    | SsUnion(e1,e2) -> USet.union (aux e1) (aux e2)
+    | SsSubstr(e1,e2) -> USet.diff (aux e1) (aux e2)
+    | SsCompl e -> USet.diff (full_set env) (aux e)
+    | SsFwdClose e -> close_fwd env (aux e)
   and set_of_id id =
     if Id.to_string id = "All" then
       full_set env
     else if CList.mem_assoc_f Id.equal id !known_names then
       aux (CList.assoc_f Id.equal id !known_names)
-    else Id.Set.singleton id
+    else USet.singleton (section_full_name id env)
   in
   aux e
 
-let process_expr env sigma e ty =
-  let v_ty = set_of_type env sigma ty in
-  let s = Id.Set.union v_ty (process_expr env sigma e v_ty) in
-  Id.Set.elements s
+let process_expr env e ty =
+  let v_ty = set_of_type env ty in
+  let s = USet.union v_ty (process_expr env e v_ty) in
+  USet.elements s
 
-type t = Names.Id.Set.t
+type t = Names.Cset.t
 
 let definition_using env evd ~using ~terms =
-  let l = process_expr env evd using terms in
-  Names.Id.Set.(List.fold_right add l empty)
+  let terms = List.map (EConstr.to_constr evd) terms in
+  let l = process_expr env using terms in
+  USet.(List.fold_right add l empty)
 
 let name_set id expr = known_names := (id,expr) :: !known_names
+
+(*
+let really_needed_cst env needed =
+  let open! Context.Named.Declaration in
+  Context.Named.fold_inside
+    (fun need cst ->
+      if Cset.mem cst need then
+        let globc =
+          match decl with
+            | LocalAssum _ -> Cset.empty
+            | LocalDef (_,c,_) -> global_section_set env c in
+        Cset.union
+          (global_section_set env (mkConst cst))
+          (Cset.union globc need)
+      else need)
+    ~init:needed
+    (named_context env)
+
+let really_needed env needed =
+  let open! Context.Named.Declaration in
+  Context.Named.fold_inside
+    (fun need decl ->
+      if Id.Set.mem (get_id decl) need then
+        let globc =
+          match decl with
+            | LocalAssum _ -> Id.Set.empty
+            | LocalDef (_,c,_) -> global_vars_set env c in
+        Id.Set.union
+          (global_vars_set env (get_type decl))
+          (Id.Set.union globc need)
+      else need)
+    ~init:needed
+    (named_context env)
+*)
+
+let keep_ordered_hyps env needed =
+  let open Context.Section.Declaration in
+  List.fold_right
+    (fun d nsign ->
+      let cst = get_section_decl_name d in
+      if Cset.mem cst needed then cst :: nsign
+      else nsign)
+    (section_context env)
+    []
+
+let compute_used_variables env using =
+  let open Context.Section.Declaration in
+  let aux entry ctx =
+    match entry with
+    | SectionAssum _ -> ctx
+    | SectionDef ({Context.binder_name=x},bo, ty) ->
+       let x = get_section_decl_name entry in
+       if Cset.mem x ctx || not (Cset.subset (deps env x) ctx) then ctx
+       else Cset.add x ctx in
+       List.fold_right aux (section_context env) using
 
 let minimize_hyps env ids =
   let rec aux ids =
     let ids' =
-      Id.Set.fold (fun id alive ->
-        let impl_by_id =
-          Id.Set.remove id (really_needed env (Id.Set.singleton id)) in
-        if Id.Set.is_empty impl_by_id then alive
-        else Id.Set.diff alive impl_by_id)
+      Cset.fold (fun cst alive ->
+        let impl_by_id = Cset.remove cst (deps env cst) in
+        if Cset.is_empty impl_by_id then alive
+        else Cset.diff alive impl_by_id)
       ids ids in
-    if Id.Set.equal ids ids' then ids else aux ids'
+    if Cset.equal ids ids' then ids else aux ids'
   in
     aux ids
 
-let remove_ids_and_lets env s ids =
-  let not_ids id = not (Id.Set.mem id ids) in
-  let no_body id = named_body id env = None in
-  let deps id = really_needed env (Id.Set.singleton id) in
-    (Id.Set.filter (fun id ->
+
+let remove_ids_and_lets env s csts =
+  let open Context.Section.Declaration in
+  let not_ids cst = not (Cset.mem cst csts) in
+  let no_body cst = is_section_assum (Context.Section.lookup (Constant.basename cst) (section_context env)) in
+  Cset.filter (fun id ->
       not_ids id &&
      (no_body id ||
-       Id.Set.exists not_ids (Id.Set.filter no_body (deps id)))) s)
+       Cset.exists not_ids (Cset.filter no_body (deps env id)))) s
 
 let record_proof_using expr =
   Aux_file.record_in_aux "suggest_proof_using" expr
@@ -103,21 +168,20 @@ let debug_proof_using = CDebug.create ~name:"proof-using" ()
    for "All". Used in the variable case since the env contains the
    variable itself. *)
 let suggest_common env ppid used ids_typ skip =
-  let module S = Id.Set in
+  let module S = Cset in
   let open Pp in
   let pr_set parens s =
+    let pr cst = Id.print (Constant.basename cst) in
     let wrap ppcmds =
       if parens && S.cardinal s > 1 then str "(" ++ ppcmds ++ str ")"
       else ppcmds in
-    wrap (prlist_with_sep (fun _ -> str" ") Id.print (S.elements s)) in
+    wrap (prlist_with_sep (fun _ -> str" ") pr (S.elements s)) in
 
   let needed = minimize_hyps env (remove_ids_and_lets env used ids_typ) in
   let all_needed = really_needed env needed in
-  let all = List.fold_left (fun all d -> S.add (NamedDecl.get_id d) all)
-      S.empty (named_context env)
-  in
+  let all = full_set env in
   let all = S.diff all skip in
-  let fwd_typ = close_fwd env (Evd.from_env env) ids_typ in
+  let fwd_typ = close_fwd env ids_typ in
   let () = debug_proof_using (fun () ->
       str "All "        ++ pr_set false all ++ fnl() ++
       str "Type "       ++ pr_set false ids_typ ++ fnl() ++
@@ -155,9 +219,9 @@ let suggest_constant env kn =
   then begin
     let open Declarations in
     let body = lookup_constant kn env in
-    let used = Id.Set.of_list @@ List.map NamedDecl.get_id body.const_hyps in
-    let ids_typ = global_vars_set env body.const_type in
-    suggest_common env (Printer.pr_constant env kn) used ids_typ Id.Set.empty
+    let used = USet.of_list @@ body.const_hyps in
+    let ids_typ = global_section_set env body.const_type in
+    suggest_common env (Printer.pr_constant env kn) used ids_typ USet.empty
   end
 
 let suggest_variable env id =
@@ -165,10 +229,10 @@ let suggest_variable env id =
   then begin
     match lookup_named id env with
     | LocalDef (_,body,typ) ->
-      let ids_typ = global_vars_set env typ in
-      let ids_body = global_vars_set env body in
-      let used = Id.Set.union ids_body ids_typ in
-      suggest_common env (Id.print id) used ids_typ (Id.Set.singleton id)
+      let ids_typ = global_section_set env typ in
+      let ids_body = global_section_set env body in
+      let used = USet.union ids_body ids_typ in
+      suggest_common env (Id.print id) used ids_typ (USet.singleton (section_full_name id env))
     | LocalAssum _ -> assert false
   end
 

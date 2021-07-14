@@ -23,8 +23,8 @@ open Declarations
 open Univ
 open Context
 
-module NamedDecl = Context.Named.Declaration
 module RelDecl = Context.Rel.Declaration
+module SectionDecl = Context.Section.Declaration
 
 (*s Cooking the constants. *)
 
@@ -67,7 +67,7 @@ let share cache r (cstl,knl) =
         Mindmap.find kn knl
     | ConstRef cst ->
         Cmap.find cst cstl in
-  let c = (u, Array.map mkVar l) in
+  let c = (u, Array.map mkConst l) in
   RefTable.add cache r c;
   c
 
@@ -132,17 +132,19 @@ let expmod_constr cache modlist c =
 let abstract_context hyps =
   let fold decl (ctx, subst) =
     let id, decl = match decl with
-    | NamedDecl.LocalDef (id, b, t) ->
+    | SectionDecl.SectionDef (cst, b, t) ->
       let b = Vars.subst_vars subst b in
       let t = Vars.subst_vars subst t in
+      let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
       id, RelDecl.LocalDef (map_annot Name.mk_name id, b, t)
-    | NamedDecl.LocalAssum (id, t) ->
+    | SectionDecl.SectionAssum (cst, t) ->
       let t = Vars.subst_vars subst t in
+      let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
       id, RelDecl.LocalAssum (map_annot Name.mk_name id, t)
     in
     (decl :: ctx, id.binder_name :: subst)
   in
-  Context.Named.fold_outside fold hyps ~init:([], [])
+  List.fold_right fold hyps ([], [])
 
 let abstract_as_type t (hyps, subst) =
   let t = Vars.subst_vars subst t in
@@ -161,7 +163,7 @@ type 'opaque result = {
   cook_universes : universes;
   cook_relevance : Sorts.relevance;
   cook_inline : inline;
-  cook_context : Id.Set.t option;
+  cook_context : Cset.t option;
   cook_flags : typing_flags;
 }
 
@@ -172,7 +174,7 @@ let expmod_constr_subst cache modlist subst c =
 
 let discharge_abstract_universe_context subst abs_ctx auctx =
   (** Given a named instance [subst := u₀ ... uₙ₋₁] together with an abstract
-      context [auctx0 := 0 ... n - 1 |= C{0, ..., n - 1}] of the same length,
+      context [abs_ctx := 0 ... n - 1 |= C{0, ..., n - 1}] of the same length,
       and another abstract context relative to the former context
       [auctx := 0 ... m - 1 |= C'{u₀, ..., uₙ₋₁, 0, ..., m - 1}],
       construct the lifted abstract universe context
@@ -201,6 +203,10 @@ let lift_univs subst auctx0 = function
     let subst, auctx = discharge_abstract_universe_context subst auctx0 auctx in
     subst, (Polymorphic auctx)
 
+let map_dischargeable_constant f = function
+  | SectionDecl.SectionAssum (cst, ty) -> SectionDecl.SectionAssum (cst, f ty)
+  | SectionDecl.SectionDef (cst, v, ty) -> SectionDecl.SectionDef (cst, f v, f ty)
+
 let cook_constr { modlist; abstract = {abstr_ctx; abstr_subst; abstr_uctx;}; } (c, priv) =
   let cache = RefTable.create 13 in
   let abstr_subst, priv = match priv with
@@ -216,7 +222,7 @@ let cook_constr { modlist; abstract = {abstr_ctx; abstr_subst; abstr_uctx;}; } (
     abstr_subst, Opaqueproof.PrivatePolymorphic (univs, ctx)
   in
   let expmod = expmod_constr_subst cache modlist abstr_subst in
-  let hyps = Context.Named.map expmod abstr_ctx in
+  let hyps = List.map (map_dischargeable_constant expmod) abstr_ctx in
   let hyps = abstract_context hyps in
   let c = abstract_as_body (expmod c) hyps in
   (c, priv)
@@ -230,7 +236,7 @@ let cook_constant { from = cb; info } =
   let cache = RefTable.create 13 in
   let abstr_subst, univs = lift_univs abstr_subst abstr_uctx cb.const_universes in
   let expmod = expmod_constr_subst cache modlist abstr_subst in
-  let hyps0 = Context.Named.map expmod abstr_ctx in
+  let hyps0 = List.map (map_dischargeable_constant expmod) abstr_ctx in
   let hyps = abstract_context hyps0 in
   let map c = abstract_as_body (expmod c) hyps in
   let body = match cb.const_body with
@@ -240,7 +246,7 @@ let cook_constant { from = cb; info } =
     OpaqueDef (Opaqueproof.discharge_opaque info o)
   | Primitive _ -> CErrors.anomaly (Pp.str "Primitives cannot be cooked")
   in
-  let const_hyps = Id.Set.diff (Context.Named.to_vars cb.const_hyps) (Context.Named.to_vars hyps0) in
+  let const_hyps = Cset.diff (Cset.of_list cb.const_hyps) (Cset.of_list (List.map SectionDecl.get_section_decl_name hyps0)) in
   let typ = abstract_as_type (expmod cb.const_type) hyps in
   {
     cook_body = body;
@@ -337,8 +343,8 @@ let cook_inductive { modlist; abstract={abstr_ctx; abstr_subst; abstr_uctx;}; } 
   let abstr_subst, mind_universes = lift_univs abstr_subst abstr_uctx mib.mind_universes in
   let cache = RefTable.create 13 in
   let expmod = expmod_constr_subst cache modlist abstr_subst in
-  let abstr_ctx = Context.Named.map expmod abstr_ctx in
-  let removed_vars = Context.Named.to_vars abstr_ctx in
+  let abstr_ctx = List.map (map_dischargeable_constant expmod) abstr_ctx in
+  let removed_vars = List.map SectionDecl.get_section_decl_name abstr_ctx in
   let abstr_ctx, _ as hyps = abstract_context abstr_ctx in
   let nnewparams = Context.Rel.nhyps abstr_ctx in
   let mind_params_ctxt =
@@ -361,10 +367,7 @@ let cook_inductive { modlist; abstract={abstr_ctx; abstr_subst; abstr_uctx;}; } 
       in
       PrimRecord data
   in
-  let mind_hyps =
-    List.filter (fun d -> not (Id.Set.mem (NamedDecl.get_id d) removed_vars))
-      mib.mind_hyps
-  in
+  let mind_hyps = List.filter (fun cst -> not (List.mem_f Constant.CanOrd.equal cst removed_vars)) mib.mind_hyps in
   let mind_variance, mind_sec_variance =
     match mib.mind_variance, mib.mind_sec_variance with
     | None, None -> None, None

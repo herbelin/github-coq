@@ -244,11 +244,11 @@ module Proof : sig
 
   (** Sets the section variables assumed by the proof, returns its closure
    * (w.r.t. type dependencies and let-ins covered by it) *)
-  val set_used_variables : t -> using:Proof_using.t -> Constr.named_context * t
+  val set_used_variables : t -> using:Proof_using.t -> t
 
   (** Gets the set of variables declared to be used by the proof. None means
       no "Proof using" or #[using] was given *)
-  val get_used_variables : t -> Id.Set.t option
+  val get_used_variables : t -> Proof_using.t option
 
   (** Compacts the representation of the proof by pruning all intermediate
       terms *)
@@ -331,7 +331,7 @@ type 'a proof_entry
 
 val definition_entry
   :  ?opaque:bool
-  -> ?using:Names.Id.Set.t
+  -> ?using:Proof_using.t
   -> ?inline:bool
   -> ?types:Constr.types
   -> ?univs:Entries.universes_entry

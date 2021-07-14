@@ -517,9 +517,21 @@ module Section =
 
         let get_section_decl_basename d = Label.to_id (Constant.label (get_section_decl_name d))
 
+        let is_section_assum = function
+          | SectionAssum _ -> true
+          | SectionDef _ -> false
+
+        let named_of_section = function
+          | SectionAssum (cst, t) -> Named.Declaration.LocalAssum (map_annot Constant.basename cst, t)
+          | SectionDef (cst, c, t) -> Named.Declaration.LocalDef (map_annot Constant.basename cst, c, t)
       end
 
     type ('constr, 'types) pt = ('constr, 'types) Declaration.pt list
+
+    let rec lookup id = function
+      | decl :: _ when Id.equal id (Declaration.get_section_decl_basename decl) -> decl
+      | _ :: sign -> lookup id sign
+      | [] -> raise Not_found
 
     type names = Constant.t list
   end

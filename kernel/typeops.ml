@@ -144,16 +144,12 @@ let check_hyps_inclusion env ?evars c sign =
 (* Type of constants *)
 
 
-let type_of_constant env (kn,_u as cst) =
-  let cb = lookup_constant kn env in
-  let () = check_hyps_inclusion env (GlobRef.ConstRef kn) cb.const_hyps in
+let type_of_constant env cst =
   let ty, cu = constant_type env cst in
   let () = check_constraints cu env in
     ty
 
-let type_of_constant_in env (kn,_u as cst) =
-  let cb = lookup_constant kn env in
-  let () = check_hyps_inclusion env (GlobRef.ConstRef kn) cb.const_hyps in
+let type_of_constant_in env cst =
   constant_type_in env cst
 
 (* Type of a lambda-abstraction. *)
@@ -332,8 +328,7 @@ let judge_of_array env u tj defj =
    dynamic constraints of the form u<=v are enforced *)
 
 let type_of_inductive_knowing_parameters env (ind,u) args =
-  let (mib,_mip) as spec = lookup_mind_specif env ind in
-  check_hyps_inclusion env (GlobRef.IndRef ind) mib.mind_hyps;
+  let spec = lookup_mind_specif env ind in
   let t,cst = Inductive.constrained_type_of_inductive_knowing_parameters
       (spec,u) (Inductive.make_param_univs env args)
   in
@@ -342,7 +337,6 @@ let type_of_inductive_knowing_parameters env (ind,u) args =
 
 let type_of_inductive env (ind,u) =
   let (mib,mip) = lookup_mind_specif env ind in
-  check_hyps_inclusion env (GlobRef.IndRef ind) mib.mind_hyps;
   let t,cst = Inductive.constrained_type_of_inductive ((mib,mip),u) in
   check_constraints cst env;
   t
@@ -350,11 +344,6 @@ let type_of_inductive env (ind,u) =
 (* Constructors. *)
 
 let type_of_constructor env (c,_u as cu) =
-  let () =
-    let ((kn,_),_) = c in
-    let mib = lookup_mind kn env in
-    check_hyps_inclusion env (GlobRef.ConstructRef c) mib.mind_hyps
-  in
   let specif = lookup_mind_specif env (inductive_of_constructor c) in
   let t,cst = constrained_type_of_constructor cu specif in
   let () = check_constraints cst env in
