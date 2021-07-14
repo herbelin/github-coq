@@ -502,3 +502,24 @@ module Compacted =
 
     let fold f l ~init = List.fold_right f l init
   end
+
+module Section =
+  struct
+    module Declaration =
+      struct
+        type ('constr, 'types) pt =
+          | SectionAssum of Constant.t binder_annot * 'types          (** name, type *)
+          | SectionDef of Constant.t binder_annot * 'constr * 'types  (** name, value, type *)
+
+        let get_section_decl_name = function
+          | SectionAssum (cst,_) -> cst.binder_name
+          | SectionDef (cst,_,_) -> cst.binder_name
+
+        let get_section_decl_basename d = Label.to_id (Constant.label (get_section_decl_name d))
+
+      end
+
+    type ('constr, 'types) pt = ('constr, 'types) Declaration.pt list
+
+    type names = Constant.t list
+  end

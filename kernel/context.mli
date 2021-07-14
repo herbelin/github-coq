@@ -320,3 +320,22 @@ sig
 
   val fold : (('c, 't) Declaration.pt -> 'a -> 'a) -> ('c, 't) pt -> init:'a -> 'a
 end
+
+module Section :
+  sig
+    module Declaration :
+      sig
+        type ('constr, 'types) pt =
+          | SectionAssum of Constant.t binder_annot * 'types          (** name, type *)
+          | SectionDef of Constant.t binder_annot * 'constr * 'types  (** name, value, type *)
+
+        val get_section_decl_name : ('constr, 'types) pt -> Constant.t
+
+        val get_section_decl_basename : ('constr, 'types) pt -> Id.t
+
+      end
+
+    type ('constr, 'types) pt = ('constr, 'types) Declaration.pt list
+
+    type names = Constant.t list
+  end
