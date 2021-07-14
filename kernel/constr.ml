@@ -1532,9 +1532,11 @@ let hcons =
 type rel_declaration = (constr, types) Context.Rel.Declaration.pt
 type named_declaration = (constr, types) Context.Named.Declaration.pt
 type compacted_declaration = (constr, types) Context.Compacted.Declaration.pt
+type section_declaration = (constr, types) Context.Section.Declaration.pt
 type rel_context = rel_declaration list
 type named_context = named_declaration list
 type compacted_context = compacted_declaration list
+type section_context = section_declaration list
 
 (** Minimalistic constr printer, typically for debugging *)
 
