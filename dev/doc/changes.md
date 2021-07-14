@@ -1,3 +1,9 @@
+## Changes between Coq 8.14 and Coq 8.15
+
+### Terminology used in the universes API
+
+- Renaming `Univ.Constraint` into `Univ.Constraints`
+
 ## Changes between Coq 8.13 and Coq 8.14
 
 ### Build system and library infrastructure

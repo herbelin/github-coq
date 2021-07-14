@@ -92,12 +92,12 @@ let to_constraints ~force_weak g s =
   in
   let tr cst acc =
     match cst with
-    | ULub (l, l') -> Constraint.add (l, Eq, l') acc
-    | UWeak (l, l') when force_weak -> Constraint.add (l, Eq, l') acc
+    | ULub (l, l') -> Constraints.add (l, Eq, l') acc
+    | UWeak (l, l') when force_weak -> Constraints.add (l, Eq, l') acc
     | UWeak  _-> acc
     | ULe (l, l') ->
       begin match Universe.level l, Universe.level l' with
-        | Some l, Some l' -> Constraint.add (l, Le, l') acc
+        | Some l, Some l' -> Constraints.add (l, Le, l') acc
         | None, Some _ -> enforce_leq l l' acc
         | _, None ->
           if UGraph.check_leq g l l'
@@ -106,11 +106,11 @@ let to_constraints ~force_weak g s =
       end
     | UEq (l, l') ->
       begin match Universe.level l, Universe.level l' with
-        | Some l, Some l' -> Constraint.add (l, Eq, l') acc
+        | Some l, Some l' -> Constraints.add (l, Eq, l') acc
         | None, _ | _, None ->
           if UGraph.check_eq g l l'
           then acc
           else invalid ()
       end
   in
-  Set.fold tr s Constraint.empty
+  Set.fold tr s Constraints.empty

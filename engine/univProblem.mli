@@ -41,4 +41,4 @@ val enforce_eq_instances_univs : bool -> Instance.t constraint_function
 
 (** With [force_weak] UWeak constraints are turned into equalities,
    otherwise they're forgotten. *)
-val to_constraints : force_weak:bool -> UGraph.t -> Set.t -> Constraint.t
+val to_constraints : force_weak:bool -> UGraph.t -> Set.t -> Constraints.t
