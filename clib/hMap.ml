@@ -215,6 +215,7 @@ struct
 
   let split s x = assert false (** Cannot be implemented efficiently *)
 
+  let of_list l = List.fold_right add l empty
 end
 
 module Make(M : HashedType) =
