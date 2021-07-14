@@ -52,7 +52,7 @@ type case_printing =
  *)
 type case_info =
   { ci_ind        : inductive;      (* inductive type to which belongs the value that is being matched *)
-    ci_npar       : int;            (* number of parameters of the above inductive type *)
+    ci_npar       : int;            (* number of parameters to apply for the above inductive type *)
     ci_cstr_ndecls : int array;     (* For each constructor, the corresponding integer determines
                                        the number of values that can be bound in a match-construct.
                                        NOTE: parameters of the inductive type are therefore excluded from the count *)
@@ -252,7 +252,7 @@ let mkRef (gr,u) = let open GlobRef in match gr with
   | ConstRef c -> mkConstU (c,u)
   | IndRef ind -> mkIndU (ind,u)
   | ConstructRef c -> mkConstructU (c,u)
-  | VarRef x -> mkVar x
+  | VarRef id -> mkVar id
 
 (* Constructs a primitive integer *)
 let mkInt i = Int i
@@ -451,7 +451,6 @@ let destCoFix c = match kind c with
   | _ -> raise DestKO
 
 let destRef c = let open GlobRef in match kind c with
-  | Var x -> VarRef x, Univ.Instance.empty
   | Const (c,u) -> ConstRef c, u
   | Ind (ind,u) -> IndRef ind, u
   | Construct (c,u) -> ConstructRef c, u
