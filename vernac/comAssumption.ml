@@ -47,7 +47,7 @@ let declare_local is_coe ~poly ~kind body typ univs imps impl name =
   let env = Global.env () in
   let sigma = Evd.from_env env in
   let () = if body = None then Classes.declare_instance env sigma None Goptions.OptLocal r in
-  let () = if is_coe then ComCoercion.try_add_new_coercion r ~local:true ~poly in
+  let () = if is_coe then ComCoercion.try_add_new_coercion r ~local:true in
   (r, Univ.Instance.empty)
 
 let declare_variable is_coe ~poly ~kind typ univs imps impl name =
@@ -91,7 +91,7 @@ let declare_global is_coe ~poly ~local ~kind body typ (univs, pl) imps nl name =
     | Locality.ImportNeedQualified -> true
     | Locality.ImportDefaultBehavior -> false
   in
-  let () = if is_coe then ComCoercion.try_add_new_coercion gr ~local ~poly in
+  let () = if is_coe then ComCoercion.try_add_new_coercion gr ~local in
   let inst = instance_of_univ_entry univs in
   (gr,inst)
 

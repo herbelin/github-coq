@@ -394,7 +394,7 @@ let build_named_proj ~primitive ~flags ~poly ~univs ~uinstance ~kind env paramde
   Impargs.maybe_declare_manual_implicits false refi impls;
   if flags.pf_subclass then begin
     let cl = ComCoercion.class_of_global (GlobRef.IndRef indsp) in
-    ComCoercion.try_add_new_coercion_with_source refi ~local:false ~poly ~source:cl
+    ComCoercion.try_add_new_coercion_with_source refi ~local:false ~source:cl
   end;
   let i = if is_local_assum decl then i+1 else i in
   (Some kn, i, Projection term::subst)
@@ -603,7 +603,7 @@ let declare_structure ~cumulative finite ~ubind ~univs ~variances paramimpls par
     let cstr = (rsp, 1) in
     let projections = declare_projections rsp ctx ~kind binder_name.(i) coers implfs fields in
     let build = GlobRef.ConstructRef cstr in
-    let () = if is_coercion then ComCoercion.try_add_new_coercion build ~local:false ~poly in
+    let () = if is_coercion then ComCoercion.try_add_new_coercion build ~local:false in
     let struc = Structure.make (Global.env ()) rsp projections in
     let () = declare_structure_entry struc in
     rsp

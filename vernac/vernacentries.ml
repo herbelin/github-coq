@@ -637,7 +637,7 @@ let start_lemma_com ~typing_flags ~program_mode ~poly ~scope ~kind ?using ?hook 
 
 let vernac_definition_hook ~canonical_instance ~local ~poly = let open Decls in function
 | Coercion ->
-  Some (ComCoercion.add_coercion_hook ~poly)
+  Some ComCoercion.add_coercion_hook
 | CanonicalStructure ->
   Some (Declare.Hook.(make (fun { S.dref } -> Canonical.declare_canonical_structure ?local dref)))
 | SubClass ->
@@ -1261,12 +1261,12 @@ let vernac_canonical ~local r =
   Canonical.declare_canonical_structure ?local (smart_global r)
 
 let vernac_coercion ~atts ref qids qidt =
-  let local, poly = Attributes.(parse Notations.(locality ++ polymorphic) atts) in
+  let local = Attributes.(parse locality atts) in
   let local = enforce_locality local in
   let target = cl_of_qualid qidt in
   let source = cl_of_qualid qids in
   let ref' = smart_global ref in
-  ComCoercion.try_add_new_coercion_with_target ref' ~local ~poly ~source ~target;
+  ComCoercion.try_add_new_coercion_with_target ref' ~local ~source ~target;
   Flags.if_verbose Feedback.msg_info (pr_global ref' ++ str " is now a coercion")
 
 let vernac_identity_coercion ~atts id qids qidt =

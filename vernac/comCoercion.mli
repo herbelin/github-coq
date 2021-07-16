@@ -18,14 +18,13 @@ open Coercionops
 val try_add_new_coercion_with_target
   :  GlobRef.t
   -> local:bool
-  -> poly:bool
   -> source:cl_typ
   -> target:cl_typ
   -> unit
 
 (** [try_add_new_coercion ref s] declares [ref], assumed to be of type
    [(x1:T1)...(xn:Tn)src->tg], as a coercion from [src] to [tg] *)
-val try_add_new_coercion : GlobRef.t -> local:bool -> poly:bool -> unit
+val try_add_new_coercion : GlobRef.t -> local:bool -> unit
 
 (** [try_add_new_coercion_subclass cst s] expects that [cst] denotes a
    transparent constant which unfolds to some class [tg]; it declares
@@ -36,7 +35,7 @@ val try_add_new_coercion_subclass : cl_typ -> local:bool -> poly:bool -> unit
 (** [try_add_new_coercion_with_source ref s src] declares [ref] as a coercion
    from [src] to [tg] where the target is inferred from the type of [ref] *)
 val try_add_new_coercion_with_source : GlobRef.t -> local:bool ->
-  poly:bool -> source:cl_typ -> unit
+  source:cl_typ -> unit
 
 (** [try_add_new_identity_coercion id s src tg] enriches the
    environment with a new definition of name [id] declared as an
@@ -46,7 +45,7 @@ val try_add_new_identity_coercion
   -> local:bool
   -> poly:bool -> source:cl_typ -> target:cl_typ -> unit
 
-val add_coercion_hook : poly:bool -> Declare.Hook.t
+val add_coercion_hook : Declare.Hook.t
 
 val add_subclass_hook : poly:bool -> Declare.Hook.t
 
