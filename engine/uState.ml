@@ -121,12 +121,13 @@ let compute_instance_binders inst ubinders =
 
 let univ_entry ~poly uctx =
   let open Entries in
+  let (binders, rbinders) = uctx.names in
   if poly then
-    let (_, rbinders) = uctx.names in
     let uctx = context uctx in
     let nas = compute_instance_binders (UContext.instance uctx) rbinders in
-    Polymorphic_entry (nas, uctx)
-  else Monomorphic_entry (context_set uctx)
+    Polymorphic_entry (nas, uctx), binders
+  else
+    Monomorphic_entry (context_set uctx), binders
 
 let of_context_set local = { empty with local }
 
@@ -435,14 +436,14 @@ let check_univ_decl ~poly uctx decl =
       (ContextSet.constraints uctx.local);
   let names = decl.univdecl_instance in
   let extensible = decl.univdecl_extensible_instance in
+  let (binders, rbinders) = uctx.names in
   if poly then
-    let (_, rbinders) = uctx.names in
     let uctx = universe_context ~names ~extensible uctx in
     let nas = compute_instance_binders (UContext.instance uctx) rbinders in
-    Entries.Polymorphic_entry (nas, uctx)
+    Entries.Polymorphic_entry (nas, uctx), binders
   else
     let () = check_universe_context_set ~names ~extensible uctx in
-    Entries.Monomorphic_entry uctx.local
+    Entries.Monomorphic_entry uctx.local, binders
 
 let is_bound l lbound = match lbound with
   | UGraph.Bound.Prop -> Level.is_prop l

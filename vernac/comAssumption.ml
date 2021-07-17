@@ -37,7 +37,7 @@ let instance_of_univ_entry = function
   | Polymorphic_entry (_, univs) -> Univ.UContext.instance univs
   | Monomorphic_entry _ -> Univ.Instance.empty
 
-let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl {CAst.v=name} =
+let declare_axiom is_coe ~poly ~local ~kind typ (univs, ubinders) imps nl {CAst.v=name} =
   let do_instance = let open Decls in match kind with
   | Context -> true
     (* The typeclass behaviour of Variable and Context doesn't depend
@@ -50,11 +50,10 @@ let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl {CAst.v=name
     | InlineAt i -> Some i
   in
   let kind = Decls.IsAssumption kind in
-  let decl = Declare.ParameterEntry (None,(typ,univs),inl) in
+  let decl = Declare.ParameterEntry ((None,(typ,univs),inl),ubinders) in
   let kn = Declare.declare_constant ~name ~local ~kind decl in
   let gr = GlobRef.ConstRef kn in
   let () = maybe_declare_manual_implicits false gr imps in
-  let () = DeclareUniv.declare_univ_binders gr pl in
   let () = Declare.assumption_message name in
   let env = Global.env () in
   let sigma = Evd.from_env env in
@@ -181,8 +180,7 @@ let do_assumptions ~program_mode ~poly ~scope ~kind nl l =
      this case too. *)
   let sigma = Evd.restrict_universe_context sigma uvars in
   let univs = Evd.check_univ_decl ~poly sigma udecl in
-  let ubinders = Evd.universe_binders sigma in
-  declare_assumptions ~poly ~scope ~kind (univs,ubinders) nl l
+  declare_assumptions ~poly ~scope ~kind univs nl l
 
 let context_subst subst (name,b,t,impl) =
   name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
@@ -198,8 +196,8 @@ let context_insection sigma ~poly ctx =
         declare_variable false ~kind t [] impl (CAst.make name)
       | name, Some b, t, impl ->
         (* We need to get poly right for check_same_poly *)
-        let univs = if poly then Polymorphic_entry ([| |], Univ.UContext.empty)
-          else Monomorphic_entry Univ.ContextSet.empty
+        let univs = (if poly then Polymorphic_entry ([| |], Univ.UContext.empty)
+          else Monomorphic_entry Univ.ContextSet.empty), UnivNames.empty_binders
         in
         let entry = Declare.definition_entry ~univs ~types:t b in
         (* XXX Fixme: Use Declare.prepare_definition *)
@@ -217,7 +215,7 @@ let context_insection sigma ~poly ctx =
   ()
 
 let context_nosection sigma ~poly ctx =
-  let univs =
+  let (univ_entry,ubinders as univs) =
     match ctx, poly with
     | [_], _ | _, true -> Evd.univ_entry ~poly sigma
     | _, false ->
@@ -225,14 +223,14 @@ let context_nosection sigma ~poly ctx =
          avoid redeclaring them. *)
       let uctx = Evd.universe_context_set sigma in
       let () = DeclareUctx.declare_universe_context ~poly uctx in
-      Monomorphic_entry Univ.ContextSet.empty
+      Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders
   in
   let fn subst d =
     let (name,b,t,_impl) = context_subst subst d in
     let kind = Decls.(IsAssumption Logical) in
     let decl = match b with
       | None ->
-        Declare.ParameterEntry (None,(t,univs),None)
+        Declare.ParameterEntry ((None,(t,univ_entry),None),ubinders)
       | Some b ->
         let entry = Declare.definition_entry ~univs ~types:t b in
         Declare.DefinitionEntry entry
@@ -248,7 +246,7 @@ let context_nosection sigma ~poly ctx =
     let () = if Lib.is_modtype() || Option.is_empty b then
         Classes.declare_instance env sigma None locality (GlobRef.ConstRef cst)
     in
-    Constr.mkConstU (cst,instance_of_univ_entry univs) :: subst
+    Constr.mkConstU (cst,instance_of_univ_entry univ_entry) :: subst
   in
   let _ : Vars.substl = List.fold_left fn [] ctx in
   ()

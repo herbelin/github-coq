@@ -407,7 +407,7 @@ let interp_mutual_inductive_constr ~sigma ~template ~udecl ~variances ~ctx_param
   let ctx_params = List.map Termops.(map_rel_decl (EConstr.to_constr sigma)) ctx_params in
   let arityconcl = List.map (Option.map (fun (_anon, s) -> EConstr.ESorts.kind sigma s)) arityconcl in
   let sigma = restrict_inductive_universes sigma ctx_params (List.map snd arities) constructors in
-  let uctx = Evd.check_univ_decl ~poly sigma udecl in
+  let univ_entry, _ as univs = Evd.check_univ_decl ~poly sigma udecl in
 
   (* Build the inductive entries *)
   let entries = List.map4 (fun indname (templatearity, arity) concl (cnames,ctypes) ->
@@ -432,7 +432,7 @@ let interp_mutual_inductive_constr ~sigma ~template ~udecl ~variances ~ctx_param
           List.fold_left (fun levels c -> add_levels c levels)
             param_levels ctypes
         in
-        template_polymorphism_candidate ~ctor_levels uctx ctx_params concl
+        template_polymorphism_candidate ~ctor_levels univ_entry ctx_params concl
       in
       match template with
         | Some template ->
@@ -452,12 +452,12 @@ let interp_mutual_inductive_constr ~sigma ~template ~udecl ~variances ~ctx_param
       mind_entry_finite = finite;
       mind_entry_inds = entries;
       mind_entry_private = if private_ind then Some false else None;
-      mind_entry_universes = uctx;
+      mind_entry_universes = univ_entry;
       mind_entry_template = is_template;
-      mind_entry_variance = variance_of_entry ~cumulative ~variances uctx;
+      mind_entry_variance = variance_of_entry ~cumulative ~variances univ_entry;
     }
   in
-  mind_ent, Evd.universe_binders sigma
+  mind_ent, univs
 
 let interp_params env udecl uparamsl paramsl =
   let sigma, udecl, variances = interp_cumul_univ_decl_opt env udecl in

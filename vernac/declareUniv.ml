@@ -9,7 +9,6 @@
 (************************************************************************)
 
 open Names
-open Declarations
 open Univ
 
 (* object_kind , id *)
@@ -25,7 +24,7 @@ let _ = CErrors.register_handler (function
 
 type universe_source =
   | BoundUniv (* polymorphic universe, bound in a function (this will go away someday) *)
-  | QualifiedUniv of Id.t (* global universe introduced by some global value *)
+  | QualifiedUniv of DirPath.t (* global universe introduced by some global value *)
   | UnqualifiedUniv (* other global universe *)
 
 type universe_name_decl = universe_source * (Id.t * Univ.Level.UGlobal.t) list
@@ -40,8 +39,7 @@ let qualify_univ i dp src id =
   | BoundUniv | UnqualifiedUniv ->
     i,  Libnames.make_path dp id
   | QualifiedUniv l ->
-    let dp = DirPath.repr dp in
-    Nametab.map_visibility succ i, Libnames.make_path (DirPath.make (l::dp)) id
+    Nametab.map_visibility succ i, Libnames.(make_path (append_dirpath dp l) id)
 
 let do_univ_name ~check i dp src (id,univ) =
   let i, sp = qualify_univ i dp src id in
@@ -86,27 +84,21 @@ let invent_name (named,cnt) u =
   in
   aux cnt
 
-let label_and_univs_of = let open GlobRef in function
-    | ConstRef c ->
-      let l = Label.to_id @@ Constant.label c in
-      let univs = (Global.lookup_constant c).const_universes in
-      l, univs
-    | IndRef (c,_) ->
-      let l = Label.to_id @@ MutInd.label c in
-      let univs = (Global.lookup_mind c).mind_universes in
-      l, univs
-    | VarRef id ->
+let suffix_of = let open GlobRef in function
+  | ConstRef c -> DirPath.make [Label.to_id @@ Constant.label c]
+  | IndRef (c,_) -> DirPath.make [Label.to_id @@ MutInd.label c]
+  | VarRef id ->
       CErrors.anomaly ~label:"declare_univ_binders"
         Pp.(str "declare_univ_binders on variable " ++ Id.print id ++ str".")
-    | ConstructRef _ ->
+  | ConstructRef _ ->
       CErrors.anomaly ~label:"declare_univ_binders"
         Pp.(str "declare_univ_binders on a constructor reference")
 
-let declare_univ_binders gr pl =
-  let l, univs = label_and_univs_of gr in
+let declare_univ_binders gr (univs, pl) =
+  let l = suffix_of gr in
   match univs with
-  | Polymorphic _ -> ()
-  | Monomorphic (levels,_) ->
+  | Entries.Polymorphic_entry _ -> ()
+  | Entries.Monomorphic_entry (levels,_) ->
     (* First the explicitly named universes *)
     let named, univs = Id.Map.fold (fun id univ (named,univs) ->
         let univs = match Univ.Level.name univ with

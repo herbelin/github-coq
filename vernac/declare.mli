@@ -134,7 +134,7 @@ val declare_assumption
   -> hook:Hook.t option
   -> impargs:Impargs.manual_implicits
   -> uctx:UState.t
-  -> Entries.parameter_entry
+  -> Entries.parameter_entry * UnivNames.universe_binders
   -> GlobRef.t
 
 type lemma_possible_guards = int list list
@@ -334,7 +334,7 @@ val definition_entry
   -> ?using:Names.Id.Set.t
   -> ?inline:bool
   -> ?types:Constr.types
-  -> ?univs:Entries.universes_entry
+  -> ?univs:Entries.universes_entry * UnivNames.universe_binders
   -> Constr.constr
   -> Evd.side_effects proof_entry
 
@@ -367,15 +367,15 @@ val declare_variable
    instead *)
 type 'a constant_entry =
   | DefinitionEntry of 'a proof_entry
-  | ParameterEntry of Entries.parameter_entry
-  | PrimitiveEntry of Entries.primitive_entry
+  | ParameterEntry of (Entries.parameter_entry * UnivNames.universe_binders)
+  | PrimitiveEntry of (Entries.primitive_entry * UnivNames.universe_binders)
 
 val prepare_parameter
   : poly:bool
   -> udecl:UState.universe_decl
   -> types:EConstr.types
   -> Evd.evar_map
-  -> Evd.evar_map * Entries.parameter_entry
+  -> Evd.evar_map * (Entries.parameter_entry * UnivNames.universe_binders)
 
 (** [declare_constant id cd] declares a global declaration
    (constant/parameter) with name [id] in the current section; it returns
@@ -409,7 +409,7 @@ val build_by_tactic
   -> poly:bool
   -> typ:EConstr.types
   -> unit Proofview.tactic
-  -> Constr.constr * Constr.types option * Entries.universes_entry * bool * UState.t
+  -> Constr.constr * Constr.types option * (Entries.universes_entry * UnivNames.universe_binders) * bool * UState.t
 
 (** {2 Program mode API} *)
 

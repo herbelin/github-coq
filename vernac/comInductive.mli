@@ -58,7 +58,7 @@ val interp_mutual_inductive_constr
   -> poly:bool
   -> private_ind:bool
   -> finite:Declarations.recursivity_kind
-  -> Entries.mutual_inductive_entry * UnivNames.universe_binders
+  -> Entries.mutual_inductive_entry * (Entries.universes_entry * UnivNames.universe_binders)
 
 (************************************************************************)
 (** Internal API, exported for Record                                   *)
