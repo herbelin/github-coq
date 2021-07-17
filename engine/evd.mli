@@ -669,7 +669,7 @@ val to_universe_context : evar_map -> Univ.UContext.t
 
 val univ_entry : poly:bool -> evar_map -> Entries.universes_entry * UnivNames.universe_binders
 
-val check_univ_decl : poly:bool -> evar_map -> UState.universe_decl -> Entries.universes_entry * UnivNames.universe_binders
+val univ_entry_with_decl : poly:bool -> evar_map -> UState.universe_decl -> Entries.universes_entry * UnivNames.universe_binders
 
 val merge_universe_context : evar_map -> UState.t -> evar_map
 val set_universe_context : evar_map -> UState.t -> evar_map

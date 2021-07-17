@@ -605,7 +605,7 @@ let post_check_evd ~udecl ~poly evd =
   let () =
     if not UState.(udecl.univdecl_extensible_instance &&
                    udecl.univdecl_extensible_constraints) then
-      ignore (Evd.check_univ_decl ~poly evd udecl)
+      ignore (Evd.univ_entry_with_decl ~poly evd udecl)
   in
   if poly then evd
   else (* We fix the variables to ensure they won't be lowered to Set *)

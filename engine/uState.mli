@@ -185,7 +185,7 @@ type universe_decl =
 
 val default_univ_decl : universe_decl
 
-(** [check_univ_decl ctx decl]
+(** [univ_entry_with_decl ctx decl]
 
    If non extensible in [decl], check that the local universes (resp.
    universe constraints) in [ctx] are implied by [decl].
@@ -196,9 +196,9 @@ val default_univ_decl : universe_decl
    When polymorphic, the universes corresponding to
    [decl.univdecl_instance] come first in the order defined by that
    list. *)
-val check_univ_decl : poly:bool -> t -> universe_decl -> Entries.universes_entry * UnivNames.universe_binders
+val univ_entry_with_decl : poly:bool -> t -> universe_decl -> Entries.universes_entry * UnivNames.universe_binders
 
-val check_mono_univ_decl : t -> universe_decl -> Univ.ContextSet.t
+val mono_univ_entry_with_decl : t -> universe_decl -> Univ.ContextSet.t
 
 (** {5 TODO: Document me} *)
 

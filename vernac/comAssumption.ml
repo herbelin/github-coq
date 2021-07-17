@@ -176,7 +176,7 @@ let do_assumptions ~program_mode ~poly ~scope ~kind nl l =
      IMO, thus I think we should adapt `prepare_parameter` to handle
      this case too. *)
   let sigma = Evd.restrict_universe_context sigma uvars in
-  let univs = Evd.check_univ_decl ~poly sigma udecl in
+  let univs = Evd.univ_entry_with_decl ~poly sigma udecl in
   declare_assumptions ~poly ~scope ~kind univs nl l
 
 let context_subst subst (name,b,t,impl) =

@@ -119,16 +119,6 @@ let compute_instance_binders inst ubinders =
   in
   Array.map map (Instance.to_array inst)
 
-let univ_entry ~poly uctx =
-  let open Entries in
-  let (binders, rbinders) = uctx.names in
-  if poly then
-    let uctx = context uctx in
-    let nas = compute_instance_binders (UContext.instance uctx) rbinders in
-    Polymorphic_entry (nas, uctx), binders
-  else
-    Monomorphic_entry (context_set uctx), binders
-
 let of_context_set local = { empty with local }
 
 let subst uctx = uctx.univ_variables
@@ -417,23 +407,21 @@ let check_implication uctx cstrs cstrs' =
   else CErrors.user_err ~hdr:"check_univ_decl"
       (str "Universe constraints are not implied by the ones declared.")
 
-let check_mono_univ_decl uctx decl =
-  let () =
-    let names = decl.univdecl_instance in
-    let extensible = decl.univdecl_extensible_instance in
-    check_universe_context_set ~names ~extensible uctx
-  in
+let check_extensible_constraints uctx decl =
   if not decl.univdecl_extensible_constraints then
     check_implication uctx
       decl.univdecl_constraints
-      (ContextSet.constraints uctx.local);
+      (ContextSet.constraints uctx.local)
+
+let mono_univ_entry_with_decl uctx decl =
+  check_extensible_constraints uctx decl;
+  let names = decl.univdecl_instance in
+  let extensible = decl.univdecl_extensible_instance in
+  check_universe_context_set ~names ~extensible uctx;
   uctx.local
 
-let check_univ_decl ~poly uctx decl =
-  if not decl.univdecl_extensible_constraints then
-    check_implication uctx
-      decl.univdecl_constraints
-      (ContextSet.constraints uctx.local);
+let univ_entry_with_decl ~poly uctx decl =
+  check_extensible_constraints uctx decl;
   let names = decl.univdecl_instance in
   let extensible = decl.univdecl_extensible_instance in
   let (binders, rbinders) = uctx.names in
@@ -444,6 +432,8 @@ let check_univ_decl ~poly uctx decl =
   else
     let () = check_universe_context_set ~names ~extensible uctx in
     Entries.Monomorphic_entry uctx.local, binders
+
+let univ_entry ~poly uctx = univ_entry_with_decl ~poly uctx default_univ_decl
 
 let is_bound l lbound = match lbound with
   | UGraph.Bound.Prop -> Level.is_prop l

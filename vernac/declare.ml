@@ -613,7 +613,7 @@ let declare_mutually_recursive_core ~info ~cinfo ~opaque ~ntns ~uctx ~rec_declar
     if restrict_ucontext
     then
       let uctx = UState.restrict uctx vars in
-      let univs = UState.check_univ_decl ~poly uctx udecl in
+      let univs = UState.univ_entry_with_decl ~poly uctx udecl in
       uctx, univs
     else
       let univs = UState.univ_entry ~poly uctx in
@@ -679,7 +679,7 @@ let prepare_definition ~info ~opaque ?using ~body ~typ sigma =
   in
   Option.iter (check_evars_are_solved env sigma) types;
   check_evars_are_solved env sigma body;
-  let univs = Evd.check_univ_decl ~poly sigma udecl in
+  let univs = Evd.univ_entry_with_decl ~poly sigma udecl in
   let entry = definition_entry ~opaque ?using ~inline ?types ~univs body in
   let uctx = Evd.evar_universe_context sigma in
   entry, uctx
@@ -714,7 +714,7 @@ let prepare_parameter ~poly ~udecl ~types sigma =
   let sigma, typ = Evarutil.finalize ~abort_on_undefined_evars:true
       sigma (fun nf -> nf types)
   in
-  let univs, ubinders = Evd.check_univ_decl ~poly sigma udecl in
+  let univs, ubinders = Evd.univ_entry_with_decl ~poly sigma udecl in
   sigma, ((None(*proof using*), (typ, univs), None(*inline*)), ubinders)
 
 type progress = Remain of int | Dependent | Defined of GlobRef.t
@@ -1576,14 +1576,14 @@ let make_univs_deferred ~poly ~initial_euctx ~uctx ~udecl
      complement the univ constraints of the typ with the ones of
      the body.  So we keep the two sets distinct. *)
   let uctx_body = UState.restrict uctx used_univs in
-  let ubody = UState.check_mono_univ_decl uctx_body udecl in
+  let ubody = UState.mono_univ_entry_with_decl uctx_body udecl in
   utyp, ubody
 
 let make_univs_private_poly ~poly ~uctx ~udecl (used_univs_typ, typ) (used_univs_body, body) =
   let used_univs = Univ.LSet.union used_univs_body used_univs_typ in
   let uctx = UState.restrict uctx used_univs in
   let uctx' = UState.restrict uctx used_univs_typ in
-  let utyp = UState.check_univ_decl ~poly uctx' udecl in
+  let utyp = UState.univ_entry_with_decl ~poly uctx' udecl in
   let ubody = Univ.ContextSet.diff
       (UState.context_set uctx)
       (UState.context_set uctx')
@@ -1598,7 +1598,7 @@ let make_univs ~poly ~uctx ~udecl (used_univs_typ, typ) (used_univs_body, body) 
      the actually used universes.
      TODO: check if restrict is really necessary now. *)
   let uctx = UState.restrict uctx used_univs in
-  let utyp = UState.check_univ_decl ~poly uctx udecl in
+  let utyp = UState.univ_entry_with_decl ~poly uctx udecl in
   utyp, Univ.ContextSet.empty
 
 let close_proof ~opaque ~keep_body_ucst_separate ps =
@@ -1667,7 +1667,7 @@ let close_proof_delayed ~feedback_id ps (fpl : closed_proof_output Future.comput
             (Vars.universes_of_constr pt)
         in
         let uctx = UState.restrict uctx used_univs in
-        let uctx = UState.check_mono_univ_decl uctx udecl in
+        let uctx = UState.mono_univ_entry_with_decl uctx udecl in
         (pt,uctx),eff)
     |> delayed_definition_entry ~opaque ~feedback_id ~using ~univs ~types
   in
@@ -1941,7 +1941,7 @@ let save_admitted ~pm ~proof =
   let pproofs = Proof.partial_proof iproof in
   let sec_vars = compute_proof_using_for_admitted proof typ pproofs in
   let uctx = get_initial_euctx proof in
-  let univs = UState.check_univ_decl ~poly uctx udecl in
+  let univs = UState.univ_entry_with_decl ~poly uctx udecl in
   finish_admitted ~pm ~pinfo:proof.pinfo ~uctx ~sec_vars ~univs
 
 (************************************************************************)

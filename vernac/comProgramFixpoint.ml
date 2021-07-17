@@ -235,7 +235,7 @@ let build_wellfounded pm (recname,pl,bl,arityc,body) poly ?typing_flags ?using r
         let body = it_mkLambda_or_LetIn (mkApp (h_body, [|make|])) binders_rel in
         let ty = it_mkProd_or_LetIn top_arity binders_rel in
         let ty = EConstr.Unsafe.to_constr ty in
-        let univs = Evd.check_univ_decl ~poly sigma udecl in
+        let univs = Evd.univ_entry_with_decl ~poly sigma udecl in
         (*FIXME poly? *)
         let ce = definition_entry ~types:ty ~univs (EConstr.to_constr sigma body) in
         (* FIXME: include locality *)
