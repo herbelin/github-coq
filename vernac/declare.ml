@@ -443,6 +443,7 @@ let declare_variable_core ~name ~kind d =
       let () = Global.push_named_def (name, se) in
       Glob_term.Explicit, de.proof_entry_opaque, de.proof_entry_universes
   in
+  DeclareUniv.declare_univ_binders (GlobRef.VarRef name) univs;
   Nametab.push (Nametab.Until 1) (Libnames.make_path DirPath.empty name) (GlobRef.VarRef name);
   Decls.(add_variable_data name {opaque;kind});
   ignore(Lib.add_leaf name (inVariable ()) : Libobject.object_name);

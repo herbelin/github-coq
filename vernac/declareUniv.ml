@@ -76,10 +76,11 @@ let input_univ_names (src, l) =
   if CList.is_empty l then ()
   else Lib.add_anonymous_leaf (input_univ_names (src, l))
 
-let invent_name (named,cnt) u =
+let invent_name dp (named,cnt) u =
   let rec aux i =
     let na = Id.of_string ("u"^(string_of_int i)) in
-    if Id.Map.mem na named then aux (i+1)
+    if Id.Map.mem na named || Nametab.exists_universe Libnames.(make_path dp na)
+    then aux (i+1)
     else na, (Id.Map.add na u named, i+1)
   in
   aux cnt
@@ -87,9 +88,7 @@ let invent_name (named,cnt) u =
 let suffix_of = let open GlobRef in function
   | ConstRef c -> DirPath.make [Label.to_id @@ Constant.label c]
   | IndRef (c,_) -> DirPath.make [Label.to_id @@ MutInd.label c]
-  | VarRef id ->
-      CErrors.anomaly ~label:"declare_univ_binders"
-        Pp.(str "declare_univ_binders on variable " ++ Id.print id ++ str".")
+  | VarRef id -> Libnames.add_dirpath_suffix (Lib.current_dirpath true) id
   | ConstructRef _ ->
       CErrors.anomaly ~label:"declare_univ_binders"
         Pp.(str "declare_univ_binders on a constructor reference")
@@ -109,9 +108,10 @@ let declare_univ_binders gr (univs, pl) =
         named, univs)
         pl (LSet.empty,[])
     in
+    let dp = Libnames.(append_dirpath (Lib.cwd_except_section ()) l) in
     (* then invent names for the rest *)
     let _, univs = LSet.fold (fun univ (aux,univs) ->
-        let id, aux = invent_name aux univ in
+        let id, aux = invent_name dp aux univ in
         let univ = Option.get (Level.name univ) in
         aux, (id,univ) :: univs)
         (LSet.diff levels named) ((pl,0),univs)
