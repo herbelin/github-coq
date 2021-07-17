@@ -59,7 +59,7 @@ let add_emap e v (cmap, imap) = match e with
 let push_local sec =
   { sec with context = sec.context + 1 }
 
-let push_context (nas, ctx) sec =
+let push_local_universe_context (nas, ctx) sec =
   if UContext.is_empty ctx then sec
   else
     let (snas, sctx) = sec.poly_universes in
@@ -74,7 +74,7 @@ let rec is_polymorphic_univ u sec =
   let here = Array.exists (fun u' -> Level.equal u u') (Instance.to_array (UContext.instance uctx)) in
   here || Option.cata (is_polymorphic_univ u) false sec.prev
 
-let push_constraints uctx sec =
+let push_global_universe_context uctx sec =
   if sec.has_poly_univs &&
      Constraint.exists
        (fun (l,_,r) -> is_polymorphic_univ l sec || is_polymorphic_univ r sec)

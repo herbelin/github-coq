@@ -89,7 +89,7 @@ let infer_primitive env { prim_entry_type = utyp; prim_entry_content = p; } =
 
     | Some (typ,Monomorphic_entry uctx) ->
       assert (AUContext.is_empty auctx); (* ensured by ComPrimitive *)
-      let env = push_context_set ~strict:true uctx env in
+      let env = push_universe_context_set ~strict:true uctx env in
       let u = Instance.empty in
       let typ =
         let typ = Typeops.infer_type env typ in
@@ -107,7 +107,7 @@ let infer_primitive env { prim_entry_type = utyp; prim_entry_content = p; } =
               && Constraint.is_empty (UContext.constraints uctx))
       then CErrors.user_err Pp.(str "Incorrect universes for primitive " ++
                                 str (op_or_type_to_string p));
-      let env = push_context ~strict:false uctx env in
+      let env = push_universe_context ~strict:false uctx env in
       (* Now we know that uctx matches the auctx *)
       let typ = (Typeops.infer_type env typ).utj_val in
       let () = check_primitive_type env p (UContext.instance uctx) typ in
@@ -134,8 +134,8 @@ let infer_declaration env (dcl : constant_entry) =
   match dcl with
   | ParameterEntry (ctx,(t,uctx),nl) ->
     let env = match uctx with
-      | Monomorphic_entry uctx -> push_context_set ~strict:true uctx env
-      | Polymorphic_entry (_, uctx) -> push_context ~strict:false uctx env
+      | Monomorphic_entry uctx -> push_universe_context_set ~strict:true uctx env
+      | Polymorphic_entry (_, uctx) -> push_universe_context ~strict:false uctx env
     in
     let j = Typeops.infer env t in
     let usubst, univs = Declareops.abstract_universes uctx in
@@ -158,12 +158,12 @@ let infer_declaration env (dcl : constant_entry) =
       let { const_entry_body = body; const_entry_feedback = feedback_id; _ } = c in
       let env, usubst, univs = match c.const_entry_universes with
       | Monomorphic_entry ctx ->
-        let env = push_context_set ~strict:true ctx env in
+        let env = push_universe_context_set ~strict:true ctx env in
         env, empty_level_subst, Monomorphic ctx
       | Polymorphic_entry (nas, uctx) ->
         (** [ctx] must contain local universes, such that it has no impact
             on the rest of the graph (up to transitivity). *)
-        let env = push_context ~strict:false uctx env in
+        let env = push_universe_context ~strict:false uctx env in
         let sbst, auctx = abstract_universes nas uctx in
         let sbst = make_instance_subst sbst in
         env, sbst, Polymorphic auctx
@@ -194,7 +194,7 @@ let infer_declaration env (dcl : constant_entry) =
 let infer_opaque env = function
   | ({ opaque_entry_type = typ;
                        opaque_entry_universes = Monomorphic_entry univs; _ } as c) ->
-      let env = push_context_set ~strict:true univs env in
+      let env = push_universe_context_set ~strict:true univs env in
       let { opaque_entry_feedback = feedback_id; _ } = c in
       let tyj = Typeops.infer_type env typ in
       let context = MonoTyCtx (env, tyj, c.opaque_entry_secctx, feedback_id) in
@@ -212,7 +212,7 @@ let infer_opaque env = function
   | ({ opaque_entry_type = typ;
                        opaque_entry_universes = Polymorphic_entry (nas, uctx); _ } as c) ->
       let { opaque_entry_feedback = feedback_id; _ } = c in
-      let env = push_context ~strict:false uctx env in
+      let env = push_universe_context ~strict:false uctx env in
       let tj = Typeops.infer_type env typ in
       let sbst, auctx = abstract_universes nas uctx in
       let usubst = make_instance_subst sbst in
@@ -300,7 +300,7 @@ let check_delayed (type a) (handle : a effect_handler) tyenv (body : a proof_out
   let ((body, uctx), side_eff) = body in
   let (body, uctx', valid_signatures) = handle env body side_eff in
   let uctx = ContextSet.union uctx uctx' in
-  let env = push_context_set uctx env in
+  let env = push_universe_context_set uctx env in
   let body,env,ectx = skip_trusted_seff valid_signatures body env in
   let j = Typeops.infer env body in
   let j = unzip ectx j in

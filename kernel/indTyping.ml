@@ -329,11 +329,11 @@ let typecheck_inductive env ~sec_univs (mie:mutual_inductive_entry) =
         (* For that particular case, we typecheck the inductive in an environment
            where the universes introduced by the definition are only [>= Prop] *)
         let env = set_universes_lbound env UGraph.Bound.Prop in
-        push_context_set ~strict:false ctx env
+        push_universe_context_set ~strict:false ctx env
       else
         (* In the regular case, all universes are [> Set] *)
-        push_context_set ~strict:true ctx env
-    | Polymorphic_entry (_, ctx) -> push_context ctx env
+        push_universe_context_set ~strict:true ctx env
+    | Polymorphic_entry (_, ctx) -> push_universe_context ctx env
   in
 
   (* Params *)

@@ -585,7 +585,7 @@ let intern_arg (acc, cst) (idl,(typ,ann)) =
   let lib_dir = Lib.library_dp() in
   let env = Global.env() in
   let (mty, _, cst') = Modintern.interp_module_ast env Modintern.ModType typ in
-  let () = Global.push_context_set ~strict:true cst' in
+  let () = Global.push_global_universe_context ~strict:true cst' in
   let env = Global.env () in
   let sobjs = get_module_sobjs false env inl mty in
   let mp0 = get_module_path mty in
@@ -669,7 +669,7 @@ let build_subtypes env mp args mtys =
     (fun ctx (m,ann) ->
        let inl = inl2intopt ann in
        let mte, _, ctx' = Modintern.interp_module_ast env Modintern.ModType m in
-       let env = Environ.push_context_set ~strict:true ctx' env in
+       let env = Environ.push_universe_context_set ~strict:true ctx' env in
        let ctx = Univ.ContextSet.union ctx ctx' in
        let mtb, cst = Mod_typing.translate_modtype env mp inl ([],mte) in
        let mod_type, cst = mk_funct_type env args (mtb.mod_type,cst) in
@@ -711,13 +711,13 @@ module RawModOps = struct
 let start_module export id args res fs =
   let mp = Global.start_module id in
   let arg_entries_r, ctx = intern_args args in
-  let () = Global.push_context_set ~strict:true ctx in
+  let () = Global.push_global_universe_context ~strict:true ctx in
   let env = Global.env () in
   let res_entry_o, subtyps, ctx = match res with
     | Enforce (res,ann) ->
         let inl = inl2intopt ann in
         let (mte, _, ctx) = Modintern.interp_module_ast env Modintern.ModType res in
-        let env = Environ.push_context_set ~strict:true ctx env in
+        let env = Environ.push_universe_context_set ~strict:true ctx env in
         (* We check immediately that mte is well-formed *)
         let _, _, _, cst = Mod_typing.translate_mse env None inl mte in
         let ctx = Univ.ContextSet.add_constraints cst ctx in
@@ -726,7 +726,7 @@ let start_module export id args res fs =
       let typs, ctx = build_subtypes env mp arg_entries_r resl in
       None, typs, ctx
   in
-  let () = Global.push_context_set ~strict:true ctx in
+  let () = Global.push_global_universe_context ~strict:true ctx in
   openmod_info := { cur_typ = res_entry_o; cur_typs = subtyps };
   let prefix = Lib.start_module export id mp fs in
   Nametab.(push_dir (Until 1) (prefix.obj_dir) (GlobDirRef.DirOpenModule prefix));
@@ -778,12 +778,12 @@ let declare_module id args res mexpr_o fs =
   let arg_entries_r, ctx = intern_args args in
   let params = mk_params_entry arg_entries_r in
   let env = Global.env () in
-  let env = Environ.push_context_set ~strict:true ctx env in
+  let env = Environ.push_universe_context_set ~strict:true ctx env in
   let mty_entry_o, subs, inl_res, ctx' = match res with
     | Enforce (mty,ann) ->
         let inl = inl2intopt ann in
         let (mte, _, ctx) = Modintern.interp_module_ast env Modintern.ModType mty in
-        let env = Environ.push_context_set ~strict:true ctx env in
+        let env = Environ.push_universe_context_set ~strict:true ctx env in
         (* We check immediately that mte is well-formed *)
         let _, _, _, cst = Mod_typing.translate_mse env None inl mte in
         let ctx = Univ.ContextSet.add_constraints cst ctx in
@@ -792,7 +792,7 @@ let declare_module id args res mexpr_o fs =
       let typs, ctx = build_subtypes env mp arg_entries_r mtys in
       None, typs, default_inline (), ctx
   in
-  let env = Environ.push_context_set ~strict:true ctx' env in
+  let env = Environ.push_universe_context_set ~strict:true ctx' env in
   let ctx = Univ.ContextSet.union ctx ctx' in
   let mexpr_entry_o, inl_expr, ctx' = match mexpr_o with
     | None -> None, default_inline (), Univ.ContextSet.empty
@@ -800,7 +800,7 @@ let declare_module id args res mexpr_o fs =
       let (mte, _, ctx) = Modintern.interp_module_ast env Modintern.Module mexpr in
       Some mte, inl2intopt ann, ctx
   in
-  let env = Environ.push_context_set ~strict:true ctx' env in
+  let env = Environ.push_universe_context_set ~strict:true ctx' env in
   let ctx = Univ.ContextSet.union ctx ctx' in
   let entry = match mexpr_entry_o, mty_entry_o with
     | None, None -> assert false (* No body, no type ... *)
@@ -820,7 +820,7 @@ let declare_module id args res mexpr_o fs =
   | None -> None
   | _ -> inl_res
   in
-  let () = Global.push_context_set ~strict:true ctx in
+  let () = Global.push_global_universe_context ~strict:true ctx in
   let mp_env,resolver = Global.add_module id entry inl in
 
   (* Name consistency check : kernel vs. library *)
@@ -842,10 +842,10 @@ module RawModTypeOps = struct
 let start_modtype id args mtys fs =
   let mp = Global.start_modtype id in
   let arg_entries_r, cst = intern_args args in
-  let () = Global.push_context_set ~strict:true cst in
+  let () = Global.push_global_universe_context ~strict:true cst in
   let env = Global.env () in
   let sub_mty_l, cst = build_subtypes env mp arg_entries_r mtys in
-  let () = Global.push_context_set ~strict:true cst in
+  let () = Global.push_global_universe_context ~strict:true cst in
   openmodtype_info := sub_mty_l;
   let prefix = Lib.start_modtype id mp fs in
   Nametab.(push_dir (Until 1) (prefix.obj_dir) (GlobDirRef.DirOpenModtype prefix));
@@ -873,19 +873,19 @@ let declare_modtype id args mtys (mty,ann) fs =
      then we adds the module parameters to the global env. *)
   let mp = Global.start_modtype id in
   let arg_entries_r, ctx = intern_args args in
-  let () = Global.push_context_set ~strict:true ctx in
+  let () = Global.push_global_universe_context ~strict:true ctx in
   let params = mk_params_entry arg_entries_r in
   let env = Global.env () in
   let mte, _, ctx = Modintern.interp_module_ast env Modintern.ModType mty in
-  let () = Global.push_context_set ~strict:true ctx in
+  let () = Global.push_global_universe_context ~strict:true ctx in
   let env = Global.env () in
   (* We check immediately that mte is well-formed *)
   let _, _, _, cst = Mod_typing.translate_mse env None inl mte in
-  let () = Global.push_context_set ~strict:true (Univ.LSet.empty,cst) in
+  let () = Global.push_global_universe_context ~strict:true (Univ.LSet.empty,cst) in
   let env = Global.env () in
   let entry = params, mte in
   let sub_mty_l, ctx = build_subtypes env mp arg_entries_r mtys in
-  let () = Global.push_context_set ~strict:true ctx in
+  let () = Global.push_global_universe_context ~strict:true ctx in
   let env = Global.env () in
   let sobjs = get_functor_sobjs false env inl entry in
   let subst = map_mp (get_module_path (snd entry)) mp empty_delta_resolver in
@@ -941,7 +941,7 @@ let type_of_incl env is_mod = function
 let declare_one_include (me_ast,annot) =
   let env = Global.env() in
   let me, kind, cst = Modintern.interp_module_ast env Modintern.ModAny me_ast in
-  let () = Global.push_context_set ~strict:true cst in
+  let () = Global.push_global_universe_context ~strict:true cst in
   let env = Global.env () in
   let is_mod = (kind == Modintern.Module) in
   let cur_mp = Lib.current_mp () in

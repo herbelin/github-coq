@@ -116,10 +116,12 @@ val add_modtype :
   Label.t -> Entries.module_type_entry -> Declarations.inline ->
     ModPath.t safe_transformer
 
-(** Adding universe constraints *)
+(** Extending the global universe graph *)
 
-val push_context_set :
+val push_global_universe_context :
   strict:bool -> Univ.ContextSet.t -> safe_transformer0
+
+(** Adding global universe constraints *)
 
 val add_constraints :
   Univ.Constraint.t -> safe_transformer0
@@ -154,8 +156,8 @@ val push_named_assum : (Id.t * Constr.types) -> safe_transformer0
 val push_named_def :
   Id.t * Entries.section_def_entry -> safe_transformer0
 
-(** Add local universes to a polymorphic section *)
-val push_section_context : (Name.t array * Univ.UContext.t) -> safe_transformer0
+(** Add a local graph of universes to a polymorphic section *)
+val push_section_universe_context : (Name.t array * Univ.UContext.t) -> safe_transformer0
 
 (** {6 Interactive module functions } *)
 

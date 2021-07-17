@@ -1768,7 +1768,7 @@ let vernac_check_may_eval ~pstate redexp glopt rc =
   Evarconv.check_problems_are_solved env sigma;
   let sigma = Evd.minimize_universes sigma in
   let uctx = Evd.universe_context_set sigma in
-  let env = Environ.push_context_set uctx (Evarutil.nf_env_evar sigma env) in
+  let env = Environ.push_universe_context_set uctx (Evarutil.nf_env_evar sigma env) in
   let j =
     if Evarutil.has_undefined_evars sigma c then
       Evarutil.j_nf_evar sigma (Retyping.get_judgment_of env sigma c)
@@ -1808,7 +1808,7 @@ let vernac_global_check c =
   let c,uctx = Constrintern.interp_constr env sigma c in
   let senv = Global.safe_env() in
   let uctx = UState.context_set uctx in
-  let senv = Safe_typing.push_context_set ~strict:false uctx senv in
+  let senv = Safe_typing.push_global_universe_context ~strict:false uctx senv in
   let c = EConstr.to_constr sigma c in
   let j = Safe_typing.typing senv c in
   let env = Safe_typing.env_of_safe_env senv in

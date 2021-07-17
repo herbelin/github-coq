@@ -389,13 +389,13 @@ type constraints_addition =
   | Now of Univ.ContextSet.t
   | Later of Univ.ContextSet.t Future.computation
 
-let push_context_set ~strict cst senv =
+let push_global_universe_context ~strict cst senv =
   if Univ.ContextSet.is_empty cst then senv
   else
-    let sections = Option.map (Section.push_constraints cst) senv.sections
+    let sections = Option.map (Section.push_global_universe_context cst) senv.sections
     in
     { senv with
-      env = Environ.push_context_set ~strict cst senv.env;
+      env = Environ.push_universe_context_set ~strict cst senv.env;
       univ = Univ.ContextSet.union cst senv.univ;
       sections }
 
@@ -404,7 +404,7 @@ let add_constraints cst senv =
   | Later fc ->
     {senv with future_cst = fc :: senv.future_cst}
   | Now cst ->
-    push_context_set ~strict:true cst senv
+    push_global_universe_context ~strict:true cst senv
 
 let add_constraints_list cst senv =
   List.fold_left (fun acc c -> add_constraints c acc) senv cst
@@ -522,16 +522,16 @@ let push_named_assum (x,t) senv =
   let env'' = safe_push_named (LocalAssum (x,t)) senv.env in
   { senv with sections=Some sections; env = env'' }
 
-let push_section_context (nas, ctx) senv =
+let push_section_universe_context (nas, ctx) senv =
   let sections = get_section senv.sections in
-  let sections = Section.push_context (nas, ctx) sections in
+  let sections = Section.push_local_universe_context (nas, ctx) sections in
   let senv = { senv with sections=Some sections } in
   let ctx = Univ.ContextSet.of_context ctx in
   (* We check that the universes are fresh. FIXME: This should be done
      implicitly, but we have to work around the API. *)
   let () = assert (Univ.LSet.for_all (fun u -> not (Univ.LSet.mem u (fst senv.univ))) (fst ctx)) in
   { senv with
-    env = Environ.push_context_set ~strict:false ctx senv.env;
+    env = Environ.push_universe_context_set ~strict:false ctx senv.env;
     univ = Univ.ContextSet.union ctx senv.univ }
 
 (** {6 Insertion of new declarations to current environment } *)
@@ -604,7 +604,7 @@ let add_field ?(is_include=false) ((l,sfb) as field) gn senv =
     else
       (* Delayed constraints from opaque body are added by [add_constant_aux] *)
       let cst = constraints_of_sfb sfb in
-      List.fold_left (fun senv cst -> push_context_set ~strict:true cst senv) senv cst
+      List.fold_left (fun senv cst -> push_global_universe_context ~strict:true cst senv) senv cst
   in
   let env' = match sfb, gn with
     | SFBconst cb, C con -> Environ.add_constant con cb senv.env
@@ -827,7 +827,7 @@ let export_side_effects senv eff =
         match cb.const_universes with
         | Polymorphic _ -> env
         | Monomorphic ctx ->
-          Environ.push_context_set ~strict:true ctx env
+          Environ.push_universe_context_set ~strict:true ctx env
       in
     match trusted with
     | Some univs ->
@@ -860,7 +860,7 @@ let push_opaque_proof pf senv =
 
 let export_private_constants eff senv =
   let uctx, exported = export_side_effects senv eff in
-  let senv = push_context_set ~strict:true uctx senv in
+  let senv = push_global_universe_context ~strict:true uctx senv in
   let map senv (kn, c) = match c.const_body with
   | OpaqueDef p ->
     let local = empty_private c.const_universes in
@@ -995,7 +995,7 @@ let add_mind ?typing_flags l mie senv =
 let add_modtype l params_mte inl senv =
   let mp = MPdot(senv.modpath, l) in
   let mtb, cst = Mod_typing.translate_modtype senv.env mp inl params_mte  in
-  let senv = push_context_set ~strict:true (Univ.LSet.empty,cst) senv in
+  let senv = push_global_universe_context ~strict:true (Univ.LSet.empty,cst) senv in
   let mtb = Declareops.hcons_module_type mtb in
   let senv = add_field (l,SFBmodtype mtb) MT senv in
   mp, senv
@@ -1015,7 +1015,7 @@ let full_add_module_type mp mt senv =
 let add_module l me inl senv =
   let mp = MPdot(senv.modpath, l) in
   let mb, cst = Mod_typing.translate_module senv.env mp inl me in
-  let senv = push_context_set ~strict:true (Univ.LSet.empty,cst) senv in
+  let senv = push_global_universe_context ~strict:true (Univ.LSet.empty,cst) senv in
   let mb = Declareops.hcons_module_body mb in
   let senv = add_field (l,SFBmodule mb) M senv in
   let senv =
@@ -1059,7 +1059,7 @@ let add_module_parameter mbid mte inl senv =
   let () = check_empty_struct senv in
   let mp = MPbound mbid in
   let mtb, cst = Mod_typing.translate_modtype senv.env mp inl ([],mte) in
-  let senv = push_context_set ~strict:true (Univ.LSet.empty,cst) senv in
+  let senv = push_global_universe_context ~strict:true (Univ.LSet.empty,cst) senv in
   let senv = full_add_module_type mp mtb senv in
   let new_variant = match senv.modvariant with
     | STRUCT (params,oldenv) -> STRUCT ((mbid,mtb) :: params, oldenv)
@@ -1141,7 +1141,7 @@ let end_module l restype senv =
   let () = check_empty_context senv in
   let mbids = List.rev_map fst params in
   let mb, cst = build_module_body params restype senv in
-  let senv = push_context_set ~strict:true (Univ.LSet.empty,cst) senv in
+  let senv = push_global_universe_context ~strict:true (Univ.LSet.empty,cst) senv in
   let newenv = Environ.set_opaque_tables oldsenv.env (Environ.opaque_tables senv.env) in
   let newenv = Environ.set_universes (Environ.universes senv.env) newenv in
   let senv' = propagate_loads { senv with env = newenv } in
@@ -1185,7 +1185,7 @@ let add_include me is_module inl senv =
   let sign,(),resolver,cst =
     translate_mse_incl is_module senv.env mp_sup inl me
   in
-  let senv = push_context_set ~strict:true (Univ.LSet.empty,cst) senv in
+  let senv = push_global_universe_context ~strict:true (Univ.LSet.empty,cst) senv in
   (* Include Self support  *)
   let rec compute_sign sign mb resolver senv =
     match sign with
@@ -1281,7 +1281,7 @@ let import lib cst vodigest senv =
      (Pp.strbrk "Cannot load a library with the same name as the current one.");
   let mp = MPfile lib.comp_name in
   let mb = lib.comp_mod in
-  let env = Environ.push_context_set ~strict:true
+  let env = Environ.push_universe_context_set ~strict:true
       (Univ.ContextSet.union lib.comp_univs cst)
       senv.env
   in
@@ -1318,7 +1318,6 @@ let open_section senv =
   { senv with sections=Some sections }
 
 let close_section senv =
-  let open Section in
   let sections0 = get_section senv.sections in
   let env0 = senv.env in
   (* First phase: revert the declarations added in the section *)
@@ -1328,6 +1327,7 @@ let close_section senv =
   | _ :: _, [] ->
     CErrors.anomaly (Pp.str "Unmatched section data")
   | entry :: entries, (lbl, leaf) :: revstruct ->
+    let open Section in
     let data = match entry, leaf with
     | SecDefinition kn, SFBconst cb ->
       let () = assert (Label.equal lbl (Constant.label kn)) in
@@ -1357,7 +1357,7 @@ let close_section senv =
       senv (List.rev rev_reimport)
   in
   (* Third phase: replay the discharged section contents *)
-  let senv = push_context_set ~strict:true cstrs senv in
+  let senv = push_global_universe_context ~strict:true cstrs senv in
   let modlist = Section.replacement_context env0 sections0 in
   let cooking_info abstract = { Declarations.modlist; abstract; } in
   let fold senv = function

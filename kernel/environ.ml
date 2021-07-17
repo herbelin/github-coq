@@ -401,7 +401,7 @@ let add_universes ~lbound ~strict ctx g =
   in
     UGraph.merge_constraints (Univ.UContext.constraints ctx) g
 
-let push_context ?(strict=false) ctx env =
+let push_universe_context ?(strict=false) ctx env =
   map_universes (add_universes ~lbound:(universes_lbound env) ~strict ctx) env
 
 let add_universes_set ~lbound ~strict ctx g =
@@ -411,7 +411,7 @@ let add_universes_set ~lbound ~strict ctx g =
             (Univ.ContextSet.levels ctx) g
   in UGraph.merge_constraints (Univ.ContextSet.constraints ctx) g
 
-let push_context_set ?(strict=false) ctx env =
+let push_universe_context_set ?(strict=false) ctx env =
   map_universes (add_universes_set ~lbound:(universes_lbound env) ~strict ctx) env
 
 let push_subgraph (levels,csts) env =
