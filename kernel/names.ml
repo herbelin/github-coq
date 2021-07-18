@@ -385,6 +385,7 @@ module KerName = struct
 
   let modpath kn = kn.modpath
   let label kn = kn.knlabel
+  let basename kn = kn.knlabel
 
   let to_string_gen mp_to_string kn =
     mp_to_string kn.modpath ^ "." ^ Label.to_string kn.knlabel
@@ -508,6 +509,7 @@ module KerPair = struct
   let make2 mp l = same (KerName.make mp l)
   let repr2 kp = KerName.repr (user kp)
   let label kp = KerName.label (user kp)
+  let basename kp = KerName.basename (user kp)
   let modpath kp = KerName.modpath (user kp)
 
   let change_label kp lbl =
