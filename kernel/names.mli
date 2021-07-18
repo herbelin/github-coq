@@ -288,6 +288,9 @@ sig
   val modpath : t -> ModPath.t
   val label : t -> Label.t
 
+  val basename : t -> Id.t
+  (** Shortcut for [Label.to_id (label ...)] *)
+
   val to_string : t -> string
   (** Encode as a string (not to be used for user-facing messages). *)
 
@@ -394,6 +397,9 @@ sig
 
   val label : t -> Label.t
   (** Shortcut for [KerName.label (user ...)] *)
+
+  val basename : t -> Id.t
+  (** Shortcut for [KerName.basename (user ...)] *)
 
   (** Comparisons *)
 
