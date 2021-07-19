@@ -23,9 +23,9 @@ module RelDecl = Context.Rel.Declaration
 
 let declare_variable is_coe ~kind typ imps impl {CAst.v=name} =
   let kind = Decls.IsAssumption kind in
-  let () = Declare.declare_variable ~name ~kind ~typ ~impl in
+  let cst = Declare.declare_variable ~name ~kind ~typ ~impl in
   let () = Declare.assumption_message name in
-  let r = GlobRef.VarRef name in
+  let r = GlobRef.ConstRef cst in
   let () = maybe_declare_manual_implicits true r imps in
   let env = Global.env () in
   let sigma = Evd.from_env env in

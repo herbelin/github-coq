@@ -609,9 +609,9 @@ let declare_implicits local ref =
     declare_implicits_gen req flags ref
 
 let declare_var_implicits id ~impl =
-  let flags = !implicit_args in
-  sec_implicits := Id.Map.add id impl !sec_implicits;
-  declare_implicits_gen ImplLocal flags (GlobRef.VarRef id)
+(*  let flags = !implicit_args in*)
+  sec_implicits := Id.Map.add id impl !sec_implicits (*;
+  declare_implicits_gen ImplLocal flags (GlobRef.VarRef id)*)
 
 let declare_constant_implicits con =
   let flags = !implicit_args in

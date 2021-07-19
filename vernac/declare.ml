@@ -281,7 +281,7 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a proo
     let open Environ in
     let env = Global.env () in
     let hyp_typ, hyp_def =
-      if List.is_empty (Environ.named_context env) then
+      if List.is_empty (Environ.section_context env) then
         Cset.empty, Cset.empty
       else
         let ids_typ = global_section_set env typ in
@@ -392,7 +392,7 @@ let inline_private_constants ~uctx env ce =
 type variable_declaration =
   | SectionLocalDef of Evd.side_effects proof_entry
   | SectionLocalAssum of { typ:Constr.types; impl:Glob_term.binding_kind; }
-
+(*
 (* This object is only for things which iterate over objects to find
    variables (only Prettyp.print_context AFAICT) *)
 let objVariable : unit Libobject.Dyn.tag =
@@ -401,29 +401,31 @@ let objVariable : unit Libobject.Dyn.tag =
     classify_function = (fun () -> Dispose)}
 
 let inVariable v = Libobject.Dyn.Easy.inj v objVariable
+*)
 
 let declare_variable_core ~name ~kind d =
   (* Variables are distinguished by only short names *)
   if Decls.variable_exists name then
     raise (DeclareUniv.AlreadyDeclared (None, name));
 
-  let impl,opaque = match d with (* Fails if not well-typed *)
+  let impl,opaque,cd = match d with (* Fails if not well-typed *)
     | SectionLocalAssum {typ;impl} ->
-      let () = Global.push_named_assum (name,typ) in
-      impl, true
-    | SectionLocalDef (de) ->
-      (* The body should already have been forced upstream because it is a
-         section-local definition, but it's not enforced by typing *)
-      let ((body, body_ui), eff) = Future.force de.proof_entry_body in
-      let () = export_side_effects eff in
-      let poly, entry_ui = match de.proof_entry_universes with
-        | Entries.Monomorphic_entry uctx -> false, uctx
-        | Entries.Polymorphic_entry uctx -> true, Univ.ContextSet.of_context uctx
-      in
-      let univs = Univ.ContextSet.union body_ui entry_ui in
-      (* We must declare the universe constraints before type-checking the
-         term. *)
-      let () = DeclareUctx.declare_universe_context ~poly univs in
+      let poly = false in
+      let univs =
+        if poly then Entries.Polymorphic_entry Univ.UContext.empty
+        else Entries.Monomorphic_entry Univ.ContextSet.empty in
+      let sec_vars = None in
+      let () = Global.push_named_assum (name,typ) in (* TO MERGE WITH add_constant *)
+      let pe = Entries.{
+          parameter_entry_secctx = sec_vars;
+          parameter_entry_type = typ;
+          parameter_entry_universes = univs;
+          parameter_entry_inline_code = None;
+      } in
+      impl, true, ParameterEntry pe
+    | SectionLocalDef de ->
+      (* TO MERGE WITH add_constant*)
+      let ((body, _), _) = Future.force de.proof_entry_body in
       let se = {
         Entries.secdef_body = body;
         secdef_secctx = de.proof_entry_secctx;
@@ -431,13 +433,15 @@ let declare_variable_core ~name ~kind d =
         secdef_type = de.proof_entry_type;
       } in
       let () = Global.push_named_def (name, se) in
-      Glob_term.Explicit, de.proof_entry_opaque
+      (* END MERGE *)
+      Glob_term.Explicit, de.proof_entry_opaque, DefinitionEntry de
   in
-  Nametab.push (Nametab.Until 1) (Libnames.make_path DirPath.empty name) (GlobRef.VarRef name);
-  Decls.(add_variable_data name {opaque;kind});
-  ignore(Lib.add_leaf name (inVariable ()) : Libobject.object_name);
   Impargs.declare_var_implicits ~impl name;
-  Notation.declare_ref_arguments_scope Evd.empty (GlobRef.VarRef name)
+  Decls.(add_variable_data name {opaque;kind});
+  let kn = define_constant ~typing_flags:None ~name cd in
+  (* Register the libobjects attached to the constants *)
+  let () = register_constant kn kind Locality.ImportDefaultBehavior (* TODO *) in
+  kn
 
 let declare_variable ~name ~kind ~typ ~impl =
   declare_variable_core ~name ~kind (SectionLocalAssum { typ; impl })
@@ -542,9 +546,9 @@ module Internal = struct
     let tag = objConstant
     let kind obj = obj.cst_kind
   end
-
+(*
   let objVariable = objVariable
-
+*)
 end
 
 let declare_definition_scheme ~internal ~univs ~role ~name c =
@@ -564,9 +568,9 @@ let declare_entry_core ~name ~scope ~kind ~typing_flags ?hook ~obls ~impargs ~uc
   let ubind = UState.universe_binders uctx in
   let dref = match scope with
   | Locality.Discharge ->
-    let () = declare_variable_core ~name ~kind (SectionLocalDef entry) in
+    let cst = declare_variable_core ~name ~kind (SectionLocalDef entry) in
     if should_suggest then Proof_using.suggest_variable (Global.env ()) name;
-    Names.GlobRef.VarRef name
+    Names.GlobRef.ConstRef cst
   | Locality.Global local ->
     let kn = declare_constant ~name ~local ~kind ~typing_flags (DefinitionEntry entry) in
     let gr = Names.GlobRef.ConstRef kn in

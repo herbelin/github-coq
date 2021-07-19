@@ -510,11 +510,11 @@ let push_named_def (id,de) senv =
   let cst = Context.make_annot cst r in
   let sections = get_section senv.sections in
   let env' = safe_push_section (SectionDecl.SectionDef (cst, c, typ)) senv.env in
-  (* TO REMOVE *)
+  (* TO REMOVE
   let id = Context.make_annot id r in
-  let env'' = Environ.push_named (NamedDecl.LocalDef (id, c, typ)) env' in
-  (* END REMOVE *)
-  { senv with sections=Some sections; env = env'' }
+  let env' = Environ.push_named (NamedDecl.LocalDef (id, c, typ)) env' in
+  END REMOVE *)
+  { senv with sections=Some sections; env = env' }
 
 let push_named_assum (id,t) senv =
   let cst = Constant.make2 senv.modpath (Label.of_id id) in
@@ -522,11 +522,11 @@ let push_named_assum (id,t) senv =
   let t, r = Term_typing.translate_local_assum senv.env t in
   let cst = Context.make_annot cst r in
   let env' = safe_push_section (SectionDecl.SectionAssum (cst, t)) senv.env in
-  (* TO REMOVE *)
+  (* TO REMOVE
   let id = Context.make_annot id r in
-  let env'' = Environ.push_named (NamedDecl.LocalAssum (id, t)) env' in
-  (* END REMOVE *)
-  { senv with sections=Some sections; env = env'' }
+  let env' = Environ.push_named (NamedDecl.LocalAssum (id, t)) env' in
+  END REMOVE *)
+  { senv with sections=Some sections; env = env' }
 
 let push_section_context uctx senv =
   let sections = get_section senv.sections in
