@@ -357,7 +357,7 @@ val declare_variable
   -> kind:Decls.logical_kind
   -> typ:Constr.types
   -> impl:Glob_term.binding_kind
-  -> unit
+  -> Constant.t
 
 (** Declaration of global constructions
    i.e. Definition/Theorem/Axiom/Parameter/...
@@ -561,7 +561,7 @@ module Internal : sig
     val tag : t Libobject.Dyn.tag
     val kind : t -> Decls.logical_kind
   end
-
+(*
   val objVariable : unit Libobject.Dyn.tag
-
+*)
 end

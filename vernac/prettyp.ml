@@ -689,13 +689,12 @@ let gallina_print_leaf_entry env sigma with_values ((sp, kn),lobj) =
   match lobj with
   | AtomicObject o ->
     let handler =
-      DynHandle.add Declare.Internal.objVariable begin fun _ ->
-          (* Outside sections, VARIABLES still exist but only with universes
-             constraints *)
-          (try Some(print_named_decl env sigma (basename sp)) with Not_found -> None)
-      end @@
       DynHandle.add Declare.Internal.Constant.tag begin fun _ ->
-          Some (print_constant with_values sep (Constant.make1 kn) None)
+          let cst = Constant.make1 kn in
+          if List.mem cst (List.map Context.Section.Declaration.get_section_decl_name (Environ.section_context env)) then
+            (try Some(print_named_decl env sigma (basename sp)) with Not_found -> None)
+          else
+            Some (print_constant with_values sep (Constant.make1 kn) None)
       end @@
       DynHandle.add DeclareInd.Internal.objInductive begin fun _ ->
           Some (gallina_print_inductive (MutInd.make1 kn) None)
