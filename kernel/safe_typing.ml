@@ -875,57 +875,53 @@ let export_private_constants eff senv =
   let senv = List.fold_left add_constant_aux senv bodies in
   exported, senv
 
+let add_opaque_constant kn ce senv =
+  let handle env body eff =
+    let body, uctx, signatures, skip = inline_side_effects env body eff in
+    let trusted = check_signatures senv signatures in
+    let trusted, uctx = match trusted with
+      | None -> 0, uctx
+      | Some univs -> skip, Univ.ContextSet.union univs uctx
+    in
+    body, uctx, trusted
+  in
+  let cb, ctx = Term_typing.translate_opaque senv.env kn ce in
+  let map pf = Term_typing.check_delayed handle ctx pf in
+  let fc = Future.chain ce.Entries.opaque_entry_body map in
+  let senv, o = push_opaque_proof fc senv in
+  let delayed_cst =
+    if not (Declareops.constant_is_polymorphic cb) then
+      let map (_, u) = match u with
+        | Opaqueproof.PrivateMonomorphic ctx -> ctx
+        | Opaqueproof.PrivatePolymorphic _ -> assert false
+      in
+      let fc = Future.chain fc map in
+      match Future.peek_val fc with
+      | None -> [Later fc]
+      | Some c -> [Now c]
+    else []
+  in
+  let cb = { cb with const_body = OpaqueDef o } in
+  let senv = add_constant_aux senv (kn, cb) in
+  add_constraints_list delayed_cst senv
+
+let add_possible_retroknowledge kn ce senv =
+  match ce with
+  | Entries.PrimitiveEntry { Entries.prim_entry_content = CPrimitives.OT_type t; _ } ->
+    if sections_are_opened senv then CErrors.anomaly (Pp.str "Primitive type not allowed in sections");
+    add_retroknowledge (Retroknowledge.Register_type(t,kn)) senv
+  | _ -> senv
+
+let add_non_opaque_constant kn ce senv =
+  let cb = Term_typing.translate_constant senv.env kn ce in
+  let senv = add_constant_aux senv (kn, cb) in
+  add_possible_retroknowledge kn ce senv
+
 let add_constant l decl senv =
   let kn = Constant.make2 senv.modpath l in
-    let cb =
-      match decl with
-      | OpaqueEntry ce ->
-        let handle env body eff =
-          let body, uctx, signatures, skip = inline_side_effects env body eff in
-          let trusted = check_signatures senv signatures in
-          let trusted, uctx = match trusted with
-          | None -> 0, uctx
-          | Some univs -> skip, Univ.ContextSet.union univs uctx
-          in
-          body, uctx, trusted
-        in
-        let cb, ctx = Term_typing.translate_opaque senv.env kn ce in
-        let map pf = Term_typing.check_delayed handle ctx pf in
-        let pf = Future.chain ce.Entries.opaque_entry_body map in
-        { cb with const_body = OpaqueDef pf }
-      | ConstantEntry ce ->
-        Term_typing.translate_constant senv.env kn ce
-    in
-  let senv =
-    let senv, cb, delayed_cst = match cb.const_body with
-    | OpaqueDef fc ->
-      let senv, o = push_opaque_proof fc senv in
-      let delayed_cst =
-        if not (Declareops.constant_is_polymorphic cb) then
-          let map (_, u) = match u with
-          | Opaqueproof.PrivateMonomorphic ctx -> ctx
-          | Opaqueproof.PrivatePolymorphic _ -> assert false
-          in
-          let fc = Future.chain fc map in
-          match Future.peek_val fc with
-          | None -> [Later fc]
-          | Some c -> [Now c]
-        else []
-      in
-      senv, { cb with const_body = OpaqueDef o }, delayed_cst
-    | Undef _ | Def _ | Primitive _ as body ->
-      senv, { cb with const_body = body }, []
-    in
-    let senv = add_constant_aux senv (kn, cb) in
-    add_constraints_list delayed_cst senv
-  in
-
-  let senv =
-    match decl with
-    | ConstantEntry (Entries.PrimitiveEntry { Entries.prim_entry_content = CPrimitives.OT_type t; _ }) ->
-      if sections_are_opened senv then CErrors.anomaly (Pp.str "Primitive type not allowed in sections");
-      add_retroknowledge (Retroknowledge.Register_type(t,kn)) senv
-    | _ -> senv
+  let senv = match decl with
+  | OpaqueEntry ce -> add_opaque_constant kn ce senv
+  | ConstantEntry ce -> add_non_opaque_constant kn ce senv
   in
   kn, senv
 
