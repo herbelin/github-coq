@@ -174,8 +174,4 @@ val replacement_context : unit -> Declarations.work_list
 
 (** {6 Discharge: decrease the section level if in the current section } *)
 
-(* XXX Why can't we use the kernel functions ? *)
-
 val discharge_proj_repr : Projection.Repr.t -> Projection.Repr.t
-val discharge_abstract_universe_context :
-  Declarations.abstr_info -> Univ.AbstractContext.t -> Univ.universe_level_subst * Univ.AbstractContext.t

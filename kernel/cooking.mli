@@ -37,3 +37,6 @@ val cook_inductive :
 (** {6 Utility functions used in module [Discharge]. } *)
 
 val expmod_constr : work_list -> constr -> constr
+
+val discharge_abstract_universe_context :
+  Univ.Instance.t * Univ.AbstractContext.t -> Univ.AbstractContext.t -> Univ.Instance.t * Univ.AbstractContext.t

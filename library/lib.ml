@@ -550,11 +550,3 @@ let discharge_proj_repr =
       else let modlist = replacement_context () in
       let _, newpars = Mindmap.find mind (snd modlist) in
       mind, npars + Array.length newpars)
-
-let discharge_abstract_universe_context { Declarations.abstr_subst = subst; abstr_uctx = abs_ctx } auctx =
-  let open Univ in
-  let ainst = make_abstract_instance auctx in
-  let subst = Instance.append subst ainst in
-  let subst = make_instance_subst subst in
-  let auctx = Univ.subst_univs_level_abstract_universe_context subst auctx in
-  subst, AbstractContext.union abs_ctx auctx

@@ -170,7 +170,7 @@ let expmod_constr_subst cache modlist subst c =
   let c = expmod_constr cache modlist c in
     Vars.subst_univs_level_constr subst c
 
-let discharge_abstract_universe_context subst abs_ctx auctx =
+let discharge_abstract_universe_context (subst,abs_ctx) auctx =
   (** Given a named instance [subst := u₀ ... uₙ₋₁] together with an abstract
       context [abs_ctx := 0 ... n - 1 |= C{0, ..., n - 1}] of the same length,
       and another abstract context relative to the former context
@@ -198,7 +198,7 @@ let lift_univs subst auctx0 = function
     assert (AbstractContext.is_empty auctx0);
     subst, (Monomorphic ctx)
   | Polymorphic auctx ->
-    let subst, auctx = discharge_abstract_universe_context subst auctx0 auctx in
+    let subst, auctx = discharge_abstract_universe_context (subst, auctx0) auctx in
     subst, (Polymorphic auctx)
 
 let cook_constr { modlist; abstract = {abstr_ctx; abstr_subst; abstr_uctx;}; } (c, priv) =
@@ -209,9 +209,10 @@ let cook_constr { modlist; abstract = {abstr_ctx; abstr_subst; abstr_uctx;}; } (
     let () = assert (Instance.is_empty abstr_subst) in
     abstr_subst, priv
   | Opaqueproof.PrivatePolymorphic (univs, ctx) ->
-    let ainst = Instance.of_array (Array.init univs Level.var) in
-    let abstr_subst = Instance.append abstr_subst ainst in
-    let ctx = on_snd (Univ.subst_univs_level_constraints (Univ.make_instance_subst abstr_subst)) ctx in
+    let names = Array.init univs (fun _ -> Names.Anonymous) in
+    let private_univs, cstrs = ctx in
+    let abstr_subst, auctx = discharge_abstract_universe_context (abstr_subst, abstr_uctx) (AbstractContext.make names cstrs) in
+    let ctx = (private_univs, UContext.constraints (AbstractContext.repr auctx)) in
     let univs = univs + AbstractContext.size abstr_uctx in
     abstr_subst, Opaqueproof.PrivatePolymorphic (univs, ctx)
   in

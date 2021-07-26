@@ -225,6 +225,7 @@ let discharge_class (_,cl) =
         (decl' :: ctx', NamedDecl.get_id decl :: subst)
     ) ctx ([], []) in
   let discharge_rel_context (subst, usubst) n rel =
+    let usubst = Univ.make_instance_subst usubst in
     let rel = Context.Rel.map (Cooking.expmod_constr repl) rel in
     let fold decl (ctx, k) =
       let map c = subst_univs_level_constr usubst (substn_vars k subst c) in
@@ -246,7 +247,7 @@ let discharge_class (_,cl) =
     let info = abs_context cl in
     let ctx = info.Declarations.abstr_ctx in
     let ctx, subst = rel_of_variable_context ctx in
-    let usubst, cl_univs' = Lib.discharge_abstract_universe_context info cl.cl_univs in
+    let usubst, cl_univs' = Cooking.discharge_abstract_universe_context Declarations.(info.abstr_subst,info.abstr_uctx) cl.cl_univs in
     let context = discharge_context ctx (subst, usubst) cl.cl_context in
     let props = discharge_rel_context (subst, usubst) (succ (List.length cl.cl_context)) cl.cl_props in
     let discharge_proj x = x in
