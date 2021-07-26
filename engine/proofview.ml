@@ -23,9 +23,11 @@ open Context.Named.Declaration
 (** Main state of tactics *)
 type proofview = Proofview_monad.proofview
 
-(* The first items in pairs below are proofs (under construction).
-   The second items in the pairs below are statements that are being proved. *)
-type entry = (EConstr.constr * EConstr.types) list
+(* The first item is a conversion from initial named to section variables
+   The second items in pairs below are proofs (under construction).
+   The third items in the pairs below are statements that are being proved. *)
+type section_subst = (Names.Id.t * EConstr.t) list
+type entry = (section_subst * EConstr.constr * EConstr.types) list
 
 (** Returns a stylised view of a proofview for use by, for instance,
     ide-s. *)
@@ -41,7 +43,7 @@ let compact el ({ solution } as pv) =
   let nf c = Evarutil.nf_evar solution c in
   let nf0 c = EConstr.(to_constr ~abort_on_undefined_evars:false solution (of_constr c)) in
   let size = Evd.fold (fun _ _ i -> i+1) solution 0 in
-  let new_el = List.map (fun (t,ty) -> nf t, nf ty) el in
+  let new_el = List.map (fun (s,t,ty) -> s, nf t, nf ty) el in
   let pruned_solution = Evd.drop_all_defined solution in
   let apply_subst_einfo _ ei =
     Evd.({ ei with
@@ -64,6 +66,13 @@ let map_telescope_evd f = function
   | TNil sigma -> TNil (f sigma)
   | TCons (env,sigma,ty,g) -> TCons(env,(f sigma),ty,g)
 
+let replicate_section_context env sigma typ =
+  let env, subst = Environ.replicate_section_context env in
+  let subst = List.map (on_snd EConstr.of_constr) subst in
+  let section_subst = List.map (fun (cst,id) -> (EConstr.destVar sigma id, EConstr.mkConst cst)) subst in
+  let typ = EConstr.Vars.replace_consts subst typ in
+  section_subst, env, typ
+
 let dependent_init =
   (* Goals don't have a source location. *)
   let src = Loc.tag @@ Evar_kinds.GoalEvar in
@@ -71,10 +80,11 @@ let dependent_init =
   let rec aux = function
   | TNil sigma -> [], { solution = sigma; comb = [] }
   | TCons (env, sigma, typ, t) ->
+    let section_subst, env, typ = replicate_section_context env sigma typ in
     let (sigma, econstr) = Evarutil.new_evar env sigma ~src ~typeclass_candidate:false typ in
     let (gl, _) = EConstr.destEvar sigma econstr in
     let ret, { solution = sol; comb = comb } = aux (t sigma econstr) in
-    let entry = (econstr, typ) :: ret in
+    let entry = (section_subst, econstr, typ) :: ret in
     entry, { solution = sol; comb = with_empty_state gl :: comb }
   in
   fun t ->
@@ -91,7 +101,9 @@ let init =
   in
   fun sigma l -> dependent_init (aux sigma l)
 
-let initial_goals initial = initial
+let initial_goals initial =
+  List.map (fun (subst,c,t) -> (EConstr.Vars.replace_vars subst c, EConstr.Vars.replace_vars subst t))
+    initial
 
 let finished = function
   | {comb = []} -> true
@@ -101,7 +113,8 @@ let return { solution=defs } = defs
 
 let return_constr { solution = defs } c = Evarutil.nf_evar defs c
 
-let partial_proof entry pv = CList.map (return_constr pv) (CList.map fst entry)
+let partial_proof entry pv =
+  List.map (fun (subst,proof,_) -> EConstr.Vars.replace_vars subst (return_constr pv proof)) entry
 
 
 (** {6 Focusing commands} *)
@@ -1254,11 +1267,11 @@ module V82 = struct
 
 
   let top_goals initial { solution=solution; } =
-    let goals = CList.map (fun (t,_) -> fst (Constr.destEvar (EConstr.Unsafe.to_constr t))) initial in
+    let goals = CList.map (fun (_,t,_) -> fst (Constr.destEvar (EConstr.Unsafe.to_constr t))) initial in
     { Evd.it = goals ; sigma=solution; }
 
   let top_evars initial { solution=sigma; } =
-    let evars_of_initial (c,_) =
+    let evars_of_initial (_,c,_) =
       Evar.Set.elements (Evd.evar_nodes_of_term c)
     in
     CList.flatten (CList.map evars_of_initial initial)
