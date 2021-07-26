@@ -442,15 +442,16 @@ let add_constraints c env =
 let check_constraints c env =
   UGraph.check_constraints c env.env_universes
 
-let add_universes ~lbound ~strict ctx g =
+let add_universes ~lbound ~strict ~fail ctx g =
   let g = Array.fold_left
-            (fun g v -> UGraph.add_universe ~lbound ~strict v g)
+            (fun g v -> try UGraph.add_universe ~lbound ~strict v g with UGraph.AlreadyDeclared when not fail -> g)
             g (Univ.Instance.to_array (Univ.UContext.instance ctx))
   in
     UGraph.merge_constraints (Univ.UContext.constraints ctx) g
 
-let push_context ?(strict=false) ctx env =
-  map_universes (add_universes ~lbound:(universes_lbound env) ~strict ctx) env
+let push_context ?(strict=false) ?(fail=true) ctx env =
+  (* Assume a section is opened *)
+  map_universes (add_universes ~lbound:(universes_lbound env) ~strict ~fail ctx) env
 
 let add_universes_set ~lbound ~strict ctx g =
   let g = Univ.Level.Set.fold
