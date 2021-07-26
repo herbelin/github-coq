@@ -172,7 +172,7 @@ let expmod_constr_subst cache modlist subst c =
 
 let discharge_abstract_universe_context subst abs_ctx auctx =
   (** Given a named instance [subst := u₀ ... uₙ₋₁] together with an abstract
-      context [auctx0 := 0 ... n - 1 |= C{0, ..., n - 1}] of the same length,
+      context [abs_ctx := 0 ... n - 1 |= C{0, ..., n - 1}] of the same length,
       and another abstract context relative to the former context
       [auctx := 0 ... m - 1 |= C'{u₀, ..., uₙ₋₁, 0, ..., m - 1}],
       construct the lifted abstract universe context
