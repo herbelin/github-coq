@@ -333,9 +333,14 @@ module Section :
 
         val get_section_decl_basename : ('constr, 'types) pt -> Id.t
 
+        val is_section_assum :  ('constr, 'types) pt -> bool
+
+        val named_of_section : ('constr, 'types) pt -> ('constr, 'types) Named.Declaration.pt
       end
 
     type ('constr, 'types) pt = ('constr, 'types) Declaration.pt list
+
+    val lookup : Id.t -> ('c, 't) pt -> ('c, 't) Declaration.pt
 
     type names = Constant.t list
   end
