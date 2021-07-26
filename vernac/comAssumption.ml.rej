@@ -1,0 +1,41 @@
+***************
+*** 259,290 ****
+    let ubinders = Evd.universe_binders sigma in
+    declare_assumptions ~poly ~scope ~kind (univs,ubinders) nl l
+  
+- let empty_poly_univ_entry = Polymorphic_entry ([| |], Univ.UContext.empty), UnivNames.empty_binders
+- let empty_mono_univ_entry = Monomorphic_entry Univ.ContextSet.empty, UnivNames.empty_binders
+- let empty_univ_entry poly = if poly then empty_poly_univ_entry else empty_mono_univ_entry
+- 
+- let clear_univs scope univ =
+-   match scope, univ with
+-   | Locality.Global _, (Polymorphic_entry _, _ as univs) -> univs
+-   | _, (Monomorphic_entry _, _) -> empty_univ_entry false
+-   | _, (Polymorphic_entry _, _) -> empty_univ_entry true
+- 
+- let context_subst subst (name,b,t,impl) =
+-   name, Option.map (Vars.substl subst) b, Vars.substl subst t, impl
+- 
+- let declare_context ~poly ~scope univs ctx =
+-   let fn i subst d =
+-     let (name,b,t,impl) = context_subst subst d in
+-     let kind = Decls.(if b = None then IsAssumption Context else IsDefinition LetContext) in
+-     let univs = if i = 0 then univs else clear_univs scope univs in
+-     let refu = match scope with
+-       | Locality.Discharge -> declare_local false ~poly ~kind b t univs [] impl name
+-       | Locality.Global local -> declare_global false ~poly ~local ~kind b t univs [] Declaremods.NoInline name in
+-     Constr.mkRef refu :: subst
+-   in
+-   let _ : Vars.substl = List.fold_left_i fn 0 [] ctx in
+-   ()
+- 
+  let context ~poly l =
+    let env = Global.env() in
+    let sigma = Evd.from_env env in
+--- 285,290 ----
+    let ubinders = Evd.universe_binders sigma in
+    declare_assumptions ~poly ~scope ~kind (univs,ubinders) nl l
+  
+  let context ~poly l =
+    let env = Global.env() in
+    let sigma = Evd.from_env env in
