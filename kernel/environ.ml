@@ -1003,3 +1003,23 @@ struct
   let compare _env c1 c2 = GlobRef.CanOrd.compare c1 c2
   let hash _env c = GlobRef.CanOrd.hash c
 end
+
+let replicate_section_context env =
+  let open Context in
+  let fold decl (env, subst) =
+    let decl, cst, id = match decl with
+    | SectionDecl.SectionDef (cst, b, t) ->
+      let b = Vars.replace_consts subst b in
+      let t = Vars.replace_consts subst t in
+      let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
+      let d = NamedDecl.LocalDef (id, b, t) in
+      d, cst.binder_name, id.binder_name
+    | SectionDecl.SectionAssum (cst, t) ->
+      let t = Vars.replace_consts subst t in
+      let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
+      let d = NamedDecl.LocalAssum (id, t) in
+      d, cst.binder_name, id.binder_name
+    in
+    (push_named decl ~secvar:(Some id) env, (cst, mkVar id) :: subst)
+  in
+  List.fold_right fold (section_context env) (env, [])

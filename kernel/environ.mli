@@ -140,6 +140,8 @@ val open_section     : env -> env
 val close_section    : env -> env * Section.section_entry list * ContextSet.t
 *)
 
+val replicate_section_context : env -> env * (Constant.t * constr) list
+
 (** {5 Context of de Bruijn variables ([rel_context]) } *)
 
 val nb_rel           : env -> int
