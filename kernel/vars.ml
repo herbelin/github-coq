@@ -211,6 +211,7 @@ let rec find_const cst = function
 
 (* (replace_vars sigma M) applies substitution sigma to term M *)
 let replace_consts const_alist x =
+  let const_alist = List.map (Util.on_snd make_substituend) const_alist in
   match const_alist with
   | [] -> x
   | _ ->
@@ -225,7 +226,7 @@ let replace_consts const_alist x =
 (* (subst_vars [id1;...;idn] t) substitute (Var idj) by (Rel j) in t *)
 let substn_consts p vars c =
   let _,subst =
-    List.fold_left (fun (n,l) var -> ((n+1),(var,make_substituend (Constr.mkRel n))::l)) (p,[]) vars
+    List.fold_left (fun (n,l) var -> ((n+1),(var,Constr.mkRel n)::l)) (p,[]) vars
   in replace_consts (List.rev subst) c
 
 let subst_consts subst c = substn_consts 1 subst c

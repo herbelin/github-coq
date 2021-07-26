@@ -698,6 +698,9 @@ let substn_vars n subst c = of_constr (Vars.substn_vars n subst (to_constr c))
 let subst_vars subst c = of_constr (Vars.subst_vars subst (to_constr c))
 let subst_var subst c = of_constr (Vars.subst_var subst (to_constr c))
 
+let replace_consts subst c =
+  of_constr (Vars.replace_consts (cast_list_snd unsafe_eq subst) (to_constr c))
+
 let subst_univs_level_constr subst c =
   of_constr (Vars.subst_univs_level_constr subst (to_constr c))
 

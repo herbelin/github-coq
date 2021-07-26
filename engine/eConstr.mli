@@ -291,6 +291,8 @@ val substn_vars : int -> Id.t list -> t -> t
 val subst_vars : Id.t list -> t -> t
 val subst_var : Id.t -> t -> t
 
+val replace_consts : (Constant.t * t) list -> t -> t
+
 val noccurn : Evd.evar_map -> int -> t -> bool
 val noccur_between : Evd.evar_map -> int -> int -> t -> bool
 
