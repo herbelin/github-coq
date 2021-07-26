@@ -185,6 +185,8 @@ let is_initial senv =
 
 let sections_are_opened senv = not (Option.is_empty senv.sections)
 
+let sections_polymorphic_universes senv = Section.polymorphic_universes senv.sections
+
 let delta_of_senv senv = senv.modresolver,senv.paramresolver
 
 let constant_of_delta_kn_senv senv kn =
@@ -784,6 +786,7 @@ let constant_entry_of_side_effect eff =
   OpaqueEff {
     opaque_entry_body = p;
     opaque_entry_secctx = Cset.of_list cb.const_hyps;
+    opaque_entry_secunivctx = cb.const_secunivctx;
     opaque_entry_feedback = None;
     opaque_entry_type = cb.const_type;
     opaque_entry_universes = univs;
@@ -791,7 +794,8 @@ let constant_entry_of_side_effect eff =
   else
   DefinitionEff {
     const_entry_body = p;
-    const_entry_secctx = Some (Cset.of_list cb.const_hyps);
+    const_entry_secctx = Some (Cset.of_list cb.const_hyps); (* Can it be non empty? local side effect *)
+    const_entry_secunivctx = Some cb.const_secunivctx; (* Can it be non empty? local side effect *)
     const_entry_feedback = None;
     const_entry_type = Some cb.const_type;
     const_entry_universes = univs;
@@ -845,10 +849,11 @@ let export_side_effects senv eff =
         let env, cb =
           let kn = eff.seff_constant in
           let ce = constant_entry_of_side_effect eff in
+          let sec_univ = sections_polymorphic_universes senv in
           let open Entries in
           let cb = match ce with
           | DefinitionEff ce ->
-            Term_typing.translate_constant env kn (DefinitionEntry ce)
+            Term_typing.translate_constant env kn sec_univ (DefinitionEntry ce)
           | OpaqueEff ce ->
             translate_direct_opaque env kn ce
           in
@@ -941,7 +946,8 @@ let add_private_constant l decl senv : (Constant.t * private_constants) * safe_e
       | OpaqueEff ce ->
         translate_direct_opaque senv.env kn ce
       | DefinitionEff ce ->
-        Term_typing.translate_constant senv.env kn (Entries.DefinitionEntry ce)
+        let sec_univ = sections_polymorphic_universes senv in
+        Term_typing.translate_constant senv.env kn sec_univ (Entries.DefinitionEntry ce)
     in
   let dcb = match cb.const_body with
   | Def _ as const_body -> { cb with const_body }
@@ -984,8 +990,7 @@ let add_checked_mind kn mib senv =
 let add_mind l mie senv =
   let () = check_mind mie l in
   let kn = MutInd.make2 senv.modpath l in
-  let sec_univs = Option.map Section.all_poly_univs  senv.sections
-  in
+  let sec_univs = sections_polymorphic_universes senv in
   let mib = Indtypes.check_inductive senv.env ~sec_univs kn mie in
   kn, add_checked_mind kn mib senv
 

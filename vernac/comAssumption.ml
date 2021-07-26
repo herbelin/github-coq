@@ -52,6 +52,7 @@ let declare_axiom is_coe ~poly ~local ~kind typ (univs, pl) imps nl {CAst.v=name
   let kind = Decls.IsAssumption kind in
   let entry = {
       parameter_entry_secctx = None;
+      parameter_entry_secunivctx = None;
       parameter_entry_type = typ;
       parameter_entry_universes = univs;
       parameter_entry_inline_code = inl;
@@ -240,6 +241,7 @@ let context_nosection sigma ~poly ctx =
       | None ->
         let entry = {
             parameter_entry_secctx = None;
+            parameter_entry_secunivctx = None;
             parameter_entry_type = t;
             parameter_entry_universes = univs;
             parameter_entry_inline_code = None;

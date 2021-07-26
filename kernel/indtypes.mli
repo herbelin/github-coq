@@ -14,5 +14,5 @@ open Environ
 open Entries
 
 (** Check an inductive. *)
-val check_inductive : env -> sec_univs:Univ.Level.t array option
+val check_inductive : env -> sec_univs:Univ.UContext.t list
   -> MutInd.t -> mutual_inductive_entry -> mutual_inductive_body

@@ -107,6 +107,7 @@ let subst_const_def sub def = match def with
 
 let subst_const_body sub cb =
   assert (List.is_empty cb.const_hyps); (* we're outside sections *)
+  assert (List.is_empty cb.const_secunivctx); (* we're outside sections *)
   if is_empty_subst sub then cb
   else
     let body' = subst_const_def sub cb.const_body in
@@ -115,6 +116,7 @@ let subst_const_body sub cb =
     then cb
     else
       { const_hyps = [];
+        const_secunivctx = [];
         const_body = body';
         const_type = type';
         const_body_code =
@@ -267,10 +269,13 @@ let subst_mind_record sub r = match r with
   if infos' == infos then r else PrimRecord infos'
 
 let subst_mind_body sub mib =
+  assert (List.is_empty mib.mind_hyps); (* we're outside sections *)
+  assert (List.is_empty mib.mind_secunivctx); (* we're outside sections *)
   { mind_record = subst_mind_record sub mib.mind_record ;
     mind_finite = mib.mind_finite ;
     mind_ntypes = mib.mind_ntypes ;
-    mind_hyps = (match mib.mind_hyps with [] -> [] | _ -> assert false);
+    mind_hyps = [];
+    mind_secunivctx = [];
     mind_nparams = mib.mind_nparams;
     mind_nparams_rec = mib.mind_nparams_rec;
     mind_params_ctxt =

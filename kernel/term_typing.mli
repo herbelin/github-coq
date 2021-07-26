@@ -30,7 +30,7 @@ val translate_local_def : env -> Id.t -> section_def_entry ->
 val translate_local_assum : env -> types -> types * Sorts.relevance
 
 val translate_constant :
-  env -> Constant.t -> constant_entry ->
+  env -> Constant.t -> Univ.UContext.t list -> constant_entry ->
     'a pconstant_body
 
 val translate_opaque :
@@ -47,4 +47,4 @@ val infer_declaration : env ->
   constant_entry -> typing_context Cooking.result
 
 val build_constant_declaration :
-  env -> Opaqueproof.proofterm Cooking.result -> Opaqueproof.proofterm pconstant_body
+  env -> Univ.UContext.t list -> Opaqueproof.proofterm Cooking.result -> Opaqueproof.proofterm pconstant_body

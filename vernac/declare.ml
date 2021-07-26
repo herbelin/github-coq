@@ -101,6 +101,7 @@ type 'a proof_entry = {
   proof_entry_body   : 'a Entries.const_entry_body;
   (* List of section variables *)
   proof_entry_secctx : Cset.t option;
+  proof_entry_secunivctx : Univ.UContext.t list option;
   (* State id on which the completion of type checking is reported *)
   proof_entry_feedback : Stateid.t option;
   proof_entry_type        : Constr.types option;
@@ -113,10 +114,11 @@ let default_univ_entry = Entries.Monomorphic_entry Univ.ContextSet.empty
 
 (** [univsbody] are universe-constraints attached to the body-only,
    used in vio-delayed opaque constants and private poly universes *)
-let definition_entry_core ?(opaque=false) ?using ?(inline=false) ?feedback_id ?types
+let definition_entry_core ?(opaque=false) ?using ?secuctx ?(inline=false) ?feedback_id ?types
     ?(univs=default_univ_entry) ?(eff=Evd.empty_side_effects) ?(univsbody=Univ.ContextSet.empty) body =
   { proof_entry_body = Future.from_val ((body,univsbody), eff);
     proof_entry_secctx = using;
+    proof_entry_secunivctx = secuctx;
     proof_entry_type = types;
     proof_entry_universes = univs;
     proof_entry_opaque = opaque;
@@ -228,19 +230,21 @@ let record_aux env s_ty s_bo =
         (Proof_using.keep_ordered_hyps env s_bo)) in
   Aux_file.record_in_aux "context_used" v
 
-let pure_definition_entry ?(opaque=false) ?(inline=false) ?types
+let pure_definition_entry ?(opaque=false) ?(inline=false) ?secuctx ?types
     ?(univs=default_univ_entry) body =
   { proof_entry_body = Future.from_val ((body,Univ.ContextSet.empty), ());
     proof_entry_secctx = None;
+    proof_entry_secunivctx = secuctx;
     proof_entry_type = types;
     proof_entry_universes = univs;
     proof_entry_opaque = opaque;
     proof_entry_feedback = None;
     proof_entry_inline_code = inline}
 
-let delayed_definition_entry ~opaque ?feedback_id ~using ~univs ?types body =
+let delayed_definition_entry ~opaque ?feedback_id ~using ?secuctx ~univs ?types body =
   { proof_entry_body = body
   ; proof_entry_secctx = using
+  ; proof_entry_secunivctx = secuctx
   ; proof_entry_type = types
   ; proof_entry_universes = univs
   ; proof_entry_opaque = opaque
@@ -261,6 +265,7 @@ let cast_proof_entry e =
   in
   { Entries.const_entry_body = body;
     const_entry_secctx = e.proof_entry_secctx;
+    const_entry_secunivctx = e.proof_entry_secunivctx;
     const_entry_feedback = e.proof_entry_feedback;
     const_entry_type = e.proof_entry_type;
     const_entry_universes = univs;
@@ -301,6 +306,10 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a proo
     Proof_using.really_needed env (Cset.union hyp_typ hyp_def)
   | Some hyps -> hyps
   in
+  let secuctx = match e.proof_entry_secunivctx with
+    | None -> Global.sections_polymorphic_universes ()
+    | Some secuctx -> secuctx
+  in
   let (body, univs : b * _) = match entry with
   | PureEntry ->
     let (body, uctx), () = Future.force e.proof_entry_body in
@@ -316,6 +325,7 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a proo
   in
   { Entries.opaque_entry_body = body;
     opaque_entry_secctx = secctx;
+    opaque_entry_secunivctx = secuctx;
     opaque_entry_feedback = e.proof_entry_feedback;
     opaque_entry_type = typ;
     opaque_entry_universes = univs;
@@ -418,6 +428,7 @@ let declare_variable_core ~name ~kind d =
       let () = Global.push_named_assum (name,typ) in (* TO MERGE WITH add_constant *)
       let pe = Entries.{
           parameter_entry_secctx = sec_vars;
+          parameter_entry_secunivctx = None;
           parameter_entry_type = typ;
           parameter_entry_universes = univs;
           parameter_entry_inline_code = None;
@@ -667,7 +678,7 @@ let check_evars_are_solved env sigma t =
   let evars = Evarutil.undefined_evars_of_term sigma t in
   if not (Evar.Set.is_empty evars) then error_unresolved_evars env sigma t evars
 
-let prepare_definition ~info ~opaque ?using ~body ~typ sigma =
+let prepare_definition ~info ~opaque ?using ~secuctx ~body ~typ sigma =
   let { Info.poly; udecl; inline; _ } = info in
   let env = Global.env () in
   let sigma, (body, types) = Evarutil.finalize ~abort_on_undefined_evars:false
@@ -676,13 +687,14 @@ let prepare_definition ~info ~opaque ?using ~body ~typ sigma =
   Option.iter (check_evars_are_solved env sigma) types;
   check_evars_are_solved env sigma body;
   let univs = Evd.check_univ_decl ~poly sigma udecl in
-  let entry = definition_entry ~opaque ?using ~inline ?types ~univs body in
+  let entry = definition_entry ~opaque ?using ~secuctx ~inline ?types ~univs body in
   let uctx = Evd.evar_universe_context sigma in
   entry, uctx
 
 let declare_definition_core ~info ~cinfo ~opaque ~obls ~body sigma =
   let { CInfo.name; impargs; typ; using; _ } = cinfo in
-  let entry, uctx = prepare_definition ~info ~opaque ?using ~body ~typ sigma in
+  let secuctx = Global.sections_polymorphic_universes () in
+  let entry, uctx = prepare_definition ~info ~opaque ?using ~secuctx ~body ~typ sigma in
   let { Info.scope; kind; hook; typing_flags; _ } = info in
   declare_entry_core ~name ~scope ~kind ~impargs ~typing_flags ~obls ?hook ~uctx entry, uctx
 
@@ -713,6 +725,7 @@ let prepare_parameter ~poly ~udecl ~types sigma =
   let univs = Evd.check_univ_decl ~poly sigma udecl in
   let pe = Entries.{
       parameter_entry_secctx = None;
+      parameter_entry_secunivctx = None;
       parameter_entry_type = typ;
       parameter_entry_universes = univs;
       parameter_entry_inline_code = None;
@@ -911,7 +924,8 @@ let declare_obligation prg obl ~uctx ~types ~body =
       if not poly then shrink_body body types
       else ([], body, types, [||])
     in
-    let ce = definition_entry ?types:ty ~opaque ~univs body in
+    let secuctx = Global.sections_polymorphic_universes () in
+    let ce = definition_entry ?types:ty ~opaque ~secuctx ~univs body in
     (* ppedrot: seems legit to have obligations as local *)
     let constant =
       declare_constant ~name:obl.obl_name
@@ -1609,7 +1623,8 @@ let close_proof ~opaque ~keep_body_ucst_separate ps =
       then make_univs_private_poly ~poly ~uctx ~udecl t b
       else make_univs ~poly ~uctx ~udecl t b
     in
-    definition_entry_core ~opaque ?using ~univs:utyp ~univsbody:ubody ~types:typ ~eff body
+    let secuctx = Global.sections_polymorphic_universes () in
+    definition_entry_core ~opaque ?using ~secuctx ~univs:utyp ~univsbody:ubody ~types:typ ~eff body
   in
   let entries = CList.map make_entry elist  in
   { name; entries; uctx; pinfo }
@@ -1638,6 +1653,7 @@ let close_proof_delayed ~feedback_id ps (fpl : closed_proof_output Future.comput
     (* Already checked the univ_decl for the type universes when starting the proof. *)
     let univs = UState.univ_entry ~poly:false initial_euctx in
     let types = nf (EConstr.Unsafe.to_constr types) in
+    let secuctx = Global.sections_polymorphic_universes () in
 
     Future.chain p (fun (pt,eff) ->
         (* Deferred proof, we already checked the universe declaration with
@@ -1653,7 +1669,7 @@ let close_proof_delayed ~feedback_id ps (fpl : closed_proof_output Future.comput
         let uctx = UState.restrict uctx used_univs in
         let uctx = UState.check_mono_univ_decl uctx udecl in
         (pt,uctx),eff)
-    |> delayed_definition_entry ~opaque ~feedback_id ~using ~univs ~types
+    |> delayed_definition_entry ~opaque ~feedback_id ~using ~secuctx ~univs ~types
   in
   let entries = Future.map2 make_entry fpl (Proofview.initial_goals entry) in
   { name; entries; uctx = initial_euctx; pinfo }
@@ -1872,6 +1888,7 @@ end = struct
       fun i { CInfo.name; typ; impargs } ->
         let pe = Entries.{
             parameter_entry_secctx = sec_vars;
+            parameter_entry_secunivctx = None;
             parameter_entry_type = typ;
             parameter_entry_universes = univs;
             parameter_entry_inline_code = None;

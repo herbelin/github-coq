@@ -531,10 +531,8 @@ let build_inductive env ~sec_univs names prv univs template variance
   let packets = Array.map3 build_one_packet names inds recargs in
   let variance, sec_variance = match variance with
     | None -> None, None
-    | Some variance -> match sec_univs with
-      | None -> Some variance, None
-      | Some sec_univs ->
-        let nsec = Array.length sec_univs in
+    | Some variance ->
+        let nsec = List.fold_right (fun uctx n -> Univ.UContext.size uctx + n) sec_univs 0 in
         Some (Array.sub variance nsec (Array.length variance - nsec)),
         Some (Array.sub variance 0 nsec)
   in
@@ -544,6 +542,7 @@ let build_inductive env ~sec_univs names prv univs template variance
       mind_ntypes = ntypes;
       mind_finite = isfinite;
       mind_hyps = hyps;
+      mind_secunivctx = sec_univs;
       mind_nparams = nparamargs;
       mind_nparams_rec = nmr;
       mind_params_ctxt = paramsctxt;
@@ -574,7 +573,7 @@ let build_inductive env ~sec_univs names prv univs template variance
 
 let check_inductive env ~sec_univs kn mie =
   (* First type-check the inductive definition *)
-  let (env_ar_par, univs, template, variance, record, paramsctxt, inds) =
+  let (env_ar_par, univs, sec_univs, template, variance, record, paramsctxt, inds) =
     IndTyping.typecheck_inductive env ~sec_univs mie
   in
   (* Then check positivity conditions *)

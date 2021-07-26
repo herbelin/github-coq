@@ -378,12 +378,9 @@ let typecheck_inductive env ~sec_univs (mie:mutual_inductive_entry) =
       | Polymorphic_entry uctx ->
         let univs = Instance.to_array @@ UContext.instance uctx in
         let univs = Array.map2 (fun a b -> a,b) univs variances in
-        let univs = match sec_univs with
-          | None -> univs
-          | Some sec_univs ->
-            let sec_univs = Array.map (fun u -> u, None) sec_univs in
-            Array.append sec_univs univs
-        in
+        let sec_univs = List.map (fun x -> Instance.to_array @@ UContext.instance x) sec_univs in
+        let sec_univs = List.map (Array.map (fun u -> u, None)) sec_univs in
+        let univs = List.fold_right Array.append sec_univs univs in
         let variances = InferCumulativity.infer_inductive ~env_params univs mie.mind_entry_inds in
         Some variances
   in
@@ -407,4 +404,4 @@ let typecheck_inductive env ~sec_univs (mie:mutual_inductive_entry) =
     Environ.push_rel_context ctx env
   in
 
-  env_ar_par, univs, template, variance, record, params, Array.of_list data
+  env_ar_par, univs, sec_univs, template, variance, record, params, Array.of_list data

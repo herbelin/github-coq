@@ -58,6 +58,8 @@ val push_global : poly:bool -> section_entry -> 'a t -> 'a t
 
 (** {6 Retrieving section data} *)
 
+val polymorphic_universes : 'a t option -> UContext.t list
+
 val all_poly_univs : 'a t -> Univ.Level.t array
 (** Returns all polymorphic universes, including those from previous
    sections. Earlier sections are earlier in the array.

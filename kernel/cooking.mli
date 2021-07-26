@@ -24,6 +24,7 @@ type 'opaque result = {
   cook_relevance : Sorts.relevance;
   cook_inline : inline;
   cook_context : Names.Cset.t option;
+  cook_univcontext : Univ.UContext.t list option;
   cook_flags : typing_flags;
 }
 

@@ -30,7 +30,7 @@ type 'a t = {
   (** Global universes introduced in the section *)
   poly_universes : UContext.t;
   (** Universes local to the section *)
-  all_poly_univs : Univ.Level.t array;
+  all_poly_univs : UContext.t;
   (** All polymorphic universes, including from previous sections. *)
   has_poly_univs : bool;
   (** Are there polymorphic universes or constraints, including in previous sections. *)
@@ -45,6 +45,10 @@ let rec depth sec = 1 + match sec.prev with None -> 0 | Some prev -> depth prev
 
 let has_poly_univs sec = sec.has_poly_univs
 
+let rec polymorphic_universes = function
+  | None -> []
+  | Some sec -> sec.poly_universes :: polymorphic_universes sec.prev
+
 let all_poly_univs sec = sec.all_poly_univs
 
 let map_custom f sec = {sec with custom = f sec.custom}
@@ -58,9 +62,7 @@ let push_local_universe_context ctx sec =
   else
     let sctx = sec.poly_universes in
     let poly_universes = UContext.union sctx ctx in
-    let all_poly_univs =
-      Array.append sec.all_poly_univs (Instance.to_array @@ UContext.instance ctx)
-    in
+    let all_poly_univs = UContext.union sec.all_poly_univs ctx in
     { sec with poly_universes; all_poly_univs; has_poly_univs = true }
 
 let rec is_polymorphic_univ u sec =

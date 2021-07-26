@@ -25,10 +25,11 @@ open Declarations
       * (indices * splayed constructor types) (both without params)
       * top allowed elimination
  *)
-val typecheck_inductive : env -> sec_univs:Univ.Level.t array option
+val typecheck_inductive : env -> sec_univs:Univ.UContext.t list
   -> mutual_inductive_entry
   -> env
   * universes
+  * Univ.UContext.t list
   * template_universes option
   * Univ.Variance.t array option
   * Names.Id.t array option option

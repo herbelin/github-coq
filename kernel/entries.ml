@@ -67,6 +67,7 @@ type definition_entry = {
   (* List of section variables *)
   const_entry_secctx : Cset.t option;
   (* State id on which the completion of type checking is reported *)
+  const_entry_secunivctx : Univ.UContext.t list option;
   const_entry_feedback : Stateid.t option;
   const_entry_type : types option;
   const_entry_universes : universes_entry;
@@ -85,6 +86,7 @@ type 'a opaque_entry = {
   (* List of section variables *)
   opaque_entry_secctx : Cset.t;
   (* State id on which the completion of type checking is reported *)
+  opaque_entry_secunivctx : Univ.UContext.t list;
   opaque_entry_feedback : Stateid.t option;
   opaque_entry_type        : types;
   opaque_entry_universes   : universes_entry;
@@ -94,6 +96,7 @@ type inline = int option (* inlining level, None for no inlining *)
 
 type parameter_entry = {
   parameter_entry_secctx : Cset.t option;
+  parameter_entry_secunivctx : Univ.UContext.t list option;
   parameter_entry_type : types;
   parameter_entry_universes : universes_entry;
   parameter_entry_inline_code : inline;

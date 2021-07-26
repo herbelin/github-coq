@@ -175,6 +175,7 @@ type cooking_info = {
  * the OpaqueDef *)
 type 'opaque pconstant_body = {
     const_hyps : Constant.t list; (** New: younger hyp at top *)
+    const_secunivctx : Univ.UContext.t list; (** Polymorphic universe section segments the constant depends on *)
     const_body : (Constr.t, 'opaque) constant_def;
     const_type : types;
     const_relevance : Sorts.relevance;
@@ -294,6 +295,8 @@ type mutual_inductive_body = {
     mind_ntypes : int;  (** Number of types in the block *)
 
     mind_hyps : Constant.t list;  (** Section hypotheses on which the block depends *)
+
+    mind_secunivctx : Univ.UContext.t list;  (** Polymorphic universe section segments the block depends *)
 
     mind_nparams : int;  (** Number of expected parameters including non-uniform ones (i.e. length of mind_params_ctxt w/o let-in) *)
 

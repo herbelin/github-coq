@@ -211,6 +211,7 @@ type 'opaque result = {
   cook_relevance : Sorts.relevance;
   cook_inline : inline;
   cook_context : Cset.t option;
+  cook_univcontext : UContext.t list option;
   cook_flags : typing_flags;
 }
 
@@ -306,7 +307,6 @@ let cook_constant { from = cb; info } =
     OpaqueDef (Opaqueproof.discharge_opaque info o)
   | Primitive _ -> CErrors.anomaly (Pp.str "Primitives cannot be cooked")
   in
-  let const_hyps = Id.Set.diff (Context.Named.to_vars cb.const_hyps) info.names_info in
   let typ = abstract_as_type cache info cb.const_type in
   {
     cook_body = body;

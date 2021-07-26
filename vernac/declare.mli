@@ -332,6 +332,7 @@ type 'a proof_entry
 val definition_entry
   :  ?opaque:bool
   -> ?using:Proof_using.t
+  -> ?secuctx:Univ.UContext.t list
   -> ?inline:bool
   -> ?types:Constr.types
   -> ?univs:Entries.universes_entry

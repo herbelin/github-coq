@@ -88,6 +88,7 @@ val close_section : Summary.frozen -> unit
     the section what opened. *)
 
 val sections_are_opened : unit -> bool
+val sections_polymorphic_universes : unit -> Univ.UContext.t list
 
 (** Interactive modules and module types *)
 

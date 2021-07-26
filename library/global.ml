@@ -115,6 +115,7 @@ let add_include me ismod inl = globalize (Safe_typing.add_include me ismod inl)
 let open_section () = globalize0 Safe_typing.open_section
 let close_section fs = globalize0_with_summary fs Safe_typing.close_section
 let sections_are_opened () = Safe_typing.sections_are_opened (safe_env())
+let sections_polymorphic_universes () = Safe_typing.sections_polymorphic_universes (safe_env())
 
 let start_module id = globalize (Safe_typing.start_module (i2l id))
 let start_modtype id = globalize (Safe_typing.start_modtype (i2l id))
