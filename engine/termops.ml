@@ -834,7 +834,8 @@ let occur_in_global env id constr =
 let occur_var env sigma id c =
   let rec occur_rec c =
     match EConstr.destRef sigma c with
-    | gr, _ -> if occur_in_global env id gr then raise Occur
+    | GlobRef.VarRef id', _ -> if Id.equal id id' then raise Occur
+    | gr, _ -> if occur_in_global env id gr then raise Occur  (* TO REMOVE ? *)
     | exception DestKO -> EConstr.iter sigma occur_rec c
   in
   try occur_rec c; false with Occur -> true
@@ -1372,6 +1373,7 @@ let clear_named_body id env =
 let global_vars_set env sigma constr =
   let rec filtrec acc c =
     match EConstr.destRef sigma c with
+    | GlobRef.VarRef id, _ -> Id.Set.add id acc
     | gr, _ -> Id.Set.union (vars_of_global env gr) acc
     | exception DestKO -> EConstr.fold sigma filtrec acc c
   in

@@ -107,6 +107,7 @@ val rel_context   : env -> Constr.rel_context
 val named_context : env -> Constr.named_context
 val named_context_val : env -> named_context_val
 val section_context : env -> section_context
+val section_context_val : env -> section_context_val
 
 val set_universes : UGraph.t -> env -> env
 

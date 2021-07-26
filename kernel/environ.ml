@@ -323,6 +323,7 @@ let set_universes g env =
 let set_universes_lbound env lbound = { env with env_universes_lbound = lbound }
 
 let section_context env = env.env_section_context.env_section_ctx
+let section_context_val env = env.env_section_context
 let named_context env = env.env_named_context.env_named_ctx
 let named_context_val env = env.env_named_context
 let rel_context env = env.env_rel_context.env_rel_ctx

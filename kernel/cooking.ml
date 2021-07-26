@@ -156,7 +156,7 @@ let abstract_as_body cache { expand_info; abstr_info; _ } c =
 let abstract_context expand_info abstr_info hyps =
   let cache = RefTable.create 13 in
   let fold decl abstr_info =
-    let id, decl = match decl with
+    let cst, decl = match decl with
     | SectionDecl.SectionDef (cst, b, t) ->
       let b = expand_subst cache expand_info abstr_info b in
       let t = expand_subst cache expand_info abstr_info t in
