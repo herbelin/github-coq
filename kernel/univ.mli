@@ -372,6 +372,9 @@ sig
 
 end
 
+(** A vector of universe levels with universe Constraint.t,
+    representing local universe variables and associated Constraint.t *)
+
 module AbstractContext :
 sig
   type t

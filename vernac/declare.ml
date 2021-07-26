@@ -135,7 +135,7 @@ type 'a constant_entry =
 
 type constant_obj = {
   cst_kind : Decls.logical_kind;
-  cst_locl : Locality.import_status;
+  cst_locl : Locality.locality;
 }
 
 let load_constant i ((sp,kn), obj) =
@@ -147,10 +147,11 @@ let load_constant i ((sp,kn), obj) =
 
 (* Opening means making the name without its module qualification available *)
 let open_constant f i ((sp,kn), obj) =
+  let open Locality in
   (* Never open a local definition *)
   match obj.cst_locl with
-  | Locality.ImportNeedQualified -> ()
-  | Locality.ImportDefaultBehavior ->
+  | Global ImportNeedQualified -> ()
+  | Global ImportDefaultBehavior | Discharge ->
     let con = Global.constant_of_delta_kn kn in
     if Libobject.in_filter_ref (GlobRef.ConstRef con) f then
       Nametab.push (Nametab.Exactly i) sp (GlobRef.ConstRef con)
@@ -174,9 +175,11 @@ let cache_constant ((sp,kn), obj) =
   Dumpglob.add_constant_kind (Constant.make1 kn) obj.cst_kind
 
 let discharge_constant ((sp, kn), obj) =
-  Some obj
+  if obj.cst_locl = Locality.Discharge then None else Some obj
 
-let classify_constant cst = Libobject.Substitute cst
+let classify_constant obj =
+  if obj.cst_locl = Locality.Discharge then Libobject.Dispose
+  else Libobject.Substitute obj
 
 let (objConstant : constant_obj Libobject.Dyn.tag) =
   let open Libobject in
@@ -204,7 +207,7 @@ let register_constant kn kind local =
   update_tables kn
 
 let register_side_effect (c, role) =
-  let () = register_constant c Decls.(IsProof Theorem) Locality.ImportDefaultBehavior in
+  let () = register_constant c Decls.(IsProof Theorem) Locality.(Global ImportDefaultBehavior) in
   match role with
   | None -> ()
   | Some (Evd.Schema (ind, kind)) -> DeclareScheme.declare_scheme kind [|ind,c|]
@@ -281,7 +284,7 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a proo
   | None -> assert false
   | Some typ -> typ
   in
-  let secctx = match e.proof_entry_secctx with
+  let secctx = match e.proof_entry_secctx with 
   | None ->
     let open Environ in
     let env = Global.env () in
@@ -338,7 +341,7 @@ let is_unsafe_typing_flags flags =
   let open Declarations in
   not (flags.check_universes && flags.check_guarded && flags.check_positive)
 
-let define_constant ~name ~typing_flags cd =
+let define_constant ~name ~typing_flags persistent cd =
   (* Logically define the constant and its subproofs, no libobject tampering *)
   let decl, unsafe = match cd with
     | DefinitionEntry de ->
@@ -362,15 +365,15 @@ let define_constant ~name ~typing_flags cd =
     | PrimitiveEntry e ->
       ConstantEntry (Entries.PrimitiveEntry e), false
   in
-  let kn = Global.add_constant ?typing_flags name decl in
+  let kn = Global.add_constant ?typing_flags name persistent decl in
   if unsafe || is_unsafe_typing_flags typing_flags then feedback_axiom();
   kn
 
 let declare_constant ?(local = Locality.ImportDefaultBehavior) ~name ~kind ~typing_flags cd =
   let () = check_exists name in
-  let kn = define_constant ~typing_flags ~name cd in
+  let kn = define_constant ~typing_flags ~name true cd in
   (* Register the libobjects attached to the constants *)
-  let () = register_constant kn kind local in
+  let () = register_constant kn kind (Locality.Global local) in
   kn
 
 let declare_private_constant ?role ?(local = Locality.ImportDefaultBehavior) ~name ~kind de =
@@ -384,7 +387,7 @@ let declare_private_constant ?role ?(local = Locality.ImportDefaultBehavior) ~na
     in
     Global.add_private_constant name de
   in
-  let () = register_constant kn kind local in
+  let () = register_constant kn kind (Locality.Global local) in
   let seff_roles = match role with
   | None -> Cmap.empty
   | Some r -> Cmap.singleton kn r
@@ -413,6 +416,8 @@ let objVariable : unit Libobject.Dyn.tag =
 let inVariable v = Libobject.Dyn.Easy.inj v objVariable
 *)
 
+let dispatch_section_univs _ = None (* TODO *)
+
 let declare_variable_core ~name ~kind d =
   (* Variables are distinguished by only short names *)
   if Decls.variable_exists name then
@@ -425,33 +430,24 @@ let declare_variable_core ~name ~kind d =
         if poly then Entries.Polymorphic_entry Univ.UContext.empty
         else Entries.Monomorphic_entry Univ.ContextSet.empty in
       let sec_vars = None in
-      let () = Global.push_named_assum (name,typ) in (* TO MERGE WITH add_constant *)
+      let secunivs = Vars.universes_of_constr typ in
+      let secunivs = dispatch_section_univs secunivs in
       let pe = Entries.{
           parameter_entry_secctx = sec_vars;
-          parameter_entry_secunivctx = None;
+          parameter_entry_secunivctx = secunivs;
           parameter_entry_type = typ;
           parameter_entry_universes = univs;
           parameter_entry_inline_code = None;
       } in
       impl, true, ParameterEntry pe
     | SectionLocalDef de ->
-      (* TO MERGE WITH add_constant*)
-      let ((body, _), _) = Future.force de.proof_entry_body in
-      let se = {
-        Entries.secdef_body = body;
-        secdef_secctx = de.proof_entry_secctx;
-        secdef_feedback = de.proof_entry_feedback;
-        secdef_type = de.proof_entry_type;
-      } in
-      let () = Global.push_named_def (name, se) in
-      (* END MERGE *)
       Glob_term.Explicit, de.proof_entry_opaque, DefinitionEntry de
   in
   Impargs.declare_var_implicits ~impl name;
   Decls.(add_variable_data name {opaque;kind});
-  let kn = define_constant ~typing_flags:None ~name cd in
+  let kn = define_constant ~typing_flags:None ~name false cd in
   (* Register the libobjects attached to the constants *)
-  let () = register_constant kn kind Locality.ImportDefaultBehavior (* TODO *) in
+  let () = register_constant kn kind Locality.Discharge in
   kn
 
 let declare_variable ~name ~kind ~typ ~impl =
@@ -723,9 +719,11 @@ let prepare_parameter ~poly ~udecl ~types sigma =
       sigma (fun nf -> nf types)
   in
   let univs = Evd.check_univ_decl ~poly sigma udecl in
+  let secunivs = Vars.universes_of_constr typ in
+  let secunivs = dispatch_section_univs secunivs in
   let pe = Entries.{
       parameter_entry_secctx = None;
-      parameter_entry_secunivctx = None;
+      parameter_entry_secunivctx = secunivs;
       parameter_entry_type = typ;
       parameter_entry_universes = univs;
       parameter_entry_inline_code = None;
@@ -1886,9 +1884,11 @@ end = struct
     let { Info.scope; hook } = pinfo.Proof_info.info in
     List.map_i (
       fun i { CInfo.name; typ; impargs } ->
+        let secunivs = Vars.universes_of_constr typ in
+        let secunivs = dispatch_section_univs secunivs in
         let pe = Entries.{
             parameter_entry_secctx = sec_vars;
-            parameter_entry_secunivctx = None;
+            parameter_entry_secunivctx = secunivs;
             parameter_entry_type = typ;
             parameter_entry_universes = univs;
             parameter_entry_inline_code = None;

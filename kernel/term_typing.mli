@@ -9,7 +9,6 @@
 (************************************************************************)
 
 open Names
-open Constr
 open Environ
 open Declarations
 open Entries
@@ -23,11 +22,6 @@ type 'a effect_handler =
   env -> Constr.t -> 'a -> (Constr.t * Univ.ContextSet.t * int)
 
 type typing_context
-
-val translate_local_def : env -> Id.t -> section_def_entry ->
-  constr * Sorts.relevance * types
-
-val translate_local_assum : env -> types -> types * Sorts.relevance
 
 val translate_constant :
   env -> Constant.t -> Univ.UContext.t list -> constant_entry ->

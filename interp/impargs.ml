@@ -565,7 +565,7 @@ let rebuild_implicits (req,l) =
 
   | ImplInteractive (flags,o) ->
       let ref,oldimpls = List.hd l in
-      (if isVarRef ref && is_in_section ref then ImplLocal else req),
+      (if Global.is_local_in_section ref then ImplLocal else req),
       match o with
       | ImplAuto ->
          let newimpls = compute_global_implicits flags ref in
@@ -596,7 +596,7 @@ let inImplicits : implicits_obj -> obj =
     discharge_function = discharge_implicits;
     rebuild_function = rebuild_implicits }
 
-let is_local local ref = local || isVarRef ref && is_in_section ref
+let is_local local ref = local || Global.is_local_in_section ref
 
 let declare_implicits_gen req flags ref =
   let imps = compute_global_implicits flags ref in
@@ -615,7 +615,11 @@ let declare_var_implicits id ~impl =
 
 let declare_constant_implicits con =
   let flags = !implicit_args in
-    declare_implicits_gen (ImplConstant flags) flags (GlobRef.ConstRef con)
+  let local =
+    if Global.is_local_in_section (GlobRef.ConstRef con) then ImplLocal
+    else ImplConstant flags
+  in
+    declare_implicits_gen local flags (GlobRef.ConstRef con)
 
 let declare_mib_implicits kn =
   let flags = !implicit_args in

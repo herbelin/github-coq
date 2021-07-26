@@ -23,8 +23,6 @@ open Environ
 open Entries
 open Univ
 
-module NamedDecl = Context.Named.Declaration
-
 (* Insertion of constants and parameters in environment. *)
 
 type 'a effect_handler =
@@ -358,25 +356,3 @@ let translate_recipe env _kn r =
     const_inline_code = result.cook_inline;
     const_typing_flags = result.cook_flags;
   }
-
-let translate_local_def env _id centry =
-  let open Cooking in
-  let centry = {
-    const_entry_body = centry.secdef_body;
-    const_entry_secctx = centry.secdef_secctx;
-    const_entry_feedback = centry.secdef_feedback;
-    const_entry_type = centry.secdef_type;
-    const_entry_universes = Monomorphic_entry ContextSet.empty;
-    const_entry_inline_code = false;
-  } in
-  let decl = infer_declaration env (DefinitionEntry centry) in
-  let typ = decl.cook_type in
-  let () = match decl.cook_universes with
-  | Monomorphic ctx -> assert (ContextSet.is_empty ctx)
-  | Polymorphic _ -> assert false
-  in
-  let c = match decl.cook_body with
-  | Def c -> c
-  | Undef _ | Primitive _ | OpaqueDef _ -> assert false
-  in
-  c, decl.cook_relevance, typ

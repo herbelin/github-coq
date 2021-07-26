@@ -128,11 +128,12 @@ let library_dp () =
 
 let cwd () = !lib_state.path_prefix.Nametab.obj_dir
 let current_mp () = !lib_state.path_prefix.Nametab.obj_mp
-let current_sections () = Safe_typing.sections_of_safe_env (Global.safe_env())
 
-let sections_depth () = match current_sections() with
-  | None -> 0
-  | Some sec -> Section.depth sec
+(*
+let current_sections () = Safe_typing.sections_of_safe_env (Global.safe_env())
+*)
+
+let sections_depth = Global.sections_depth
 
 let sections_are_opened = Global.sections_are_opened
 
@@ -424,10 +425,9 @@ let variable_section_segment_of_reference gr =
   List.map SectionDecl.named_of_section (section_segment_of_reference gr).Declarations.abstr_ctx
 *)
 
-let is_in_section ref = match sections () with
+let is_persistent_in_section ref = match sections () with
   | None -> false
-  | Some sec ->
-    Section.is_in_section (Global.env ()) ref sec
+  | Some sec -> Section.is_persistent_in_section ref sec
 
 let section_instance ref =
   (section_segment_of_reference ref).Declarations.abstr_inst_info
@@ -438,7 +438,7 @@ let section_context () =
 
 let section_instance = let open GlobRef in function
   | VarRef id ->
-    if is_in_section (VarRef id) then (Univ.Instance.empty, [||])
+    if is_persistent_in_section (VarRef id) then (Univ.Instance.empty, [||])
     else raise Not_found
   | ConstRef con ->
     let data = section_segment_of_constant con in

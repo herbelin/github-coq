@@ -31,7 +31,7 @@ let declare_variable is_coe ~kind typ imps impl {CAst.v=name} =
   let sigma = Evd.from_env env in
   let () = Classes.declare_instance env sigma None Goptions.OptLocal r in
   let () = if is_coe then ComCoercion.try_add_new_coercion r ~local:true ~poly:false in
-  ()
+  cst
 
 let instance_of_univ_entry = function
   | Polymorphic_entry univs -> Univ.UContext.instance univs
@@ -107,8 +107,8 @@ let declare_assumptions ~poly ~scope ~kind univs nl l =
         List.fold_left_map (fun univs id ->
             let refu = match scope with
               | Locality.Discharge ->
-                declare_variable is_coe ~kind typ imps Glob_term.Explicit id;
-                GlobRef.VarRef id.CAst.v, Univ.Instance.empty
+                let cst = declare_variable is_coe ~kind typ imps Glob_term.Explicit id in
+                GlobRef.ConstRef cst, Univ.Instance.empty
               | Locality.Global local ->
                 declare_axiom is_coe ~local ~poly ~kind typ univs imps nl id
             in
@@ -199,10 +199,10 @@ let context_insection sigma ~poly ctx =
   let () = DeclareUctx.declare_universe_context ~poly uctx in
   let fn subst (name,_,_,_ as d) =
     let d = context_subst subst d in
-    let () = match d with
+    let cst = match d with
       | name, None, t, impl ->
         let kind = Decls.Context in
-        declare_variable false ~kind t [] impl (CAst.make name)
+        GlobRef.ConstRef (declare_variable false ~kind t [] impl (CAst.make name))
       | name, Some b, t, impl ->
         (* We need to get poly right for check_same_poly *)
         let univs = if poly then Polymorphic_entry Univ.UContext.empty
@@ -212,13 +212,10 @@ let context_insection sigma ~poly ctx =
         (* XXX Fixme: Use Declare.prepare_definition *)
         let uctx = Evd.evar_universe_context sigma in
         let kind = Decls.(IsDefinition Definition) in
-        let _ : GlobRef.t =
-          Declare.declare_entry ~name ~scope:Locality.Discharge
+        Declare.declare_entry ~name ~scope:Locality.Discharge
             ~kind ~impargs:[] ~uctx entry
-        in
-        ()
     in
-    Constr.mkVar name :: subst
+    Constr.mkRef (cst,Univ.Instance.empty) :: subst
   in
   let _ : Vars.substl = List.fold_left fn [] ctx in
   ()

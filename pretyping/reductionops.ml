@@ -106,7 +106,7 @@ module ReductionBehaviour = struct
   let discharge = function
     | _,(false, (gr, b)) ->
       let b =
-        if Lib.is_in_section gr then
+        if Lib.is_persistent_in_section gr then
           let vars = (Lib.section_instance gr).Declarations.abstr_inst in
           let extra = Array.length vars in
           more_args extra b

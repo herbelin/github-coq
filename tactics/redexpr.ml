@@ -99,8 +99,8 @@ let classify_strategy (local,_ as obj) =
 
 let disch_ref ref =
   match ref with
-      EvalConstRef c -> Some ref
-    | EvalVarRef id -> if Lib.is_in_section (GlobRef.VarRef id) then None else Some ref
+      EvalConstRef cst -> if Global.is_local_in_section (GlobRef.ConstRef cst) then None else Some ref
+    | EvalVarRef id -> None (* Should not happen *)
 
 let discharge_strategy (_,(local,obj)) =
   if local then None else

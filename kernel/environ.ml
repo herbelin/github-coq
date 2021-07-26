@@ -141,7 +141,7 @@ let empty_env = {
   env_universes_lbound = UGraph.Bound.Set;
   env_typing_flags = Declareops.safe_flags Conv_oracle.empty;
   retroknowledge = Retroknowledge.empty;
-  indirect_pterms = Opaqueproof.empty_opaquetab;
+  indirect_pterms = Opaqueproof.empty_opaquetab; (* This could be in safe_typing *)
 }
 
 (* Section context *)
@@ -881,6 +881,29 @@ let remove_hyps ids check_context check_value ctxt =
         push_named_context_val_val ~secvar d' v' rctxt', true
   in
   fst (remove_hyps ctxt)
+
+(*
+let is_in_section env gr sec =
+  let open GlobRef in
+  let open Section in
+  match gr with
+  | VarRef id ->
+    let vars = section_context env in
+    List.exists (fun decl -> Id.equal id (Constant.basename (SectionDecl.get_section_decl_name decl))) vars
+  | ConstRef con -> is_const_in_section con sec
+  | IndRef (ind, _) | ConstructRef ((ind, _), _) -> is_mind_in_section ind sec
+*)
+
+let segment_of_constant env con =
+  let cb = lookup_constant con env in
+  let vars = section_context env in
+  Section.section_segment_of_entry vars cb.const_hyps cb.const_secunivctx
+
+let segment_of_inductive env mind =
+  let open Declarations in
+  let mib = lookup_mind mind env in
+  let vars = section_context env in
+  Section.section_segment_of_entry vars mib.mind_hyps mib.mind_secunivctx
 
 (* A general request *)
 

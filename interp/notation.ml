@@ -1943,7 +1943,7 @@ let subst_arguments_scope (subst,(req,r,n,scl,cls)) =
   (ArgsScopeNoDischarge,r',n,scl,cls')
 
 let discharge_arguments_scope (_,(req,r,n,l,_)) =
-  if req == ArgsScopeNoDischarge || (isVarRef r && Lib.is_in_section r) then None
+  if req == ArgsScopeNoDischarge || Global.is_local_in_section r then None
   else
     let n =
       try
@@ -1990,7 +1990,7 @@ let inArgumentsScope : arguments_scope_obj -> obj =
       (* XXX: Should we pass the sigma here or not, see @herbelin's comment in 6511 *)
       rebuild_function = rebuild_arguments_scope Evd.empty }
 
-let is_local local ref = local || isVarRef ref && Lib.is_in_section ref
+let is_local local ref = local || Global.is_local_in_section ref
 
 let declare_arguments_scope_gen req r n (scl,cls) =
   Lib.add_anonymous_leaf (inArgumentsScope (req,r,n,scl,cls))

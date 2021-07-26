@@ -203,6 +203,33 @@ let rec find_var id = function
   if Id.equal id idc then c
   else find_var id subst
 
+let rec find_const cst = function
+| [] -> raise Not_found
+| (cstc, c) :: subst ->
+  if Constant.CanOrd.equal cst cstc then c
+  else find_const cst subst
+
+(* (replace_vars sigma M) applies substitution sigma to term M *)
+let replace_consts const_alist x =
+  match const_alist with
+  | [] -> x
+  | _ ->
+    let rec substrec n c = match Constr.kind c with
+    | Constr.Const (x,_) ->
+      (try lift_substituend n (find_const x const_alist)
+      with Not_found -> c)
+    | _ -> Constr.map_with_binders succ substrec n c
+    in
+    substrec 0 x
+
+(* (subst_vars [id1;...;idn] t) substitute (Var idj) by (Rel j) in t *)
+let substn_consts p vars c =
+  let _,subst =
+    List.fold_left (fun (n,l) var -> ((n+1),(var,make_substituend (Constr.mkRel n))::l)) (p,[]) vars
+  in replace_consts (List.rev subst) c
+
+let subst_consts subst c = substn_consts 1 subst c
+
 (* (replace_vars sigma M) applies substitution sigma to term M *)
 let replace_vars var_alist x =
   let var_alist = thin_val var_alist in

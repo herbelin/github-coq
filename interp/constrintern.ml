@@ -1103,18 +1103,10 @@ let intern_var env (ltacvars,ntnvars) namedctx loc id us =
     user_err ?loc ~hdr:"intern_var"
      (str "variable " ++ Id.print id ++ str " should be bound to a term.")
   else
-    (* Is [id] a goal or section variable *)
+    (* Is [id] a goal variable *)
     let _ = Environ.lookup_named_ctxt id namedctx in
-      try
-        (* [id] a section variable *)
-        (* Redundant: could be done in intern_qualid *)
-        let ref = GlobRef.VarRef id in
-        Dumpglob.dump_secvar ?loc id; (* this raises Not_found when not a section variable *)
-        (* Someday we should stop relying on Dumglob raising exceptions *)
-        DAst.make ?loc @@ GRef (ref, us)
-      with e when CErrors.noncritical e ->
-        (* [id] a goal variable *)
-        gvar (loc,id) us
+    (* [id] a goal variable *)
+    gvar (loc,id) us
 
 (**********************************************************************)
 (* Locating reference, possibly via an abbreviation *)

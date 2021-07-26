@@ -49,7 +49,7 @@ let do_univ_name ~check i dp src (id,univ) =
   Nametab.push_universe i sp univ
 
 let cache_univ_names ((sp, _), (src, univs)) =
-  let depth = Lib.sections_depth () in
+  let depth = Global.sections_depth () in
   let dp = Libnames.pop_dirpath_n depth (Libnames.dirpath sp) in
   List.iter (do_univ_name ~check:true (Nametab.Until 1) dp src) univs
 

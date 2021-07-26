@@ -45,8 +45,6 @@ val sprop_allowed : unit -> bool
 
 (** Variables, Local definitions, constants, inductive types *)
 
-val push_named_assum : (Id.t * Constr.types) -> unit
-val push_named_def   : (Id.t * Entries.section_def_entry) -> unit
 val push_section_context : Univ.UContext.t -> unit
 
 val export_private_constants :
@@ -55,7 +53,7 @@ val export_private_constants :
 
 val add_constant :
   ?typing_flags:typing_flags ->
-  Id.t -> Safe_typing.global_declaration -> Constant.t
+  Id.t -> Section.persistence_flag -> Safe_typing.global_declaration -> Constant.t
 val add_private_constant :
   Id.t -> Safe_typing.side_effect_declaration -> Constant.t * Safe_typing.private_constants
 val add_mind :
@@ -88,7 +86,9 @@ val close_section : Summary.frozen -> unit
     the section what opened. *)
 
 val sections_are_opened : unit -> bool
+val sections_depth : unit -> int
 val sections_polymorphic_universes : unit -> Univ.UContext.t list
+val is_local_in_section : GlobRef.t -> bool
 
 (** Interactive modules and module types *)
 

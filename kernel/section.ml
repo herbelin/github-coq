@@ -12,10 +12,15 @@ open Util
 open Names
 open Univ
 open Declarations
-open Context.Section.Declaration
+
+(*
+module SectionDecl = Context.Section.Declaration
+
+type persistence_flag = bool
+*)
 
 type section_entry =
-| SecDefinition of Constant.t * constant_body
+| SecDefinition of persistence_flag * Constant.t * constant_body
 | SecInductive of MutInd.t * mutual_inductive_body
 
 type 'a t = {
@@ -41,21 +46,28 @@ type 'a t = {
   custom : 'a;
 }
 
-let rec depth sec = 1 + match sec.prev with None -> 0 | Some prev -> depth prev
-
 let has_poly_univs sec = sec.has_poly_univs
+
+let rec depth = function
+  | None -> 0
+  | Some sec -> 1 + depth sec.prev
 
 let rec polymorphic_universes = function
   | None -> []
   | Some sec -> sec.poly_universes :: polymorphic_universes sec.prev
 
+(*
 let all_poly_univs sec = sec.all_poly_univs
+*)
 
 let map_custom f sec = {sec with custom = f sec.custom}
 
 let add_emap e v (cmap, imap) = match e with
 | SecDefinition (con,_) -> (Cmap.add con v cmap, imap)
 | SecInductive (ind,_) -> (cmap, Mindmap.add ind v imap)
+
+
+let poly_universes sec = sec.poly_universes
 
 let push_local_universe_context ctx sec =
   if UContext.is_empty ctx then sec
@@ -130,6 +142,28 @@ let push_global ~poly e sec =
 let segment_of_constant con sec = Cmap.find con (fst sec.cooking_info_map)
 let segment_of_inductive con sec = Mindmap.find con (snd sec.cooking_info_map)
 
+let extract_hyps vars used =
+  (* Only keep the part that is used by the declaration *)
+  let vars1,vars2 = List.partition (fun decl -> Cset.mem (SectionDecl.get_section_decl_name decl) used) vars in
+  vars1, List.map SectionDecl.get_section_decl_name vars2
+
+let section_segment_of_entry vars hyps uctx =
+  let uctx, abstr_further_univctx = match uctx with
+    | a::l -> a, l
+    | _ -> CErrors.anomaly (Pp.str "Ill-formed universe section segment.") in
+  (* [vars] are the named hypotheses, [hyps] the subset that is declared by the
+     global *)
+  let hyps, abstr_further_ctx = extract_hyps vars (Cset.of_list hyps) in
+  let inst, auctx = Univ.abstract_universes uctx in
+  {
+    abstr_ctx = hyps;
+    abstr_subst = inst;
+    abstr_uctx = auctx;
+    abstr_further_ctx;
+    abstr_further_univctx;
+  }
+
+(*
 let empty_segment = {
   expand_info = (Cmap.empty, Mindmap.empty);
   abstr_info = {
@@ -156,7 +190,6 @@ let is_in_section _env gr sec =
   | IndRef (ind, _) | ConstructRef ((ind, _), _) ->
     Mindmap.mem ind (snd sec.expand_info_map)
 
-(*
 let get_section_assum_name = function
   | SectionAssum (cst,_) -> Some cst.Context.binder_name
   | SectionDef _ -> None
@@ -172,3 +205,25 @@ let is_in_section env gr sec =
   | IndRef (ind, _) | ConstructRef ((ind, _), _) ->
     Mindmap.mem ind (snd sec.expand_info_map)
 *)
+
+let section_decl_of_const_body cst cb =
+  match cb.const_body with
+  | Undef _ -> SectionDecl.SectionAssum (Context.make_annot cst cb.const_relevance, cb.const_type)
+  | Def c -> SectionDecl.SectionDef (Context.make_annot cst cb.const_relevance, c, cb.const_type)
+  | OpaqueDef _ -> CErrors.user_err Pp.(strbrk "Opaque local definition not supported.")
+  | Primitive _ -> assert false (* forbidden in add_possible_retroknowledge *)
+
+let is_const_in_section cst sec = Cset.mem cst sec.const_cache
+let is_mind_in_section mind sec = Mindset.mem mind sec.mind_cache
+
+let is_local_in_section gr sec =
+  match gr with
+  | GlobRef.ConstRef cst -> not (is_const_in_section cst sec)
+  | _ -> false
+
+let is_persistent_in_section gr sec =
+  let open GlobRef in
+  match gr with
+  | VarRef _id -> assert false
+  | ConstRef cst -> is_const_in_section cst sec
+  | IndRef (mind, _) | ConstructRef ((mind, _), _) -> is_mind_in_section mind sec

@@ -161,11 +161,11 @@ let abstract_context expand_info abstr_info hyps =
       let b = expand_subst cache expand_info abstr_info b in
       let t = expand_subst cache expand_info abstr_info t in
       let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
-      id, RelDecl.LocalDef (map_annot Name.mk_name id, b, t)
+      cst, RelDecl.LocalDef (map_annot Name.mk_name id, b, t)
     | SectionDecl.SectionAssum (cst, t) ->
       let t = expand_subst cache expand_info abstr_info t in
       let id = map_annot (fun cst -> Label.to_id (Constant.label cst)) cst in
-      id, RelDecl.LocalAssum (map_annot Name.mk_name id, t)
+      cst, RelDecl.LocalAssum (map_annot Name.mk_name id, t)
     in
     { abstr_info with
         abstr_ctx = decl :: abstr_info.abstr_ctx;
@@ -193,11 +193,11 @@ let make_cooking_info expand_info hyps uctx =
   { expand_info; abstr_info; abstr_inst_info; names_info }
 
 let abstract_as_type t (hyps, subst) =
-  let t = Vars.subst_vars subst t in
+  let t = Vars.subst_consts subst t in
   List.fold_left (fun c d -> mkProd_wo_LetIn d c) t hyps
 
 let abstract_as_body c (hyps, subst) =
-  let c = Vars.subst_vars subst c in
+  let c = Vars.subst_consts subst c in
   it_mkLambda_or_LetIn c hyps
 
 type recipe = { from : constant_body; info : cooking_info }
@@ -314,7 +314,8 @@ let cook_constant { from = cb; info } =
     cook_universes = univs;
     cook_relevance = cb.const_relevance;
     cook_inline = cb.const_inline_code;
-    cook_context = Some const_hyps;
+    cook_context = Some (Cset.of_list abstr_further_ctx);
+    cook_univcontext = Some abstr_further_univctx;
     cook_flags = cb.const_typing_flags;
   }
 
@@ -429,7 +430,8 @@ let cook_inductive info mib =
     mind_record;
     mind_finite = mib.mind_finite;
     mind_ntypes = mib.mind_ntypes;
-    mind_hyps;
+    mind_hyps = abstr_further_ctx;
+    mind_secunivctx = abstr_further_univctx;
     mind_nparams = mib.mind_nparams + nnewparams;
     mind_nparams_rec = mib.mind_nparams_rec + nnewparams;
     mind_params_ctxt;

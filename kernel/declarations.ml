@@ -141,6 +141,13 @@ type abstr_inst_info = {
   (** The variables to reapply (excluding "let"s of the context) *)
   abstr_uinst : Univ.Instance.t;
   (** Abstracted universe variables to reapply *)
+(*
+  (** Universe quantification, same length as the substitution *)
+  abstr_further_ctx : Constant.t list;
+  (** Hyps remaining in outer sections *)
+  abstr_further_univctx : Univ.UContext.t list;
+  (** Universe graph remaining to abstract in each outer sections *)
+*)
 }
 
 (** The collection of instantiations to apply to generalized

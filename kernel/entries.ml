@@ -74,13 +74,6 @@ type definition_entry = {
   const_entry_inline_code : bool;
 }
 
-type section_def_entry = {
-  secdef_body : constr;
-  secdef_secctx : Cset.t option;
-  secdef_feedback : Stateid.t option;
-  secdef_type : types option;
-}
-
 type 'a opaque_entry = {
   opaque_entry_body   : 'a;
   (* List of section variables *)

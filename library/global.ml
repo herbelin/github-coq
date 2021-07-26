@@ -86,8 +86,6 @@ let globalize_with_summary fs f =
 
 let i2l = Label.of_id
 
-let push_named_assum a = globalize0 (Safe_typing.push_named_assum a)
-let push_named_def d = globalize0 (Safe_typing.push_named_def d)
 let push_section_context c = globalize0 (Safe_typing.push_section_context c)
 let add_constraints c = globalize0 (Safe_typing.add_constraints c)
 let push_context_set ~strict c = globalize0 (Safe_typing.push_context_set ~strict c)
@@ -105,7 +103,7 @@ let is_cumulative_sprop () = (typing_flags()).Declarations.cumulative_sprop
 let set_allow_sprop b = globalize0 (Safe_typing.set_allow_sprop b)
 let sprop_allowed () = Environ.sprop_allowed (env())
 let export_private_constants cd = globalize (Safe_typing.export_private_constants cd)
-let add_constant ?typing_flags id d = globalize (Safe_typing.add_constant ?typing_flags (i2l id) d)
+let add_constant ?typing_flags id persistent d = globalize (Safe_typing.add_constant ?typing_flags (i2l id) persistent d)
 let add_private_constant id d = globalize (Safe_typing.add_private_constant (i2l id) d)
 let add_mind ?typing_flags id mie = globalize (Safe_typing.add_mind ?typing_flags (i2l id) mie)
 let add_modtype id me inl = globalize (Safe_typing.add_modtype (i2l id) me inl)
@@ -115,7 +113,9 @@ let add_include me ismod inl = globalize (Safe_typing.add_include me ismod inl)
 let open_section () = globalize0 Safe_typing.open_section
 let close_section fs = globalize0_with_summary fs Safe_typing.close_section
 let sections_are_opened () = Safe_typing.sections_are_opened (safe_env())
+let sections_depth () = Safe_typing.sections_depth (safe_env())
 let sections_polymorphic_universes () = Safe_typing.sections_polymorphic_universes (safe_env())
+let is_local_in_section ref = Globnames.(isConstRef ref && Safe_typing.is_local_in_section ref (safe_env()))
 
 let start_module id = globalize (Safe_typing.start_module (i2l id))
 let start_modtype id = globalize (Safe_typing.start_modtype (i2l id))

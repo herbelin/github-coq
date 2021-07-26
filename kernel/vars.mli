@@ -126,6 +126,8 @@ val subst_vars : Id.t list -> constr -> constr
     substitutes [Var id] by [Rel 1] in [t]. *)
 val subst_var : Id.t -> constr -> constr
 
+val subst_consts : Constant.t list -> constr -> constr
+
 (** {3 Substitution of universes} *)
 
 open Univ

@@ -39,7 +39,7 @@ val declare_variable
   -> Impargs.manual_implicits
   -> Glob_term.binding_kind
   -> variable CAst.t
-  -> unit
+  -> Constant.t
 
 val declare_axiom
   : coercion_flag

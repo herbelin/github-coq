@@ -93,7 +93,9 @@ val make_kn : Id.t -> KerName.t
 (** Are we inside an opened section *)
 val sections_are_opened : unit -> bool
 [@@ocaml.deprecated "Use Global.sections_are_opened"]
+(*
 val sections_depth : unit -> int
+*)
 
 (** Are we inside an opened module type *)
 val is_module_or_modtype : unit -> bool
@@ -167,7 +169,7 @@ val section_segment_of_reference : GlobRef.t -> Declarations.cooking_info
 
 val section_instance : GlobRef.t -> Declarations.abstr_inst_info
 val variable_section_segment_of_reference : GlobRef.t -> Constr.named_context
-val is_in_section : GlobRef.t -> bool
+val is_persistent_in_section : GlobRef.t -> bool
 
 (** {6 Discharge: decrease the section level if in the current section } *)
 

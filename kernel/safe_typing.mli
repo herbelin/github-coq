@@ -27,15 +27,13 @@ val digest_match : actual:vodigest -> required:vodigest -> bool
 
 type safe_environment
 
-type section_data
-
 val empty_environment : safe_environment
 
 val is_initial : safe_environment -> bool
 
 val env_of_safe_env : safe_environment -> Environ.env
 
-val sections_of_safe_env : safe_environment -> section_data Section.t option
+val sections_of_safe_env : safe_environment -> safe_environment Section.t option
 
 val structure_body_of_safe_env : safe_environment -> Declarations.structure_body
 
@@ -94,7 +92,7 @@ val export_private_constants :
 (** returns the main constant *)
 val add_constant :
   ?typing_flags:Declarations.typing_flags ->
-  Label.t -> global_declaration -> Constant.t safe_transformer
+  Label.t -> Section.persistence_flag -> global_declaration -> Constant.t safe_transformer
 
 (** Similar to add_constant but also returns a certificate *)
 val add_private_constant :
@@ -147,12 +145,11 @@ val close_section : safe_transformer0
 
 val sections_are_opened : safe_environment -> bool
 
-(** Insertion of local declarations (Local or Variables) *)
+val sections_depth : safe_environment -> int
 
-val push_named_assum : (Id.t * Constr.types) -> safe_transformer0
+val sections_polymorphic_universes : safe_environment -> Univ.UContext.t list
 
-val push_named_def :
-  Id.t * Entries.section_def_entry -> safe_transformer0
+val is_local_in_section : GlobRef.t -> safe_environment -> bool
 
 (** Add local universes to a polymorphic section *)
 val push_section_context : Univ.UContext.t -> safe_transformer0

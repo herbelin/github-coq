@@ -135,6 +135,10 @@ val section_full_name : Id.t -> env -> Constant.t
 val lookup_section   : Id.t -> env -> Constr.section_declaration
 *)
 val push_section     : Constr.section_declaration -> env -> env
+(*
+val open_section     : env -> env
+val close_section    : env -> env * Section.section_entry list * ContextSet.t
+*)
 
 (** {5 Context of de Bruijn variables ([rel_context]) } *)
 
@@ -428,6 +432,16 @@ val apply_to_hyp : named_context_val -> variable ->
     named_context_val
 
 val remove_hyps : Id.Set.t -> (Constr.named_declaration -> Constr.named_declaration) -> (lazy_val -> lazy_val) -> named_context_val -> named_context_val
+
+val segment_of_constant : env -> Constant.t -> Declarations.abstr_info
+(** Section segment at the time of the constant declaration *)
+
+val segment_of_inductive : env -> MutInd.t -> Declarations.abstr_info
+(** Section segment at the time of the inductive declaration *)
+
+(*
+val replacement_context : env -> Section.t -> Declarations.work_list
+*)
 
 val is_polymorphic : env -> Names.GlobRef.t -> bool
 val is_template_polymorphic : env -> GlobRef.t -> bool

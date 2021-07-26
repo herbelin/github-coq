@@ -114,7 +114,8 @@ let type_of_global_ref gr =
     let open Names.GlobRef in
     match gr with
     | ConstRef cst ->
-      type_of_logical_kind (constant_kind cst)
+      if Global.is_local_in_section gr then "var"
+      else type_of_logical_kind (constant_kind cst)
     | VarRef v ->
       "var" ^ type_of_logical_kind (Decls.variable_kind v)
     | IndRef ind ->
@@ -163,7 +164,7 @@ let dump_reference ?loc modpath ident ty =
   let filepath = Names.DirPath.to_string (Lib.library_dp ()) in
   dump_ref ?loc filepath modpath ident ty
 
-let dump_secvar ?loc id =
+let dump_secvar ?loc id = (* TO REMOVE? *)
   dump_reference ?loc "<>" (Libnames.string_of_qualid (Decls.variable_secpath id)) "var"
 
 let dump_modref ?loc mp ty =

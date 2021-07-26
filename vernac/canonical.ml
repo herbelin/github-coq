@@ -22,7 +22,7 @@ let cache_canonical_structure (_, (o,_)) =
 
 let discharge_canonical_structure (_,(x, local)) =
   let gref = Instance.repr x in
-  if local || (Globnames.isVarRef gref && Lib.is_in_section gref) then None
+  if local || Global.is_local_in_section gref then None
   else Some (x, local)
 
 
