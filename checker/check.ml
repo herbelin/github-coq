@@ -99,7 +99,7 @@ let access_opaque_table dp i =
   in
   Opaqueproof.get_opaque_disk i t
 
-let access_discharge = Cooking.cook_constr
+let access_discharge = Cooking.cook_opaque_proofterm
 
 let indirect_accessor = {
   Opaqueproof.access_proof = access_opaque_table;

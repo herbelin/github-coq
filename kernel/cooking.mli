@@ -27,16 +27,18 @@ type 'opaque result = {
   cook_flags : typing_flags;
 }
 
-val cook_constant : recipe -> cooking_info Opaqueproof.opaque result
-val cook_constr : cooking_info list ->
-  (constr * unit Opaqueproof.delayed_universes) -> (constr * unit Opaqueproof.delayed_universes)
+val cook_opaque_proofterm : cooking_info list ->
+  Opaqueproof.opaque_proofterm -> Opaqueproof.opaque_proofterm
+
+val cook_constant :
+  recipe -> cooking_info Opaqueproof.opaque result
 
 val cook_inductive :
   cooking_info -> mutual_inductive_body -> mutual_inductive_body
 
-(** {6 Utility functions used in module [Discharge]. } *)
+val make_cooking_info : expand_info -> named_context -> Univ.UContext.t -> cooking_info
+  (** Abstract a context assumed to be de-Bruijn free for terms and universes *)
 
-val expmod_constr : work_list -> constr -> constr
+val lift_poly_univs : cooking_info -> Univ.AbstractContext.t -> cooking_info * Univ.AbstractContext.t
 
-val discharge_abstract_universe_context :
-  Univ.Instance.t * Univ.AbstractContext.t -> Univ.AbstractContext.t -> Univ.Instance.t * Univ.AbstractContext.t
+val abstract_rel_context : cooking_info -> rel_context -> rel_context

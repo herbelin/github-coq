@@ -161,16 +161,12 @@ val drop_objects : frozen -> frozen
 val init : unit -> unit
 
 (** {6 Section management for discharge } *)
-val section_segment_of_constant : Constant.t -> Declarations.abstr_info
-val section_segment_of_mutual_inductive: MutInd.t -> Declarations.abstr_info
-val section_segment_of_reference : GlobRef.t -> Declarations.abstr_info
+val section_segment_of_constant : Constant.t -> Declarations.cooking_info
+val section_segment_of_inductive: MutInd.t -> Declarations.cooking_info
+val section_segment_of_reference : GlobRef.t -> Declarations.cooking_info
 
-val variable_section_segment_of_reference : GlobRef.t -> Constr.named_context
-
-val section_instance : GlobRef.t -> Univ.Instance.t * Id.t array
+val section_instance : GlobRef.t -> Declarations.abstr_inst_info
 val is_in_section : GlobRef.t -> bool
-
-val replacement_context : unit -> Declarations.work_list
 
 (** {6 Discharge: decrease the section level if in the current section } *)
 

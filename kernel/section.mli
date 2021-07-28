@@ -41,10 +41,10 @@ val close_section : 'a t -> 'a t option * section_entry list * ContextSet.t * 'a
 
 (** {6 Extending sections} *)
 
-val push_local : 'a t -> 'a t
+val push_local : Constr.named_declaration -> 'a t -> 'a t
 (** Extend the current section with a local definition (cf. push_named). *)
 
-val push_context : UContext.t -> 'a t -> 'a t
+val push_local_universe_context : UContext.t -> 'a t -> 'a t
 (** Extend the current section with a local universe context. Assumes that the
     last opened section is polymorphic. *)
 
@@ -65,16 +65,13 @@ val all_poly_univs : 'a t -> Univ.Level.t array
    constraints about monomorphic universes, which prevent declaring
    monomorphic globals. *)
 
-val empty_segment : Declarations.abstr_info
+val empty_segment : Declarations.cooking_info
 (** Nothing to abstract *)
 
-val segment_of_constant : Environ.env -> Constant.t -> 'a t -> Declarations.abstr_info
+val segment_of_constant : Constant.t -> 'a t -> Declarations.cooking_info
 (** Section segment at the time of the constant declaration *)
 
-val segment_of_inductive : Environ.env -> MutInd.t -> 'a t -> Declarations.abstr_info
+val segment_of_inductive : MutInd.t -> 'a t -> Declarations.cooking_info
 (** Section segment at the time of the inductive declaration *)
-
-val replacement_context : Environ.env -> 'a t -> Declarations.work_list
-(** Section segments of all declarations from this section. *)
 
 val is_in_section : Environ.env -> GlobRef.t -> 'a t -> bool

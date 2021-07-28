@@ -215,7 +215,7 @@ let access_opaque_table dp i =
 
 let indirect_accessor = {
   Opaqueproof.access_proof = access_opaque_table;
-  Opaqueproof.access_discharge = Cooking.cook_constr;
+  Opaqueproof.access_discharge = Cooking.cook_opaque_proofterm;
 }
 
 (************************************************************************)
