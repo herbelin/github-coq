@@ -19,7 +19,7 @@ open Mod_subst
 
 type 'a delayed_universes =
 | PrivateMonomorphic of 'a
-| PrivatePolymorphic of int * Univ.ContextSet.t
+| PrivatePolymorphic of Univ.ContextSet.t
   (** Number of surrounding bound universes + local constraints *)
 
 type opaquetab
