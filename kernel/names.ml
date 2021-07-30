@@ -916,14 +916,15 @@ struct
     module HashRepr = Hashcons.Make(Self_Hashcons)
     let hcons = Hashcons.simple_hcons HashRepr.generate HashRepr.hcons (hcons_ind,Id.hcons)
 
-    let map_npars f p =
+    let map_ind_npars f p =
       let ind = fst p.proj_ind in
       let npars = p.proj_npars in
       let ind', npars' = f ind npars in
       if ind == ind' && npars == npars' then p
       else {p with proj_ind = (ind',snd p.proj_ind); proj_npars = npars'}
 
-    let map f p = map_npars (fun mind n -> f mind, n) p
+    let map_npars f p = map_ind_npars (fun mind n -> mind, f n) p
+    let map f p = map_ind_npars (fun mind n -> f mind, n) p
 
     let to_string p = Constant.to_string (constant p)
     let print p = Constant.print (constant p)
