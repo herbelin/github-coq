@@ -176,3 +176,15 @@ End NoAutoNames.
 Require TestSuite.bind_univs.
 Print bind_univs.mono.
 Print bind_univs.poly.
+
+Module TestWith.
+Set Printing Universes.
+Module Type T. Axiom A@{i}:Type@{i}. End T.
+Module Type U. Declare Module M : T. End U.
+Module Type V. Declare Module N : U. End V.
+Declare Module P : V with Definition N.M.A@{j} := Type@{j}.
+Print P.N.M.A.
+Module F (X:V with Definition N.M.A@{k} := Type@{k}).
+Print X.N.M.A.
+End F.
+End TestWith.

@@ -573,25 +573,32 @@ let process_module_binding mbid me =
     Objects in these parameters are also loaded.
     Output is accumulated on top of [acc] (in reverse order). *)
 
+let declare_module_arg_univ_binders mp (dir,ubinders) =
+  let id,idl = List.sep_last (DirPath.repr dir) in
+  let mp = List.fold_left (fun mp id -> MPdot (mp,Label.of_id id)) mp idl in
+  let kn = Constant.make1 (KerName.make mp (Label.of_id id)) in
+  DeclareUniv.declare_univ_binders (GlobRef.ConstRef kn) ubinders
+
 let intern_arg (acc, cst) (idl,(typ,ann)) =
   let inl = inl2intopt ann in
   let lib_dir = Lib.library_dp() in
   let env = Global.env() in
-  let (mty, _, cst') = Modintern.interp_module_ast env Modintern.ModType typ in
+  let (mty, _, cst', ubinders) = Modintern.interp_module_ast env Modintern.ModType typ in
   let () = Global.push_context_set ~strict:true cst' in
   let env = Global.env () in
   let sobjs = get_module_sobjs false env inl mty in
   let mp0 = get_module_path mty in
-  let fold acc {CAst.v=id} =
+  let fold i acc {CAst.v=id} =
     let dir = DirPath.make [id] in
     let mbid = MBId.make lib_dir id in
     let mp = MPbound mbid in
     let resolver = Global.add_module_parameter mbid mty inl in
+    if i = 0 then List.iter (declare_module_arg_univ_binders mp) ubinders;
     let sobjs = subst_sobjs (map_mp mp0 mp resolver) sobjs in
     do_module false load_objects 1 dir mp sobjs [];
     (mbid,mty,inl)::acc
   in
-  let acc = List.fold_left fold acc idl in
+  let acc = List.fold_left_i fold 0 acc idl in
   (acc, Univ.ContextSet.union cst cst')
 
 (** Process a list of declarations of functor parameters
@@ -661,7 +668,7 @@ let build_subtypes env mp args mtys =
   let (ctx, ans) = List.fold_left_map
     (fun ctx (m,ann) ->
        let inl = inl2intopt ann in
-       let mte, _, ctx' = Modintern.interp_module_ast env Modintern.ModType m in
+       let mte, _, ctx', ubinders = Modintern.interp_module_ast env Modintern.ModType m in
        let env = Environ.push_context_set ~strict:true ctx' env in
        let ctx = Univ.ContextSet.union ctx ctx' in
        let mtb, cst = Mod_typing.translate_modtype env mp inl ([],mte) in
@@ -709,7 +716,8 @@ let start_module export id args res fs =
   let res_entry_o, subtyps, ctx = match res with
     | Enforce (res,ann) ->
         let inl = inl2intopt ann in
-        let (mte, _, ctx) = Modintern.interp_module_ast env Modintern.ModType res in
+        let mte, _, ctx, ubinders = Modintern.interp_module_ast env Modintern.ModType res in
+        List.iter (declare_module_arg_univ_binders mp) ubinders;
         let env = Environ.push_context_set ~strict:true ctx env in
         (* We check immediately that mte is well-formed *)
         let _, _, _, cst = Mod_typing.translate_mse env None inl mte in
@@ -772,26 +780,26 @@ let declare_module id args res mexpr_o fs =
   let params = mk_params_entry arg_entries_r in
   let env = Global.env () in
   let env = Environ.push_context_set ~strict:true ctx env in
-  let mty_entry_o, subs, inl_res, ctx' = match res with
+  let mty_entry_o, subs, inl_res, ctx', ubinders = match res with
     | Enforce (mty,ann) ->
         let inl = inl2intopt ann in
-        let (mte, _, ctx) = Modintern.interp_module_ast env Modintern.ModType mty in
+        let mte, _, ctx, ubinders = Modintern.interp_module_ast env Modintern.ModType mty in
         let env = Environ.push_context_set ~strict:true ctx env in
         (* We check immediately that mte is well-formed *)
         let _, _, _, cst = Mod_typing.translate_mse env None inl mte in
         let ctx = Univ.ContextSet.add_constraints cst ctx in
-        Some mte, [], inl, ctx
+        Some mte, [], inl, ctx, ubinders
     | Check mtys ->
       let typs, ctx = build_subtypes env mp arg_entries_r mtys in
-      None, typs, default_inline (), ctx
+      None, typs, default_inline (), ctx, []
   in
   let env = Environ.push_context_set ~strict:true ctx' env in
   let ctx = Univ.ContextSet.union ctx ctx' in
-  let mexpr_entry_o, inl_expr, ctx' = match mexpr_o with
-    | None -> None, default_inline (), Univ.ContextSet.empty
+  let mexpr_entry_o, inl_expr, ctx', ubinders' = match mexpr_o with
+    | None -> None, default_inline (), Univ.ContextSet.empty, []
     | Some (mexpr,ann) ->
-      let (mte, _, ctx) = Modintern.interp_module_ast env Modintern.Module mexpr in
-      Some mte, inl2intopt ann, ctx
+      let mte, _, ctx, ubinders = Modintern.interp_module_ast env Modintern.Module mexpr in
+      Some mte, inl2intopt ann, ctx, ubinders
   in
   let env = Environ.push_context_set ~strict:true ctx' env in
   let ctx = Univ.ContextSet.union ctx ctx' in
@@ -800,11 +808,11 @@ let declare_module id args res mexpr_o fs =
     | None, Some typ -> MType (params, typ)
     | Some body, otyp -> MExpr (params, body, otyp)
   in
-  let sobjs, mp0 = match entry with
+  let sobjs, mp0, ubinders = match entry with
     | MType (_,mte) | MExpr (_,_,Some mte) ->
-      get_functor_sobjs false env inl_res (params,mte), get_module_path mte
+      get_functor_sobjs false env inl_res (params,mte), get_module_path mte, ubinders
     | MExpr (_,me,None) ->
-      get_functor_sobjs true env inl_expr (params,me), get_module_path me
+      get_functor_sobjs true env inl_expr (params,me), get_module_path me, ubinders'
   in
   (* Undo the simulated interactive building of the module
      and declare the module as a whole *)
@@ -815,6 +823,7 @@ let declare_module id args res mexpr_o fs =
   in
   let () = Global.push_context_set ~strict:true ctx in
   let mp_env,resolver = Global.add_module id entry inl in
+  List.iter (declare_module_arg_univ_binders mp) ubinders;
 
   (* Name consistency check : kernel vs. library *)
   assert (ModPath.equal mp (mp_of_kn (Lib.make_kn id)));
@@ -869,7 +878,7 @@ let declare_modtype id args mtys (mty,ann) fs =
   let () = Global.push_context_set ~strict:true arg_ctx in
   let params = mk_params_entry arg_entries_r in
   let env = Global.env () in
-  let mte, _, mte_ctx = Modintern.interp_module_ast env Modintern.ModType mty in
+  let mte, _, mte_ctx, ubinders = Modintern.interp_module_ast env Modintern.ModType mty in
   let () = Global.push_context_set ~strict:true mte_ctx in
   let env = Global.env () in
   (* We check immediately that mte is well-formed *)
@@ -894,6 +903,7 @@ let declare_modtype id args mtys (mty,ann) fs =
   let () = Global.push_context_set ~strict:true (Univ.Level.Set.empty,mte_cst) in
   let () = Global.push_context_set ~strict:true sub_mty_ctx in
   let mp_env = Global.add_modtype id entry inl in
+  List.iter (declare_module_arg_univ_binders mp_env) ubinders;
 
   (* Name consistency check : kernel vs. library *)
   assert (ModPath.equal mp_env mp);
@@ -937,7 +947,7 @@ let type_of_incl env is_mod = function
 
 let declare_one_include (me_ast,annot) =
   let env = Global.env() in
-  let me, kind, cst = Modintern.interp_module_ast env Modintern.ModAny me_ast in
+  let me, kind, cst, ubinders = Modintern.interp_module_ast env Modintern.ModAny me_ast in
   let () = Global.push_context_set ~strict:true cst in
   let env = Global.env () in
   let is_mod = (kind == Modintern.Module) in
@@ -954,6 +964,7 @@ let declare_one_include (me_ast,annot) =
   in
   let base_mp = get_module_path me in
   let resolver = Global.add_include me is_mod inl in
+  List.iter (declare_module_arg_univ_binders cur_mp) ubinders;
   let subst = join subst_self (map_mp base_mp cur_mp resolver) in
   let aobjs = subst_aobjs subst aobjs in
   ignore (add_leaf (Lib.current_mod_id ()) (IncludeObject aobjs))

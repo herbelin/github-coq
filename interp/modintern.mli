@@ -31,4 +31,5 @@ exception ModuleInternalizationError of module_internalization_error
 type module_kind = Module | ModType | ModAny
 
 val interp_module_ast :
-  env -> module_kind -> module_ast -> module_struct_entry * module_kind * Univ.ContextSet.t
+  env -> module_kind -> module_ast ->
+  module_struct_entry * module_kind * Univ.ContextSet.t * (Names.DirPath.t * UnivNames.universe_binders) list

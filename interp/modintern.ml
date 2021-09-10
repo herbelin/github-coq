@@ -104,20 +104,20 @@ let lookup_polymorphism env base kind fqid =
 
 let transl_with_decl env base kind = function
   | CWith_Module ({CAst.v=fqid},qid) ->
-      WithMod (fqid,lookup_module qid), Univ.ContextSet.empty
+      WithMod (fqid,lookup_module qid), Univ.ContextSet.empty, []
   | CWith_Definition ({CAst.v=fqid},udecl,c) ->
     let sigma, udecl = interp_univ_decl_opt env udecl in
     let c, ectx = interp_constr env sigma c in
     let poly = lookup_polymorphism env base kind fqid in
-    begin match fst (UState.check_univ_decl ~poly ectx udecl) with
-      | Entries.Polymorphic_entry ctx ->
+    begin match UState.check_univ_decl ~poly ectx udecl with
+      | Entries.Polymorphic_entry ctx, ubinders ->
         let inst, ctx = Univ.abstract_universes ctx in
         let c = EConstr.Vars.subst_univs_level_constr (Univ.make_instance_subst inst) c in
         let c = EConstr.to_constr sigma c in
-        WithDef (fqid,(c, Some ctx)), Univ.ContextSet.empty
-      | Entries.Monomorphic_entry ctx ->
+        WithDef (fqid,(c, Some ctx)), Univ.ContextSet.empty, [Names.DirPath.make fqid,ubinders]
+      | Entries.Monomorphic_entry ctx, ubinders ->
         let c = EConstr.to_constr sigma c in
-        WithDef (fqid,(c, None)), ctx
+        WithDef (fqid,(c, None)), ctx, [Names.DirPath.make fqid,ubinders]
     end
 
 let loc_of_module l = l.CAst.loc
@@ -128,24 +128,24 @@ let loc_of_module l = l.CAst.loc
 let rec interp_module_ast env kind m cst = match m with
   | {CAst.loc;v=CMident qid} ->
       let (mp,kind) = lookup_module_or_modtype kind qid in
-      (MEident mp, mp, kind, cst)
+      (MEident mp, mp, kind, cst, [])
   | {CAst.loc;v=CMapply (me1,me2)} ->
-      let me1', base, kind1, cst = interp_module_ast env kind me1 cst in
-      let me2', _, kind2, cst = interp_module_ast env ModAny me2 cst in
+      let me1', base, kind1, cst, ubinders1 = interp_module_ast env kind me1 cst in
+      let me2', _, kind2, cst, ubinders2 = interp_module_ast env ModAny me2 cst in
       let mp2 = match me2' with
         | MEident mp -> mp
         | _ -> error_application_to_not_path (loc_of_module me2) me2'
       in
       if kind2 == ModType then
         error_application_to_module_type (loc_of_module me2);
-      (MEapply (me1',mp2), base, kind1, cst)
+      (MEapply (me1',mp2), base, kind1, cst, ubinders1 @ ubinders2)
   | {CAst.loc;v=CMwith (me,decl)} ->
-      let me,base,kind,cst = interp_module_ast env kind me cst in
+      let me,base,kind,cst,ubinders = interp_module_ast env kind me cst in
       if kind == Module then error_incorrect_with_in_module m.CAst.loc;
-      let decl, cst' = transl_with_decl env base kind decl in
+      let decl, cst',ubinders' = transl_with_decl env base kind decl in
       let cst = Univ.ContextSet.union cst cst' in
-      (MEwith(me,decl), base, kind, cst)
+      (MEwith(me,decl), base, kind, cst, ubinders @ ubinders')
 
 let interp_module_ast env kind m =
-  let me, _, kind, cst = interp_module_ast env kind m Univ.ContextSet.empty in
-  me, kind, cst
+  let me, _, kind, cst, ubinders = interp_module_ast env kind m Univ.ContextSet.empty in
+  me, kind, cst, ubinders
