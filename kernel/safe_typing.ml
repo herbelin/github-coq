@@ -1376,12 +1376,12 @@ let close_section senv =
     match entry with
   | SecDefinition (kn, cb) ->
     let info = Section.segment_of_constant kn sections0 in
-    let cb = Cooking.cook_constant senv.env info cb in
+    let cb = Discharge.cook_constant senv.env info cb in
     (* Delayed constants are already in the global environment *)
     add_constant_aux senv (kn, cb)
   | SecInductive (ind, mib) ->
     let info = Section.segment_of_inductive ind sections0 in
-    let mib = Cooking.cook_inductive info mib in
+    let mib = Discharge.cook_inductive info mib in
     add_checked_mind ind mib senv
   in
   List.fold_right fold entries senv

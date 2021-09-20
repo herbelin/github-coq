@@ -539,7 +539,7 @@ let discharge_implicits (_,(req,l)) =
      let l' =
        try
          List.map (fun (gr, l) ->
-             let vars = Array.map_to_list Constr.destVar (section_instance gr).abstr_inst in
+             let vars = Array.map_to_list Constr.destVar (section_instance gr) in
              let extra_impls = impls_of_context vars in
              let newimpls = List.map (add_section_impls vars extra_impls) l in
              (gr, newimpls)) l
