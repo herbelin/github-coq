@@ -39,13 +39,13 @@ module RelDecl = Context.Rel.Declaration
 type abstr_info = {
   abstr_ctx : Constr.rel_context;
   (** Context over which to generalize (e.g. x:T,z:V(x)) *)
-  abstr_uctx : Univ.AbstractContext.t;
+  abstr_auctx : Univ.AbstractContext.t;
   (** Universe context over which to generalize *)
   abstr_subst : Id.t list;
   (** Canonical renaming represented by its domain made of the
       actual names of the abstracted term variables (e.g. [a,c]);
       the codomain made of de Bruijn indices is implicit *)
-  abstr_usubst : Univ.universe_level_subst;
+  abstr_ausubst : Univ.universe_level_subst;
   (** Universe substitution *)
 }
 
@@ -97,8 +97,8 @@ let empty_cooking_info = {
   abstr_info = {
       abstr_ctx = [];
       abstr_subst = [];
-      abstr_uctx = AbstractContext.empty;
-      abstr_usubst = Level.Map.empty;
+      abstr_auctx = AbstractContext.empty;
+      abstr_ausubst = Level.Map.empty;
     };
   abstr_inst_info = {
       abstr_inst = [||];
@@ -228,7 +228,7 @@ let expand_constr cache modlist c =
 (** The main expanding/substitution functions, performing the three first steps *)
 let expand_subst cache expand_info abstr_info c =
   let c = expand_constr cache expand_info c in
-  let c = Vars.subst_univs_level_constr abstr_info.abstr_usubst c in
+  let c = Vars.subst_univs_level_constr abstr_info.abstr_ausubst c in
   let c = Vars.subst_vars abstr_info.abstr_subst c in
   c
 
@@ -278,9 +278,9 @@ let abstract_named_context expand_info abstr_info hyps =
     of judgment into a [cooking_info] *)
 let make_cooking_info expand_info hyps uctx =
   let abstr_inst = Named.instance mkVar hyps in
-  let abstr_uinst, abstr_uctx = abstract_universes uctx in
-  let abstr_usubst = Univ.make_instance_subst abstr_uinst in
-  let abstr_info = { abstr_ctx = []; abstr_subst = []; abstr_uctx; abstr_usubst } in
+  let abstr_uinst, abstr_auctx = abstract_universes uctx in
+  let abstr_ausubst = Univ.make_instance_subst abstr_uinst in
+  let abstr_info = { abstr_ctx = []; abstr_subst = []; abstr_auctx; abstr_ausubst } in
   let abstr_info = abstract_named_context expand_info abstr_info hyps in
   let abstr_inst_info = { abstr_inst; abstr_uinst } in
   let names_info = Context.Named.to_vars hyps in
@@ -290,13 +290,13 @@ let rel_context_of_cooking_info info =
   info.abstr_info.abstr_ctx
 
 let universe_context_of_cooking_info info =
-  info.abstr_info.abstr_uctx
+  info.abstr_info.abstr_auctx
 
 let instance_of_cooking_info info =
   info.abstr_inst_info.abstr_inst
 
 let discharge_abstract_universe_context abstr auctx =
-  (** Given a substitution [abstr.abstr_usubst := u₀ ... uₙ₋₁] together with an abstract
+  (** Given a substitution [abstr.abstr_ausubst := u₀ ... uₙ₋₁] together with an abstract
       context [abstr.abstr_ctx := 0 ... n - 1 |= C{0, ..., n - 1}] of the same length,
       and another abstract context relative to the former context
       [auctx := 0 ... m - 1 |= C'{u₀, ..., uₙ₋₁, 0, ..., m - 1}],
@@ -308,27 +308,27 @@ let discharge_abstract_universe_context abstr auctx =
       [u₀ ↦ Var(0), ... ,uₙ₋₁ ↦ Var(n - 1), Var(0) ↦  Var(n), ..., Var(m - 1) ↦  Var (n + m - 1)].
   *)
   let open Univ in
-  let n = AbstractContext.size abstr.abstr_uctx in
+  let n = AbstractContext.size abstr.abstr_auctx in
   if (Int.equal n 0) then
     (** Optimization: still need to take the union for the constraints between globals *)
-    { abstr with abstr_uctx = AbstractContext.union abstr.abstr_uctx auctx }
+    { abstr with abstr_auctx = AbstractContext.union abstr.abstr_auctx auctx }
   else
-    let subst = abstr.abstr_usubst in
+    let subst = abstr.abstr_ausubst in
     let ainst = make_abstract_instance auctx in
     let substf = Univ.lift_level_subst n (make_instance_subst ainst) in
     let substf = Univ.merge_level_subst subst substf in
     let auctx = Univ.subst_univs_level_abstract_universe_context substf auctx in
-    let auctx' = AbstractContext.union abstr.abstr_uctx auctx in
-    { abstr with abstr_uctx = auctx'; abstr_usubst = substf }
+    let auctx' = AbstractContext.union abstr.abstr_auctx auctx in
+    { abstr with abstr_auctx = auctx'; abstr_ausubst = substf }
 
 let lift_mono_univs info ctx =
-  assert (AbstractContext.is_empty info.abstr_info.abstr_uctx); (* No monorphic constants in a polymorphic section *)
+  assert (AbstractContext.is_empty info.abstr_info.abstr_auctx); (* No monorphic constants in a polymorphic section *)
   info, ctx
 
 let lift_poly_univs info auctx =
   (** The constant under consideration is quantified over a
       universe context [auctx]; it has to be quantified further over
-      [abstr.abstr_uctx] leading to a new abstraction recipe valid
+      [abstr.abstr_auctx] leading to a new abstraction recipe valid
       under the quantification; that is if we had a judgment
       [G, Δ ⊢ ΠG'.J] to be turned, thanks to [abstr] =
       [{ctx:=Δ;uctx:=G;subst:=σ;usubst:=τ}], into
@@ -338,13 +338,13 @@ let lift_poly_univs info auctx =
       [J], that is, that allows to turn [GG'[ττ'], Δ ⊢ J] into
       [⊢ ΠG.ΠΔ.(ΠG'.J)[σ][τ]] via [⊢ ΠG(G'[ττ']).ΠΔ.(J[σ][ττ'])] *)
   let abstr_info = discharge_abstract_universe_context info.abstr_info auctx in
-  { info with abstr_info }, abstr_info.abstr_uctx
+  { info with abstr_info }, abstr_info.abstr_auctx
 
 let lift_private_mono_univs info a =
-  let () = assert (AbstractContext.is_empty info.abstr_info.abstr_uctx) in
-  let () = assert (is_empty_level_subst info.abstr_info.abstr_usubst) in
+  let () = assert (AbstractContext.is_empty info.abstr_info.abstr_auctx) in
+  let () = assert (is_empty_level_subst info.abstr_info.abstr_ausubst) in
   a
 
 let lift_private_poly_univs info (inst, cstrs) =
-  let cstrs = Univ.subst_univs_level_constraints info.abstr_info.abstr_usubst cstrs in
+  let cstrs = Univ.subst_univs_level_constraints info.abstr_info.abstr_ausubst cstrs in
   (inst, cstrs)
