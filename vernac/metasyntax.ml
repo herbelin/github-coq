@@ -1180,7 +1180,7 @@ let is_coercion level typs =
      | ETConstr _, _ ->
          let customkey = make_notation_entry_level custom n in
          let subentry = subentry_of_constr_prod_entry n e in
-         if notation_entry_level_eq subentry customkey then None
+         if Notationextern.notation_entry_level_eq subentry customkey then None
          else Some (IsEntryCoercion subentry)
      | ETGlobal, InCustomEntry s -> Some (IsEntryGlobal (s,n))
      | ETIdent, InCustomEntry s -> Some (IsEntryIdent (s,n))
