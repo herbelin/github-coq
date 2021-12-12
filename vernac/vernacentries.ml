@@ -527,8 +527,8 @@ let vernac_delimiters ~module_local sc action =
 let vernac_bind_scope ~module_local sc cll =
   Metasyntax.add_class_scope module_local sc (List.map scope_class_of_qualid cll)
 
-let vernac_open_close_scope ~section_local (b,s) =
-  Notation.open_close_scope (section_local,b,s)
+let vernac_open_close_scope ~section_local (to_open,s) =
+  Metasyntax.open_close_scope section_local ~to_open s
 
 let vernac_notation ~atts ~infix =
   let module_local, deprecation = Attributes.(parse Notations.(module_locality ++ deprecation) atts) in
