@@ -49,6 +49,15 @@ let discr_resolver mtb = match mtb.mod_type with
   | NoFunctor _ -> mtb.mod_delta
   | MoreFunctor _ -> empty_delta_resolver
 
+let rec traverse_functor f env = function
+  | NoFunctor struc ->
+    let struc',c',cst = f env struc in
+    NoFunctor struc', c', cst
+  | MoreFunctor (mbid, mtb, mt) ->
+    let env' = add_module_type (MPbound mbid) mtb env in
+    let mt',c',cst = traverse_functor f env' mt in
+    MoreFunctor (mbid, mtb, mt'), c', cst
+
 let rec rebuild_mp mp l =
   match l with
   | []-> mp
@@ -130,19 +139,13 @@ let rec check_with_def env struc (idl,(c,ctx)) mp equiv =
         | SFBmodule mb -> mb
         | _ -> error_not_a_module_label lab
       in
-      begin match mb.mod_expr with
-        | Abstract ->
-          let struc = Modops.destr_nofunctor (MPdot (mp,lab)) mb.mod_type in
-          let struc',c',cst =
-            check_with_def env' struc (idl,(c,ctx)) (MPdot(mp,lab)) mb.mod_delta
-          in
-          let mb' = { mb with
-                      mod_type = NoFunctor struc';
-                      mod_type_alg = None }
-          in
-          before@(lab,SFBmodule mb')::after, c', cst
-        | _ -> error_generative_module_expected lab
-      end
+      match mb.mod_expr with
+      | Abstract ->
+        let f env struc = check_with_def env struc (idl,(c,ctx)) (MPdot(mp,lab)) mb.mod_delta in
+        let mt, c', cst = traverse_functor f env' mb.mod_type in
+        let mb' = { mb with mod_type = mt; mod_type_alg = None } in
+        before@(lab,SFBmodule mb')::after, c', cst
+      | _ -> error_generative_module_expected lab
   with
   | Not_found -> error_no_such_label lab mp
   | Reduction.NotConvertible -> error_incorrect_with_constraint lab
@@ -196,13 +199,11 @@ let rec check_with_mod env struc (idl,mp1) mp equiv =
       in
       begin match old.mod_expr with
       | Abstract ->
-        let struc = destr_nofunctor mp' old.mod_type in
-        let struc',equiv',cst =
-          check_with_mod env' struc (idl,mp1) mp' old.mod_delta
-        in
+        let f env struc = check_with_mod env struc (idl,mp1) mp' old.mod_delta in
+        let mt, equiv', cst = traverse_functor f env' old.mod_type in
         let new_mb =
           { old with
-            mod_type = NoFunctor struc';
+            mod_type = mt;
             mod_type_alg = None;
             mod_delta = equiv' }
         in
@@ -222,14 +223,14 @@ let rec check_with_mod env struc (idl,mp1) mp equiv =
 
 let check_with env mp (sign,alg,reso,cst) = function
   |WithDef(idl, (c, ctx)) ->
-    let struc = destr_nofunctor mp sign in
-    let struc', c', cst' = check_with_def env struc (idl, (c, ctx)) mp reso in
+    let f env struc = check_with_def env struc (idl, (c, ctx)) mp reso in
+    let sign', c', cst' = traverse_functor f env sign in
     let wd' = WithDef (idl, (c', ctx)) in
-    NoFunctor struc', MEwith (alg,wd'), reso, Univ.Constraints.union cst' cst
+    sign', MEwith (alg,wd'), reso, Univ.Constraints.union cst' cst
   |WithMod(idl,mp1) as wd ->
-    let struc = destr_nofunctor mp sign in
-    let struc',reso',cst' = check_with_mod env struc (idl,mp1) mp reso in
-    NoFunctor struc', MEwith (alg,wd), reso', Univ.Constraints.union cst' cst
+    let f env struc = check_with_mod env struc (idl,mp1) mp reso in
+    let sign',reso',cst' = traverse_functor f env sign in
+    sign', MEwith (alg,wd), reso', Univ.Constraints.union cst' cst
 
 let translate_apply env inl (sign,alg,reso,cst1) mp1 mkalg =
   let farg_id, farg_b, fbody_b = destr_functor sign in
