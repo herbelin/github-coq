@@ -375,11 +375,11 @@ sig
   val make : KerName.t -> KerName.t -> t
   (** Builds a constant name from a user and a canonical kernel name. *)
 
-  val make1 : KerName.t -> t
+  val make_canonical_of_kn : KerName.t -> t
   (** Special case of [make] where the user name is canonical.  *)
 
-  val make2 : ModPath.t -> Label.t -> t
-  (** Shortcut for [(make1 (KerName.make2 ...))] *)
+  val make_canonical : ModPath.t -> Label.t -> t
+  (** Shortcut for [(make_canonical_of_kn (KerName.make ...))] *)
 
   (** Projections *)
 
@@ -451,11 +451,11 @@ sig
   val make : KerName.t -> KerName.t -> t
   (** Builds a mutual inductive name from a user and a canonical kernel name. *)
 
-  val make1 : KerName.t -> t
+  val make_canonical_of_kn : KerName.t -> t
   (** Special case of [make] where the user name is canonical.  *)
 
-  val make2 : ModPath.t -> Label.t -> t
-  (** Shortcut for [(make1 (KerName.make2 ...))] *)
+  val make_canonical : ModPath.t -> Label.t -> t
+  (** Shortcut for [(make_canonical_of_kn (KerName.make ...))] *)
 
   (** Projections *)
 

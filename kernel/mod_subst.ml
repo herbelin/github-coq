@@ -308,7 +308,7 @@ let subst_con0 sub cst =
   match search_delta_inline resolve knu knc with
     | Some t ->
       (* In case of inlining, discard the canonical part (cf #2608) *)
-      Constant.make1 knu, Some t
+      Constant.make_canonical_of_kn knu, Some t
     | None ->
       let knc' =
         progress (kn_of_delta resolve) (if user then knu else knc) ~orelse:knc

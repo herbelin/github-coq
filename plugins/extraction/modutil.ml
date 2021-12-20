@@ -41,7 +41,7 @@ let se_iter do_decl do_spec do_mp =
         let mp_w =
           List.fold_left (fun mp l -> MPdot(mp,Label.of_id l)) mp_mt idl'
         in
-        let r = GlobRef.ConstRef (Constant.make2 mp_w (Label.of_id l')) in
+        let r = GlobRef.ConstRef (Constant.make_canonical mp_w (Label.of_id l')) in
         mt_iter mt; do_spec (Stype(r,l,Some t))
     | MTwith (mt,ML_With_module(idl,mp))->
         let mp_mt = msid_of_mt mt in

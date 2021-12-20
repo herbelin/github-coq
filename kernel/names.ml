@@ -497,8 +497,8 @@ module KerPair = struct
   let same kn = Same kn
   let make knu knc = if KerName.equal knu knc then Same knc else Dual (knu,knc)
 
-  let make1 = same
-  let make2 mp l = same (KerName.make mp l)
+  let make_canonical_of_kn = same
+  let make_canonical mp l = same (KerName.make mp l)
   let label kp = KerName.label (user kp)
   let modpath kp = KerName.modpath (user kp)
 

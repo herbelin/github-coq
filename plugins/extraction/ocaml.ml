@@ -680,7 +680,7 @@ and pp_module_type params = function
       let mp_w =
         List.fold_left (fun mp l -> MPdot(mp,Label.of_id l)) mp_mt idl'
       in
-      let r = GlobRef.ConstRef (Constant.make2 mp_w (Label.of_id l)) in
+      let r = GlobRef.ConstRef (Constant.make_canonical mp_w (Label.of_id l)) in
       push_visible mp_mt [];
       let pp_w = str " with type " ++ ids ++ pp_global Type r in
       pop_visible();

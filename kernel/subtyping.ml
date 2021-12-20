@@ -43,7 +43,7 @@ type namedmodule =
    constructors *)
 
 let add_mib_nameobjects mp l mib map =
-  let ind = MutInd.make2 mp l in
+  let ind = MutInd.make_canonical mp l in
   let add_mip_nameobjects j oib map =
     let ip = (ind,j) in
     let map =
