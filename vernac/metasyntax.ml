@@ -476,7 +476,11 @@ let make_hunks etyps symbols from_level =
           | ETConstr _ -> UnpListMetaVar (prec,List.map snd sl',side)
           | ETBinder isopen ->
               check_open_binder isopen sl m;
-              UnpBinderListMetaVar (isopen,List.map snd sl')
+              UnpBinderListMetaVar (isopen,false,List.map snd sl')
+          | ETName | ETIdent ->
+              UnpBinderListMetaVar (false,false,List.map snd sl')
+          | ETPattern _ ->
+              UnpBinderListMetaVar (false,true,List.map snd sl')
           | _ -> assert false in
         (None, hunk) :: make_with_space b prods
 
@@ -618,7 +622,11 @@ let hunks_of_format (from_level,(vars,typs)) symfmt =
         | ETConstr _ -> UnpListMetaVar (prec,slfmt,side)
         | ETBinder isopen ->
             check_open_binder isopen sl m;
-            UnpBinderListMetaVar (isopen,slfmt)
+            UnpBinderListMetaVar (isopen,false,slfmt)
+        | ETName | ETIdent ->
+            UnpBinderListMetaVar (false,false,slfmt)
+        | ETPattern _ ->
+            UnpBinderListMetaVar (false,true,slfmt)
         | _ -> assert false in
       symbs, hunk :: l
   | symbs, (_,UnpBox (a,b)) :: fmt ->
@@ -736,9 +744,18 @@ let make_production (_,lev,_) etyps symbols =
             expand_list_rule s typ tkl x 1 p (aux true l')
         | ETBinder o ->
             check_open_binder o sl x;
-            let typ = if o then (assert (tkl = []); ETBinderOpen) else ETBinderClosed tkl in
+            let typ = if o then (assert (tkl = []); ETBinderOpen) else ETBinderClosed (None,tkl) in
             distribute
               [GramConstrNonTerminal (ETProdBinderList typ, Some x)] (aux false l)
+        | ETIdent ->
+            distribute
+              [GramConstrNonTerminal (ETProdBinderList (ETBinderClosed (Some ETProdIdent,tkl)), Some x)] (aux false l)
+        | ETName ->
+            distribute
+              [GramConstrNonTerminal (ETProdBinderList (ETBinderClosed (Some ETProdName,tkl)), Some x)] (aux false l)
+        | ETPattern (st,n) ->
+            distribute
+              [GramConstrNonTerminal (ETProdBinderList (ETBinderClosed (Some (ETProdPattern (pattern_entry_level n)),tkl)), Some x)] (aux false l)
         | _ ->
            user_err Pp.(str "Components of recursive patterns in notation must be terms or binders.") in
   let need = (* a leading ident/number factorizes iff at level 0 *) lev <> 0 in
