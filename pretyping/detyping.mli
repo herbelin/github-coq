@@ -36,7 +36,7 @@ val print_factorize_match_patterns : unit -> bool
 val print_allow_match_default_clause : unit -> bool
 val print_allow_match_default_opt_name : string list
 
-val subst_cases_pattern : substitution -> cases_pattern -> cases_pattern
+val subst_cases_pattern : env -> substitution -> cases_pattern -> cases_pattern
 
 val subst_glob_constr : env -> substitution -> glob_constr -> glob_constr
 

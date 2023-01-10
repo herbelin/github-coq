@@ -339,6 +339,7 @@ let add_pat_variables sigma pat typ env : Environ.env =
         List.map RelDecl.get_type constructor.Inductiveops.cs_args
       in
       List.fold_left2 add_pat_variables env patl (List.rev cs_args_types)
+    | PatCast _ -> user_err (Pp.str "TODO: PatCast")
   in
   let new_env = add_pat_variables env pat typ in
   let res =
@@ -425,7 +426,8 @@ let rec pattern_to_term_and_type env typ =
           (pattern_to_term_and_type env)
           (List.rev cs_args_types) patternl
       in
-      mkGApp (mkGRef (GlobRef.ConstructRef constr), implicit_args @ patl_as_term))
+      mkGApp (mkGRef (GlobRef.ConstructRef constr), implicit_args @ patl_as_term)
+    | PatCast _ -> user_err (Pp.str "TODO: PatCast"))
 
 (* [build_entry_lc funnames avoid rt] construct the list (in fact a build_entry_return)
    of constructors corresponding to [rt] when replacing calls to [funnames] by calls to the

@@ -52,17 +52,6 @@ and glob_fix_kind =
   | GFix of (glob_recarg array * int)
   | GCoFix of int
 
-(**  The kind of patterns that occurs in "match ... with ... end"
-
-     locs here refers to the ident's location, not whole pat *)
-type 'a cases_pattern_r =
-  | PatVar  of Name.t
-  | PatCstr of constructor * 'a cases_pattern_g list * Name.t
-      (** [PatCstr(p,C,l,x)] = "|'C' 'l' as 'x'" *)
-and 'a cases_pattern_g = ('a cases_pattern_r, 'a) DAst.t
-
-type cases_pattern = [ `any ] cases_pattern_g
-
 type binding_kind = Explicit | MaxImplicit | NonMaxImplicit
 
 (** Representation of an internalized (or in other words globalized) term. *)
@@ -109,6 +98,19 @@ and 'a cases_clause_g = (Id.t list * 'a cases_pattern_g list * 'a glob_constr_g)
     of [t] are members of [il]. *)
 
 and 'a cases_clauses_g = 'a cases_clause_g list
+
+(**  The kind of patterns that occurs in "match ... with ... end";
+     locs here refers to the ident's location, not whole pat *)
+and 'a cases_pattern_r =
+  | PatVar  of Name.t
+  | PatCstr of constructor * 'a cases_pattern_g list * Name.t
+      (** [PatCstr(p,C,l,x)] = "|'C' 'l' as 'x'" *)
+  | PatCast of 'a cases_pattern_g * 'a glob_constr_g
+and 'a cases_pattern_g = ('a cases_pattern_r, 'a) DAst.t
+
+type cases_pattern = [ `any ] cases_pattern_g
+
+
 
 type glob_constr = [ `any ] glob_constr_g
 type tomatch_tuple = [ `any ] tomatch_tuple_g

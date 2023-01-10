@@ -155,6 +155,7 @@ let rec alpha_pat excluded pat =
     ( DAst.make ?loc @@ PatCstr (constr, List.rev new_patl, new_na)
     , new_excluded
     , new_map )
+  | PatCast _ -> user_err (Pp.str "TODO: PatCast")
 
 let alpha_patl excluded patl =
   let patl, new_excluded, map =
@@ -178,6 +179,7 @@ let raw_get_pattern_id pat acc =
           let idl' = get_pattern_id pat in
           idl' @ idl)
         patternl []
+  | PatCast _ -> user_err (Pp.str "TODO: PatCast")
   in
   get_pattern_id pat @ acc
 
@@ -369,7 +371,8 @@ let rec pattern_to_term pt =
         in
         let patl_as_term = List.map pattern_to_term patternl in
         mkGApp
-          (mkGRef (GlobRef.ConstructRef constr), implicit_args @ patl_as_term))
+          (mkGRef (GlobRef.ConstructRef constr), implicit_args @ patl_as_term)
+      | PatCast _ -> user_err (Pp.str "TODO: PatCast"))
     pt
 
 let replace_var_by_term x_id term =
@@ -453,7 +456,8 @@ let rec are_unifiable_aux = function
           try List.combine cpl1 cpl2 @ eqs
           with Invalid_argument _ -> anomaly (Pp.str "are_unifiable_aux.")
         in
-        are_unifiable_aux eqs' )
+        are_unifiable_aux eqs'
+  | PatCast _, _ | _, PatCast _ -> user_err (Pp.str "TODO: PatCast"))
 
 let are_unifiable pat1 pat2 =
   try
@@ -488,7 +492,8 @@ let ids_of_pat =
     DAst.with_val (function
       | PatVar Anonymous -> ids
       | PatVar (Name id) -> Id.Set.add id ids
-      | PatCstr (_, patl, _) -> List.fold_left ids_of_pat ids patl)
+      | PatCstr (_, patl, _) -> List.fold_left ids_of_pat ids patl
+      | PatCast _ -> user_err (Pp.str "TODO: PatCast"))
   in
   ids_of_pat Id.Set.empty
 
@@ -499,6 +504,7 @@ let expand_as =
     | PatCstr (_, patl, Name id) ->
       Id.Map.add id (pattern_to_term rt) (List.fold_left add_as map patl)
     | PatCstr (_, patl, _) -> List.fold_left add_as map patl
+    | PatCast _ -> user_err (Pp.str "TODO: PatCast")
   in
   let rec expand_as map =
     DAst.map (function

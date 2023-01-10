@@ -19,9 +19,10 @@ open Evar_kinds
 
 let cases_pattern_loc c = c.CAst.loc
 
-let alias_of_pat pat = DAst.with_val (function
+let rec alias_of_pat pat = DAst.with_val (function
   | PatVar name -> name
   | PatCstr(_,_,name) -> name
+  | PatCast(p,_) -> alias_of_pat p
   ) pat
 
 let set_pat_alias id = DAst.map (function
@@ -96,12 +97,13 @@ let case_style_eq s1 s2 = let open Constr in match s1, s2 with
   | RegularStyle, RegularStyle -> true
   | (LetStyle | IfStyle | LetPatternStyle | MatchStyle | RegularStyle), _ -> false
 
-let rec cases_pattern_eq p1 p2 = match DAst.get p1, DAst.get p2 with
+let rec mk_cases_pattern_eq f p1 p2 = match DAst.get p1, DAst.get p2 with
   | PatVar na1, PatVar na2 -> Name.equal na1 na2
   | PatCstr (c1, pl1, na1), PatCstr (c2, pl2, na2) ->
-    Construct.CanOrd.equal c1 c2 && List.equal cases_pattern_eq pl1 pl2 &&
+    Construct.CanOrd.equal c1 c2 && List.equal (mk_cases_pattern_eq f) pl1 pl2 &&
       Name.equal na1 na2
-  | (PatVar _ | PatCstr _), _ -> false
+  | PatCast (p1, t1), PatCast (p2, t2) -> mk_cases_pattern_eq f p1 p2 && f t1 t2
+  | (PatVar _ | PatCstr _ | PatCast _), _ -> false
 
 let cast_kind_eq t1 t2 = let open Constr in match t1, t2 with
   | DEFAULTcast, DEFAULTcast
@@ -121,8 +123,8 @@ let tomatch_tuple_eq f (c1, p1) (c2, p2) =
   let eq_pred (n1, o1) (n2, o2) = Name.equal n1 n2 && Option.equal eqp o1 o2 in
   f c1 c2 && eq_pred p1 p2
 
-and cases_clause_eq f {CAst.v=(id1, p1, c1)} {CAst.v=(id2, p2, c2)} =
-  List.equal Id.equal id1 id2 && List.equal cases_pattern_eq p1 p2 && f c1 c2
+let mk_cases_clause_eq f {CAst.v=(id1, p1, c1)} {CAst.v=(id2, p2, c2)} =
+  List.equal Id.equal id1 id2 && List.equal (mk_cases_pattern_eq f) p1 p2 && f c1 c2
 
 let glob_decl_eq f (na1, bk1, c1, t1) (na2, bk2, c2, t2) =
   Name.equal na1 na2 && binding_kind_eq bk1 bk2 &&
@@ -156,7 +158,7 @@ let mk_glob_constr_eq f c1 c2 = match DAst.get c1, DAst.get c2 with
   | GCases (st1, c1, tp1, cl1), GCases (st2, c2, tp2, cl2) ->
     case_style_eq st1 st2 && Option.equal f c1 c2 &&
     List.equal (tomatch_tuple_eq f) tp1 tp2 &&
-    List.equal (cases_clause_eq f) cl1 cl2
+    List.equal (mk_cases_clause_eq f) cl1 cl2
   | GLetTuple (na1, (n1, p1), c1, t1), GLetTuple (na2, (n2, p2), c2, t2) ->
     List.equal Name.equal na1 na2 && Name.equal n1 n2 &&
     Option.equal f p1 p2 && f c1 c2 && f t1 t2
@@ -187,6 +189,8 @@ let mk_glob_constr_eq f c1 c2 = match DAst.get c1, DAst.get c2 with
      GInt _ | GFloat _ | GArray _), _ -> false
 
 let rec glob_constr_eq c = mk_glob_constr_eq glob_constr_eq c
+
+let cases_pattern_eq c = mk_cases_pattern_eq glob_constr_eq c
 
 let map_glob_constr_left_to_right f = DAst.map (function
   | GApp (g,args) ->
@@ -391,7 +395,7 @@ let map_tomatch f g ((c,(na,inp)) as x) : tomatch_tuple =
   if r == inp then x
   else g c, (f na, r)
 
-let rec map_cases_pattern_left f = DAst.map (function
+let rec map_cases_pattern_left f g = DAst.map (function
   | PatVar na as x ->
       let r = f na in
       if r == na then x
@@ -399,10 +403,15 @@ let rec map_cases_pattern_left f = DAst.map (function
   | PatCstr (c,ps,na) as x ->
       let rna = f na in
       let rps =
-        CList.Smart.map_left (fun p -> map_cases_pattern_left f p) ps
+        CList.Smart.map_left (fun p -> map_cases_pattern_left f g p) ps
       in
       if rna == na && rps == ps then x
       else PatCstr(c,rps,rna)
+  | PatCast (p,t) as x ->
+      let rp = map_cases_pattern_left f g p in
+      let rt = g t in
+      if rp == p && rt == t then x
+      else PatCast (rp,rt)
   )
 
 let map_cases_branch f g ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
@@ -410,7 +419,7 @@ let map_cases_branch f g ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
      It is intended to be a superset of the free variable of the
      right-hand side, if I understand correctly. But I'm not sure when
      or how they are used. *)
-  let r = List.Smart.map (fun cl -> map_cases_pattern_left f cl) cll in
+  let r = List.Smart.map (fun cl -> map_cases_pattern_left f g cl) cll in
   if r == cll then x
   else CAst.make ?loc (il,r,g rhs)
 

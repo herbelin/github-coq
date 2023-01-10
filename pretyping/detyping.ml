@@ -1078,15 +1078,6 @@ let detype_closed_glob ?lax isgoal avoid env sigma t =
 (**********************************************************************)
 (* Module substitution: relies on detyping                            *)
 
-let rec subst_cases_pattern subst = DAst.map (function
-  | PatVar _ as pat -> pat
-  | PatCstr (((kn,i),j),cpl,n) as pat ->
-      let kn' = subst_mind subst kn
-      and cpl' = List.Smart.map (subst_cases_pattern subst) cpl in
-        if kn' == kn && cpl' == cpl then pat else
-          PatCstr (((kn',i),j),cpl',n)
-  )
-
 let (f_subst_genarg, subst_genarg_hook) = Hook.make ()
 
 let rec subst_glob_constr env subst = DAst.map (function
@@ -1152,7 +1143,7 @@ let rec subst_glob_constr env subst = DAst.map (function
       and branches' = List.Smart.map
                         (fun ({loc;v=(idl,cpl,r)} as branch) ->
                            let cpl' =
-                             List.Smart.map (subst_cases_pattern subst) cpl
+                             List.Smart.map (subst_cases_pattern env subst) cpl
                            and r' = subst_glob_constr env subst r in
                              if cpl' == cpl && r' == r then branch else
                                CAst.(make ?loc (idl,cpl',r')))
@@ -1212,4 +1203,18 @@ let rec subst_glob_constr env subst = DAst.map (function
         if def' == def && t' == t && ty' == ty then raw else
           GArray(u,t',def',ty')
 
+  )
+
+and subst_cases_pattern env subst = DAst.map (function
+  | PatVar _ as pat -> pat
+  | PatCstr (((kn,i),j),cpl,n) as pat ->
+      let kn' = subst_mind subst kn
+      and cpl' = List.Smart.map (subst_cases_pattern env subst) cpl in
+        if kn' == kn && cpl' == cpl then pat else
+          PatCstr (((kn',i),j),cpl',n)
+  | PatCast (p,t) as pat ->
+      let p' = subst_cases_pattern env subst p in
+      let t' = subst_glob_constr env subst t in
+      if p == p' && t == t' then pat else
+          PatCast (p',t')
   )

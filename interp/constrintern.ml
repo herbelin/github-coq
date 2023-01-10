@@ -800,7 +800,10 @@ let terms_of_binders bl =
        let qid = qualid_of_path ?loc (Nametab.path_of_global (GlobRef.ConstructRef c)) in
        let hole = CAst.make ?loc @@ CHole (None,IntroAnonymous,None) in
        let params = List.make (Inductiveops.inductive_nparams (Global.env()) (fst c)) hole in
-       CAppExpl ((qid,None),params @ List.map term_of_pat l)) pt in
+       CAppExpl ((qid,None),params @ List.map term_of_pat l)
+    | PatCast (p,t) ->
+      (* No need a priori to keep the type of the binder *)
+      (term_of_pat p).CAst.v) pt in
   let rec extract_variables l = match l with
     | bnd :: l ->
       let loc = bnd.loc in
@@ -1521,7 +1524,7 @@ let chop_params_pattern loc ind args with_letin =
   let params,args = List.chop nparams args in
   List.iter (fun c -> match DAst.get c with
     | PatVar Anonymous -> ()
-    | PatVar _ | PatCstr(_,_,_) -> error_parameter_not_implicit ?loc:c.CAst.loc) params;
+    | PatVar _ | PatCstr(_,_,_) | PatCast _ -> error_parameter_not_implicit ?loc:c.CAst.loc) params;
   args
 
 let find_constructor_head ?loc ref =

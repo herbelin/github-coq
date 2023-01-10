@@ -285,7 +285,16 @@ let rec find_row_ind = function
   | p :: l ->
     match DAst.get p with
     | PatVar _ -> find_row_ind l
-    | PatCstr(c,_,_) -> Some (p.CAst.loc,c)
+    | PatCstr((ind,_),_,_) -> Some (p.CAst.loc,ind)
+    | PatCast(p,t) ->
+      let t = match DAst.get t with
+      | GApp (t,_) -> (match DAst.get t with GRef (IndRef ind,_) -> Some ind | _ -> None)
+      | GRef (IndRef ind,_) -> Some ind
+      | _ -> None
+      in
+      match t with
+      | None -> find_row_ind (p :: l)
+      | Some ind -> Some (p.CAst.loc, ind)
 
 let inductive_template env sigma tmloc ind =
   let sigma, indu = Evd.fresh_inductive_instance env sigma ind in
@@ -353,7 +362,7 @@ let extract_inductive_data env sigma decl =
 let unify_tomatch_with_patterns env sigma loc typ pats realnames =
   match find_row_ind pats with
     | None -> sigma, NotInd (None,typ)
-    | Some (_,(ind,_)) ->
+    | Some (_,ind) ->
         let sigma = inh_coerce_to_ind env sigma loc typ ind in
         try sigma, try_find_ind env sigma typ realnames
         with Not_found -> sigma, NotInd (None,typ)
@@ -432,7 +441,7 @@ let adjust_tomatch_to_pattern ~program_mode sigma pb ((current,typ),deps,dep) =
       let tm1 = List.map (fun eqn -> List.hd eqn.patterns) pb.mat in
       (match find_row_ind tm1 with
         | None -> sigma, (current, tmtyp)
-        | Some (loc,(ind,_)) ->
+        | Some (loc,ind) ->
             let sigma, indt = inductive_template !!(pb.env) sigma None ind in
             let sigma, current =
               if List.is_empty deps && isEvar sigma typ then
@@ -538,10 +547,11 @@ let check_and_adjust_constructor env ind cstrs pat = match DAst.get pat with
               ~expected_ndecls:(nb_args_constr + nlet)
       else
         (* Try to insert a coercion *)
-        try
+        (try
           Coercion.inh_pattern_coerce_to ?loc env pat ind' ind
         with Not_found ->
-          error_bad_constructor ?loc env cstr ind
+          error_bad_constructor ?loc env cstr ind)
+  | PatCast (p,t) -> user_err (str "TODO: PatCast")
 
 let check_all_variables env sigma typ mat =
   List.iter
@@ -551,7 +561,9 @@ let check_all_variables env sigma typ mat =
        | PatVar id -> ()
        | PatCstr (cstr_sp,_,_) ->
           let loc = pat.CAst.loc in
-           error_bad_pattern ?loc env sigma cstr_sp typ)
+           error_bad_pattern ?loc env sigma cstr_sp typ
+       | PatCast (p,_) ->
+           user_err (str "TODO: PatCast"))
     mat
 
 let set_pattern_catch_all_var ?loc eqn = function
@@ -604,6 +616,7 @@ let occur_in_rhs na rhs =
 let is_dep_patt_in eqn pat = match DAst.get pat with
   | PatVar name -> occur_in_rhs name eqn.rhs
   | PatCstr _ -> true
+  | PatCast _ -> user_err (str "TODO: PatCast")
 
 let mk_dep_patt_row ~program_mode (pats,_,eqn) =
   if program_mode then List.map (fun _ -> true) pats
@@ -1242,6 +1255,7 @@ let rec irrefutable env pat = match DAst.get pat with
       let (_,mip) = Inductive.lookup_mind_specif env ind in
       let one_constr = Int.equal (Array.length mip.mind_user_lc) 1 in
       one_constr && List.for_all (irrefutable env) args
+  | PatCast _ -> user_err (str "TODO: PatCast")
 
 let first_clause_irrefutable env = function
   | eqn::mat -> List.for_all (irrefutable env) eqn.patterns
@@ -1269,7 +1283,8 @@ let group_equations pb ind current cstrs mat =
            | PatCstr (((_,i)),args,name) ->
                (* This is a regular clause *)
                only_default := Some false;
-               brs.(i-1) <- (args, name, rest) :: brs.(i-1)) mat () in
+               brs.(i-1) <- (args, name, rest) :: brs.(i-1)
+           | PatCast _ -> assert false) mat () in
   (brs,Option.default false !only_default)
 
 (************************************************************************)
@@ -2257,7 +2272,7 @@ let constr_of_pat env sigma arsign pat avoid =
         let app = applist (app, args) in
         let apptype = Retyping.get_type_of env sigma app in
         let IndType (indf, realargs) = find_rectype env sigma apptype in
-          match alias with
+          (match alias with
               Anonymous ->
                 sigma, pat', sign, app, apptype, realargs, n, avoid
             | Name id ->
@@ -2280,7 +2295,8 @@ let constr_of_pat env sigma arsign pat avoid =
                   with Evarconv.UnableToUnify _ -> sigma, sign, 1, avoid
                 in
                   (* Mark the equality as a hole *)
-                  sigma, pat', sign, lift i app, lift i apptype, realargs, n + i, avoid
+                  sigma, pat', sign, lift i app, lift i apptype, realargs, n + i, avoid)
+            | PatCast _ -> user_err (str "TODO: PatCast")
   in
   let sigma, pat', sign, patc, patty, args, z, avoid = typ env sigma (RelDecl.get_type (List.hd arsign), List.tl arsign) pat avoid in
     sigma, pat', (sign, patc, (RelDecl.get_type (List.hd arsign), args), pat'), avoid
@@ -2327,6 +2343,8 @@ let rec is_included x y =
     | PatCstr ((_, i), args, alias), PatCstr ((_, i'), args', alias')  ->
         if Int.equal i i' then List.for_all2 is_included args args'
         else false
+    | PatCast (x,_), _ -> is_included x y
+    | _, PatCast (y,_) -> is_included x y
 
 (* liftsign is the current pattern's complete signature length.
    Hence pats is already typed in its

@@ -379,6 +379,7 @@ let rec extern_cases_pattern_in_scope (custom,scopes as allscopes) vars pat =
                       | None           -> CPatCstr (c, Some full_args, [])
           in
           insert_pat_alias ?loc (CAst.make ?loc p) na
+        | PatCast (p,t) -> user_err (str "TODO: PatCast")
       in
       insert_pat_coercion coercion pat
 
@@ -462,6 +463,7 @@ and extern_notation_pattern allscopes vars t = function
           insert_pat_alias ?loc p na
         | PatVar Anonymous -> CAst.make ?loc @@ CPatAtom None
         | PatVar (Name id) -> CAst.make ?loc @@ CPatAtom (Some (qualid_of_ident ?loc id))
+        | PatCast _ -> user_err (str "TODO: PatCast")
     with
         No_match -> extern_notation_pattern allscopes vars t rules
 

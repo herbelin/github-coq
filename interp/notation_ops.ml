@@ -271,6 +271,7 @@ let rec cases_pattern_fold_map ?loc g e = DAst.with_val (function
       (* Distribute outwards the inner disjunctive patterns *)
       let disjpatl' = product_of_cases_patterns patl' in
       e', List.map (fun patl' -> DAst.make ?loc @@ PatCstr (cstr,patl',na')) disjpatl'
+  | PatCast _ -> user_err (str "TODO: PatCast")
   )
 
 let subst_binder_type_vars l = function
@@ -804,7 +805,7 @@ let rec subst_notation_constr env subst bound raw =
         rl
       and branches' = List.Smart.map
                         (fun (cpl,r as branch) ->
-                           let cpl' = List.Smart.map (Detyping.subst_cases_pattern subst) cpl
+                           let cpl' = List.Smart.map (Detyping.subst_cases_pattern env subst) cpl
                            and r' = subst_notation_constr env subst bound r in
                              if cpl' == cpl && r' == r then branch else
                                (cpl',r'))
@@ -897,6 +898,7 @@ let rec push_pattern_binders vars pat =
   match DAst.get pat with
   | PatVar na -> Termops.add_vname vars na
   | PatCstr (c, pl, na) -> List.fold_left push_pattern_binders (Termops.add_vname vars na) pl
+  | PatCast (p, _) -> push_pattern_binders vars p
 
 let rec push_context_binders vars = function
   | [] -> vars
@@ -1081,7 +1083,9 @@ let unify_id (_,alp) id na' =
      if Id.equal (rename_var (snd alp) id) id' then na' else raise No_match
 
 let unify_pat (_,alp) p p' =
-  if cases_pattern_eq (map_cases_pattern_left (Name.map (rename_var (snd alp))) p) p' then p'
+  let f = Name.map (rename_var (snd alp)) in
+  let g v = alpha_rename (snd alp) v in
+  if cases_pattern_eq (map_cases_pattern_left f g p) p' then p'
   else raise No_match
 
 let unify_term_binder alp c = DAst.(map (fun b' ->
