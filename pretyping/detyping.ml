@@ -1066,10 +1066,7 @@ let detype_closed_glob ?lax isgoal avoid env sigma t =
         GLetTuple (ids,(n,r),detype_closed_glob cl b, detype_closed_glob cl e)
     | GCases (sty,po,tml,eqns) ->
         let (tml,eqns) =
-          Glob_ops.map_pattern_binders (fun na -> convert_name cl na) tml eqns
-        in
-        let (tml,eqns) =
-          Glob_ops.map_pattern (fun c -> detype_closed_glob cl c) tml eqns
+          Glob_ops.map_pattern (fun na -> convert_name cl na) (fun c -> detype_closed_glob cl c) tml eqns
         in
         GCases(sty,po,tml,eqns)
     | c ->

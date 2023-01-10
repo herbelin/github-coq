@@ -381,17 +381,17 @@ let bound_glob_vars =
    probably be no significant penalty in doing reallocation as
    pattern-matching expressions are usually rather small. *)
 
-let map_inpattern_binders f ({loc;v=(id,nal)} as x) =
+let map_inpattern f ({loc;v=(id,nal)} as x) =
   let r = CList.Smart.map f nal in
   if r == nal then x
   else CAst.make ?loc (id,r)
 
-let map_tomatch_binders f ((c,(na,inp)) as x) : tomatch_tuple =
-  let r = Option.Smart.map (fun p -> map_inpattern_binders f p) inp in
+let map_tomatch f g ((c,(na,inp)) as x) : tomatch_tuple =
+  let r = Option.Smart.map (fun p -> map_inpattern f p) inp in
   if r == inp then x
-  else c,(f na, r)
+  else g c, (f na, r)
 
-let rec map_case_pattern_binders f = DAst.map (function
+let rec map_case_pattern f g = DAst.map (function
   | PatVar na as x ->
       let r = f na in
       if r == na then x
@@ -399,35 +399,24 @@ let rec map_case_pattern_binders f = DAst.map (function
   | PatCstr (c,ps,na) as x ->
       let rna = f na in
       let rps =
-        CList.Smart.map (fun p -> map_case_pattern_binders f p) ps
+        CList.Smart.map (fun p -> map_case_pattern f g p) ps
       in
       if rna == na && rps == ps then x
       else PatCstr(c,rps,rna)
   )
 
-let map_cases_branch_binders f ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
+let map_cases_branch f g ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
   (* spiwack: not sure if I must do something with the list of idents.
      It is intended to be a superset of the free variable of the
      right-hand side, if I understand correctly. But I'm not sure when
      or how they are used. *)
-  let r = List.Smart.map (fun cl -> map_case_pattern_binders f cl) cll in
+  let r = List.Smart.map (fun cl -> map_case_pattern f g cl) cll in
   if r == cll then x
-  else CAst.make ?loc (il,r,rhs)
+  else CAst.make ?loc (il,r,g rhs)
 
-let map_pattern_binders f tomatch branches =
-  CList.Smart.map (fun tm -> map_tomatch_binders f tm) tomatch,
-  CList.Smart.map (fun br -> map_cases_branch_binders f br) branches
-
-(** /mapping of names in binders *)
-
-let map_tomatch f (c,pp) : tomatch_tuple = f c , pp
-
-let map_cases_branch f =
-  CAst.map (fun (il,cll,rhs) -> (il , cll , f rhs))
-
-let map_pattern f tomatch branches =
-  List.map (fun tm -> map_tomatch f tm) tomatch,
-  List.map (fun br -> map_cases_branch f br) branches
+let map_pattern f g tomatch branches =
+  CList.Smart.map (fun tm -> map_tomatch f g tm) tomatch,
+  CList.Smart.map (fun br -> map_cases_branch f g br) branches
 
 let loc_of_glob_constr c = c.CAst.loc
 

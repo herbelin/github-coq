@@ -80,19 +80,14 @@ exception UnsoundRenaming
 val rename_var : (Id.t * Id.t) list -> Id.t -> Id.t
 val rename_glob_vars : (Id.t * Id.t) list -> 'a glob_constr_g -> 'a glob_constr_g
 
-(** [map_pattern_binders f m c] applies [f] to all the binding names
+(** [map_pattern f g m c] applies [f] to all the binding names
     in a pattern-matching expression ({!Glob_term.GCases}) represented
-    here by its relevant components [m] and [c]. It is used to
-    interpret Ltac-bound names both in pretyping and printing of
+    here by its relevant components [m] and [c] and [g] to the return
+    predicate and the right-hand side of a pattern-matching expression
+    ({!Glob_term.GCases}) represented here by its relevant components.
+    It is used to interpret Ltac-bound names both in pretyping and printing of
     terms. *)
-val map_pattern_binders : (Name.t -> Name.t) ->
-  tomatch_tuples -> cases_clauses -> (tomatch_tuples*cases_clauses)
-
-(** [map_pattern f m c] applies [f] to the return predicate and the
-    right-hand side of a pattern-matching expression
-    ({!Glob_term.GCases}) represented here by its relevant components
-    [m] and [c]. *)
-val map_pattern : (glob_constr -> glob_constr) ->
+val map_pattern : (Name.t -> Name.t) -> (glob_constr -> glob_constr) ->
   tomatch_tuples -> cases_clauses -> (tomatch_tuples*cases_clauses)
 
 (** Conversion from glob_constr to cases pattern, if possible
