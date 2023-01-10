@@ -391,7 +391,7 @@ let map_tomatch f g ((c,(na,inp)) as x) : tomatch_tuple =
   if r == inp then x
   else g c, (f na, r)
 
-let rec map_case_pattern f g = DAst.map (function
+let rec map_cases_pattern_left f = DAst.map (function
   | PatVar na as x ->
       let r = f na in
       if r == na then x
@@ -399,7 +399,7 @@ let rec map_case_pattern f g = DAst.map (function
   | PatCstr (c,ps,na) as x ->
       let rna = f na in
       let rps =
-        CList.Smart.map (fun p -> map_case_pattern f g p) ps
+        CList.Smart.map_left (fun p -> map_cases_pattern_left f p) ps
       in
       if rna == na && rps == ps then x
       else PatCstr(c,rps,rna)
@@ -410,7 +410,7 @@ let map_cases_branch f g ({CAst.loc;v=(il,cll,rhs)} as x) : cases_clause =
      It is intended to be a superset of the free variable of the
      right-hand side, if I understand correctly. But I'm not sure when
      or how they are used. *)
-  let r = List.Smart.map (fun cl -> map_case_pattern f g cl) cll in
+  let r = List.Smart.map (fun cl -> map_cases_pattern_left f cl) cll in
   if r == cll then x
   else CAst.make ?loc (il,r,g rhs)
 

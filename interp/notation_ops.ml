@@ -725,9 +725,8 @@ let notation_constr_of_glob_constr nenv a =
 (**********************************************************************)
 (* Substitution of kernel names, avoiding a list of bound identifiers *)
 
-let notation_constr_of_constr avoiding t =
+let notation_constr_of_constr env avoiding t =
   let t = EConstr.of_constr t in
-  let env = Global.env () in
   let evd = Evd.from_env env in
   let t = Detyping.detype Detyping.Now false avoiding env evd t in
   let nenv = {
@@ -736,29 +735,20 @@ let notation_constr_of_constr avoiding t =
   } in
   notation_constr_of_glob_constr nenv t
 
-let rec subst_pat subst pat =
-  match DAst.get pat with
-  | PatVar _ -> pat
-  | PatCstr (((kn,i),j),cpl,n) ->
-      let kn' = subst_mind subst kn
-      and cpl' = List.Smart.map (subst_pat subst) cpl in
-      if kn' == kn && cpl' == cpl then pat else
-        DAst.make ?loc:pat.CAst.loc @@ PatCstr (((kn',i),j),cpl',n)
-
-let rec subst_notation_constr subst bound raw =
+let rec subst_notation_constr env subst bound raw =
   match raw with
   | NRef (ref,u) ->
       let ref',t = subst_global subst ref in
       if ref' == ref then raw else (match t with
           | None -> NRef (ref',u)
           | Some t ->
-            fst (notation_constr_of_constr bound t.Univ.univ_abstracted_value))
+            fst (notation_constr_of_constr env bound t.Univ.univ_abstracted_value))
 
   | NVar _ -> raw
 
   | NApp (r,rl) ->
-      let r' = subst_notation_constr subst bound r
-      and rl' = List.Smart.map (subst_notation_constr subst bound) rl in
+      let r' = subst_notation_constr env subst bound r
+      and rl' = List.Smart.map (subst_notation_constr env subst bound) rl in
         if r' == r && rl' == rl then raw else
           NApp(r',rl')
 
@@ -766,47 +756,47 @@ let rec subst_notation_constr subst bound raw =
       let ref = GlobRef.ConstRef cst in
       let ref',t = subst_global subst ref in
       assert (t = None);
-      let rl' = List.Smart.map (subst_notation_constr subst bound) rl
-      and r' = subst_notation_constr subst bound r in
+      let rl' = List.Smart.map (subst_notation_constr env subst bound) rl
+      and r' = subst_notation_constr env subst bound r in
         if ref' == ref && rl' == rl && r' == r then raw else
           NProj ((destConstRef ref',u),rl',r')
 
   | NList (id1,id2,r1,r2,b) ->
-      let r1' = subst_notation_constr subst bound r1
-      and r2' = subst_notation_constr subst bound r2 in
+      let r1' = subst_notation_constr env subst bound r1
+      and r2' = subst_notation_constr env subst bound r2 in
         if r1' == r1 && r2' == r2 then raw else
           NList (id1,id2,r1',r2',b)
 
   | NLambda (n,r1,r2) ->
-      let r1' = Option.Smart.map (subst_notation_constr subst bound) r1
-      and r2' = subst_notation_constr subst bound r2 in
+      let r1' = Option.Smart.map (subst_notation_constr env subst bound) r1
+      and r2' = subst_notation_constr env subst bound r2 in
         if r1' == r1 && r2' == r2 then raw else
           NLambda (n,r1',r2')
 
   | NProd (n,r1,r2) ->
-      let r1' = Option.Smart.map (subst_notation_constr subst bound) r1
-      and r2' = subst_notation_constr subst bound r2 in
+      let r1' = Option.Smart.map (subst_notation_constr env subst bound) r1
+      and r2' = subst_notation_constr env subst bound r2 in
         if r1' == r1 && r2' == r2 then raw else
           NProd (n,r1',r2')
 
   | NBinderList (id1,id2,r1,r2,b) ->
-      let r1' = subst_notation_constr subst bound r1
-      and r2' = subst_notation_constr subst bound r2 in
+      let r1' = subst_notation_constr env subst bound r1
+      and r2' = subst_notation_constr env subst bound r2 in
         if r1' == r1 && r2' == r2 then raw else
           NBinderList (id1,id2,r1',r2',b)
 
   | NLetIn (n,r1,t,r2) ->
-      let r1' = subst_notation_constr subst bound r1 in
-      let t' = Option.Smart.map (subst_notation_constr subst bound) t in
-      let r2' = subst_notation_constr subst bound r2 in
+      let r1' = subst_notation_constr env subst bound r1 in
+      let t' = Option.Smart.map (subst_notation_constr env subst bound) t in
+      let r2' = subst_notation_constr env subst bound r2 in
         if r1' == r1 && t == t' && r2' == r2 then raw else
           NLetIn (n,r1',t',r2')
 
   | NCases (sty,rtntypopt,rl,branches) ->
-      let rtntypopt' = Option.Smart.map (subst_notation_constr subst bound) rtntypopt
+      let rtntypopt' = Option.Smart.map (subst_notation_constr env subst bound) rtntypopt
       and rl' = List.Smart.map
         (fun (a,(n,signopt) as x) ->
-          let a' = subst_notation_constr subst bound a in
+          let a' = subst_notation_constr env subst bound a in
           let signopt' = Option.map (fun ((indkn,i),nal as z) ->
             let indkn' = subst_mind subst indkn in
             if indkn == indkn' then z else ((indkn',i),nal)) signopt in
@@ -814,8 +804,8 @@ let rec subst_notation_constr subst bound raw =
         rl
       and branches' = List.Smart.map
                         (fun (cpl,r as branch) ->
-                           let cpl' = List.Smart.map (subst_pat subst) cpl
-                           and r' = subst_notation_constr subst bound r in
+                           let cpl' = List.Smart.map (Detyping.subst_cases_pattern subst) cpl
+                           and r' = subst_notation_constr env subst bound r in
                              if cpl' == cpl && r' == r then branch else
                                (cpl',r'))
                         branches
@@ -825,28 +815,28 @@ let rec subst_notation_constr subst bound raw =
           NCases (sty,rtntypopt',rl',branches')
 
   | NLetTuple (nal,(na,po),b,c) ->
-      let po' = Option.Smart.map (subst_notation_constr subst bound) po
-      and b' = subst_notation_constr subst bound b
-      and c' = subst_notation_constr subst bound c in
+      let po' = Option.Smart.map (subst_notation_constr env subst bound) po
+      and b' = subst_notation_constr env subst bound b
+      and c' = subst_notation_constr env subst bound c in
         if po' == po && b' == b && c' == c then raw else
           NLetTuple (nal,(na,po'),b',c')
 
   | NIf (c,(na,po),b1,b2) ->
-      let po' = Option.Smart.map (subst_notation_constr subst bound) po
-      and b1' = subst_notation_constr subst bound b1
-      and b2' = subst_notation_constr subst bound b2
-      and c' = subst_notation_constr subst bound c in
+      let po' = Option.Smart.map (subst_notation_constr env subst bound) po
+      and b1' = subst_notation_constr env subst bound b1
+      and b2' = subst_notation_constr env subst bound b2
+      and c' = subst_notation_constr env subst bound c in
         if po' == po && b1' == b1 && b2' == b2 && c' == c then raw else
           NIf (c',(na,po'),b1',b2')
 
   | NRec (fk,idl,dll,tl,bl) ->
       let dll' =
         Array.Smart.map (List.Smart.map (fun (na,oc,b as x) ->
-          let oc' =  Option.Smart.map (subst_notation_constr subst bound) oc in
-          let b' =  subst_notation_constr subst bound b in
+          let oc' =  Option.Smart.map (subst_notation_constr env subst bound) oc in
+          let b' =  subst_notation_constr env subst bound b in
           if oc' == oc && b' == b then x else (na,oc',b'))) dll in
-      let tl' = Array.Smart.map (subst_notation_constr subst bound) tl in
-      let bl' = Array.Smart.map (subst_notation_constr subst bound) bl in
+      let tl' = Array.Smart.map (subst_notation_constr env subst bound) tl in
+      let bl' = Array.Smart.map (subst_notation_constr env subst bound) bl in
       if dll' == dll && tl' == tl && bl' == bl then raw else
           NRec (fk,idl,dll',tl',bl')
 
@@ -866,21 +856,22 @@ let rec subst_notation_constr subst bound raw =
     else NHole (nknd, naming, nsolve)
 
   | NCast (r1,k,t) ->
-      let r1' = subst_notation_constr subst bound r1 in
-      let t' = subst_notation_constr subst bound t in
+      let r1' = subst_notation_constr env subst bound r1 in
+      let t' = subst_notation_constr env subst bound t in
       if r1' == r1 && t' == t then raw else NCast(r1',k,t')
 
   | NArray (t,def,ty) ->
-      let def' = subst_notation_constr subst bound def
-      and t' = Array.Smart.map (subst_notation_constr subst bound) t
-      and ty' = subst_notation_constr subst bound ty
+      let def' = subst_notation_constr env subst bound def
+      and t' = Array.Smart.map (subst_notation_constr env subst bound) t
+      and ty' = subst_notation_constr env subst bound ty
       in
         if def' == def && t' == t && ty' == ty then raw else
           NArray(t',def',ty')
 
 let subst_interpretation subst (metas,pat) =
   let bound = List.fold_left (fun accu (id, _) -> Id.Set.add id accu) Id.Set.empty metas in
-  (metas,subst_notation_constr subst bound pat)
+  let env = Global.env () in
+  (metas,subst_notation_constr env subst bound pat)
 
 (**********************************************************************)
 (* Pattern-matching a [glob_constr] against a [notation_constr]       *)
@@ -990,11 +981,6 @@ let add_binding_env (vars,alp) (terms,termlists,binders,binderlists) var v =
 let add_bindinglist_env (vars,alp) (terms,termlists,binders,binderlists) var bl =
   (terms,termlists,binders,(var,(vars,bl))::binderlists)
 
-let rec map_cases_pattern_name_left f = DAst.map (function
-  | PatVar na -> PatVar (f na)
-  | PatCstr (c,l,na) -> PatCstr (c,List.map_left (map_cases_pattern_name_left f) l,f na)
-  )
-
 let rec fold_cases_pattern_eq f x p p' =
   let loc = p.CAst.loc in
   match DAst.get p, DAst.get p' with
@@ -1095,7 +1081,7 @@ let unify_id (_,alp) id na' =
      if Id.equal (rename_var (snd alp) id) id' then na' else raise No_match
 
 let unify_pat (_,alp) p p' =
-  if cases_pattern_eq (map_cases_pattern_name_left (Name.map (rename_var (snd alp))) p) p' then p'
+  if cases_pattern_eq (map_cases_pattern_left (Name.map (rename_var (snd alp))) p) p' then p'
   else raise No_match
 
 let unify_term_binder alp c = DAst.(map (fun b' ->

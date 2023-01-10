@@ -80,6 +80,9 @@ exception UnsoundRenaming
 val rename_var : (Id.t * Id.t) list -> Id.t -> Id.t
 val rename_glob_vars : (Id.t * Id.t) list -> 'a glob_constr_g -> 'a glob_constr_g
 
+val map_cases_pattern_left : (Name.t -> Name.t) ->
+  'a cases_pattern_g -> 'a cases_pattern_g
+
 (** [map_pattern f g m c] applies [f] to all the binding names
     in a pattern-matching expression ({!Glob_term.GCases}) represented
     here by its relevant components [m] and [c] and [g] to the return
