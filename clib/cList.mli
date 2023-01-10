@@ -417,6 +417,9 @@ sig
       particular, [Smart.map f l == l] (physically) if [f a == a]
       (physically) for all members of the list *)
 
+  val map_left : ('a -> 'a) -> 'a list -> 'a list
+  (** Like [List.map_left] *)
+
   val fold_left_map : ('a -> 'b -> 'a * 'b) -> 'a -> 'b list -> 'a * 'b list
   (** Idem for the second argument of [List.fold_left_map f e l]
       relatively to the second argument of [f] *)

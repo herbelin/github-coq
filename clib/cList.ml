@@ -921,6 +921,8 @@ struct
     let tl' = map f tl in
     if h' == h && tl' == tl then l else h' :: tl'
 
+  let map_left = map
+
   let rec fold_left_map f e l =
     match l with
     | [] -> e, []
