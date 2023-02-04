@@ -52,7 +52,7 @@ let c_U () =
    The main difficulty in defining this tactic is to understand how to
    construct the input expected by apply_in. *)
 let package i = Goal.enter begin fun gl ->
-  Tactics.apply_in true false i
+  Tactics.apply_in (Some true) false i
    [(* this means that the applied theorem is not to be cleared. *)
     None, (CAst.make (c_M (),
            (* we don't specialize the theorem with extra values. *)

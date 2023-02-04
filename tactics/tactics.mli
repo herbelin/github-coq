@@ -90,7 +90,7 @@ val try_intros_until :
 
 type evars_flag = bool     (* true = pose evars       false = fail on evars *)
 type rec_flag = bool       (* true = recursive        false = not recursive *)
-type advanced_flag = bool  (* true = advanced         false = basic *)
+type advanced_flag = bool option (* true = advanced, false = basic, None = refine *)
 type clear_flag = bool option (* true = clear hyp, false = keep hyp, None = use default *)
 
 (** Apply a tactic on a quantified hypothesis, an hypothesis in context
@@ -203,17 +203,21 @@ val revert        : Id.t list -> unit Proofview.tactic
 val apply_type : typecheck:bool -> constr -> constr list -> unit Proofview.tactic
 val bring_hyps : named_context -> unit Proofview.tactic
 
+(** simple apply/eapply *)
+
 val apply                 : constr -> unit Proofview.tactic
 val eapply : ?with_classes:bool -> constr -> unit Proofview.tactic
+
+val apply_with_bindings   : constr with_bindings -> unit Proofview.tactic
+val eapply_with_bindings : ?with_classes:bool -> constr with_bindings -> unit Proofview.tactic
+
+(** generic apply *)
 
 val apply_with_bindings_gen :
   ?with_classes:bool -> advanced_flag -> evars_flag -> (clear_flag * constr with_bindings CAst.t) list -> unit Proofview.tactic
 
 val apply_with_delayed_bindings_gen :
   advanced_flag -> evars_flag -> (clear_flag * delayed_open_constr_with_bindings CAst.t) list -> unit Proofview.tactic
-
-val apply_with_bindings   : constr with_bindings -> unit Proofview.tactic
-val eapply_with_bindings : ?with_classes:bool -> constr with_bindings -> unit Proofview.tactic
 
 val cut_and_apply         : constr -> unit Proofview.tactic
 

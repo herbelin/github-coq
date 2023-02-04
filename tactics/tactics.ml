@@ -1386,7 +1386,7 @@ let tactic_infer_flags with_evar = Pretyping.{
 
 type evars_flag = bool     (* true = pose evars       false = fail on evars *)
 type rec_flag = bool       (* true = recursive        false = not recursive *)
-type advanced_flag = bool  (* true = advanced         false = basic *)
+type advanced_flag = bool option (* true = advanced, false = basic, None = refine *)
 type clear_flag = bool option (* true = clear hyp, false = keep hyp, None = use default *)
 
 type 'a core_destruction_arg =
@@ -1856,7 +1856,7 @@ let descend_in_conjunctions avoid tac (err, info) c =
 (*            Resolution tactics                    *)
 (****************************************************)
 
-let general_apply ?(with_classes=true) ?(respect_opaque=false) with_delta with_destruct with_evars
+let general_apply ?(with_classes=true) ?(respect_opaque=false) refine_flag with_destruct with_evars
     clear_flag {CAst.loc;v=(c,lbind : EConstr.constr with_bindings)} =
   Proofview.Goal.enter begin fun gl ->
   let concl = Proofview.Goal.concl gl in
@@ -1874,16 +1874,24 @@ let general_apply ?(with_classes=true) ?(respect_opaque=false) with_delta with_d
       if respect_opaque then Conv_oracle.get_transp_state (oracle env)
       else TransparentState.full
     in
-    let flags =
-      if with_delta then default_unify_flags () else default_no_delta_unify_flags ts in
     let thm_ty = nf_betaiota env sigma (Retyping.get_type_of env sigma c) in
     let sigma, thm_ty = Evarsolve.refresh_universes ~onlyalg:true None env sigma thm_ty in
     let try_apply thm_ty nprod =
       try
         let n = nb_prod_modulo_zeta sigma thm_ty - nprod in
         if n<0 then error NotEnoughPremises;
-        let clause = make_clenv_binding_apply env sigma (Some n) (c,thm_ty) lbind in
-        Clenv.res_pf clause ~with_classes ~with_evars ~flags
+        match refine_flag with
+        | None ->
+          Refine.refine ~typecheck:true begin fun sigma ->
+            let sigma, clause = Clenv.make_evar_clause env sigma ~len:n thm_ty in
+            let sigma = Clenv.solve_evar_clause env sigma false clause lbind in
+            (sigma, applist (c, List.map (fun h -> h.hole_evar) clause.cl_holes))
+          end
+        | Some with_delta ->
+          let flags =
+            if with_delta then default_unify_flags () else default_no_delta_unify_flags ts in
+          let clause = make_clenv_binding_apply env sigma (Some n) (c,thm_ty) lbind in
+          Clenv.res_pf clause ~with_classes ~with_evars ~flags
       with exn when noncritical exn ->
         let exn, info = Exninfo.capture exn in
         Proofview.tclZERO ~info exn
@@ -1929,10 +1937,10 @@ let general_apply ?(with_classes=true) ?(respect_opaque=false) with_delta with_d
 
 let rec apply_with_bindings_gen ?with_classes b e = function
   | [] -> Proofview.tclUNIT ()
-  | [k,cb] -> general_apply ?with_classes b b e k cb
+  | [k,cb] -> general_apply ?with_classes b (b <> Some false) e k cb
   | (k,cb)::cbl ->
       Tacticals.tclTHENLAST
-        (general_apply ?with_classes b b e k cb)
+        (general_apply ?with_classes b (b <> Some false) e k cb)
         (apply_with_bindings_gen ?with_classes b e cbl)
 
 let apply_with_delayed_bindings_gen b e l =
@@ -1942,7 +1950,7 @@ let apply_with_delayed_bindings_gen b e l =
       let env = Proofview.Goal.env gl in
       let (sigma, cb) = f env sigma in
         Tacticals.tclWITHHOLES e
-          (general_apply ~respect_opaque:(not b) b b e k CAst.(make ?loc cb)) sigma
+          (general_apply ~respect_opaque:(b = Some false (*??*)) b (b <> Some false) e k CAst.(make ?loc cb)) sigma
     end
   in
   let rec aux = function
@@ -1953,14 +1961,14 @@ let apply_with_delayed_bindings_gen b e l =
         (one k f) (aux cbl)
   in aux l
 
-let apply_with_bindings cb = apply_with_bindings_gen false false [None,(CAst.make cb)]
+let apply_with_bindings cb = apply_with_bindings_gen (Some false) false [None,(CAst.make cb)]
 
-let eapply_with_bindings ?with_classes cb = apply_with_bindings_gen ?with_classes false true [None,(CAst.make cb)]
+let eapply_with_bindings ?with_classes cb = apply_with_bindings_gen ?with_classes (Some false) true [None,(CAst.make cb)]
 
-let apply c = apply_with_bindings_gen false false [None,(CAst.make (c,NoBindings))]
+let apply c = apply_with_bindings_gen (Some false) false [None,(CAst.make (c,NoBindings))]
 
 let eapply ?with_classes c =
-  apply_with_bindings_gen ?with_classes false true [None,(CAst.make (c,NoBindings))]
+  apply_with_bindings_gen ?with_classes (Some false) true [None,(CAst.make (c,NoBindings))]
 
 let apply_list = function
   | c::l -> apply_with_bindings (c,ImplicitBindings l)
@@ -2016,7 +2024,7 @@ let apply_in_once_main flags (id, t) env sigma (loc,d,lbind) =
   let mvs = List.rev (clenv_independent clenv) in
   aux clenv mvs
 
-let apply_in_once ?(respect_opaque = false) with_delta
+let apply_in_once ?(respect_opaque = false) refine_flag
     with_destruct with_evars naming id (clear_flag,{ CAst.loc; v= d,lbind}) tac =
   let open Context.Rel.Declaration in
   Proofview.Goal.enter begin fun gl ->
@@ -2032,13 +2040,16 @@ let apply_in_once ?(respect_opaque = false) with_delta
       if respect_opaque then Conv_oracle.get_transp_state (oracle env)
       else TransparentState.full
     in
-    let flags =
-      if with_delta then default_unify_flags () else default_no_delta_unify_flags ts in
     try
-      let clause = apply_in_once_main flags (id, t') env sigma (loc,c,lbind) in
-      let cleartac = apply_clear_request clear_flag false idc <*> clear idstoclear in
-      let refine = Tacticals.tclTHENFIRST (clenv_refine_in with_evars targetid replace env sigma clause) cleartac in
-      Tacticals.tclTHENFIRST (replace_error_option err refine) (tac targetid)
+      match refine_flag with
+      | Some with_delta ->
+        let flags =
+          if with_delta then default_unify_flags () else default_no_delta_unify_flags ts in
+        let clause = apply_in_once_main flags (id, t') env sigma (loc,c,lbind) in
+        let cleartac = apply_clear_request clear_flag false idc <*> clear idstoclear in
+        let refine = Tacticals.tclTHENFIRST (clenv_refine_in with_evars targetid replace env sigma clause) cleartac in
+        Tacticals.tclTHENFIRST (replace_error_option err refine) (tac targetid)
+      | None -> failwith "TODO"
     with e when with_destruct && CErrors.noncritical e ->
       let err = Option.default (Exninfo.capture e) err in
         (descend_in_conjunctions (Id.Set.singleton targetid)
@@ -2049,14 +2060,14 @@ let apply_in_once ?(respect_opaque = false) with_delta
   aux [] with_destruct d
   end
 
-let apply_in_delayed_once ?(respect_opaque = false) with_delta
+let apply_in_delayed_once ?(respect_opaque = false) refine_flag
     with_destruct with_evars naming id (clear_flag,{CAst.loc;v=f}) tac =
   Proofview.Goal.enter begin fun gl ->
     let env = Proofview.Goal.env gl in
     let sigma = Tacmach.project gl in
     let (sigma, c) = f env sigma in
     Tacticals.tclWITHHOLES with_evars
-      (apply_in_once ~respect_opaque with_delta with_destruct with_evars
+      (apply_in_once ~respect_opaque refine_flag with_destruct with_evars
          naming id (clear_flag,CAst.(make ?loc c)) tac)
       sigma
   end
@@ -2348,7 +2359,7 @@ let constructor_core with_evars cstr lbind =
     let env = Proofview.Goal.env gl in
     let (sigma, (cons, u)) = Evd.fresh_constructor_instance env sigma cstr in
     let cons = mkConstructU (cons, EInstance.make u) in
-    let apply_tac = general_apply true false with_evars None (CAst.make (cons,lbind)) in
+    let apply_tac = general_apply (Some true) false with_evars None (CAst.make (cons,lbind)) in
     Tacticals.tclTHEN (Proofview.Unsafe.tclEVARS sigma) apply_tac
   end
 
@@ -2656,7 +2667,7 @@ and intro_pattern_action ?loc with_evars pat thin destopt tac id =
       let naming = NamingMustBe (CAst.make ?loc id) in
       let tac_ipat = prepare_action ?loc with_evars destopt pat in
       let f env sigma = let (sigma, c) = f env sigma in (sigma,(c, NoBindings)) in
-      apply_in_delayed_once true true with_evars naming id (None,CAst.make ?loc:loc' f)
+      apply_in_delayed_once (Some true) (* ?? *) true with_evars naming id (None,CAst.make ?loc:loc' f)
         (fun id -> Tacticals.tclTHENLIST [tac_ipat id; tac thin None []])
 
 and prepare_action ?loc with_evars destopt = function
@@ -2722,10 +2733,10 @@ let head_ident sigma c =
 
 (* apply in as *)
 
-let general_apply_in ?(respect_opaque=false) with_delta
+let general_apply_in ?(respect_opaque=false) refine_flag
     with_destruct with_evars id lemmas ipat then_tac =
   let tac (naming,lemma) tac id =
-    apply_in_delayed_once ~respect_opaque with_delta
+    apply_in_delayed_once ~respect_opaque refine_flag
       with_destruct with_evars naming id lemma tac in
   Proofview.Goal.enter begin fun gl ->
   let destopt =
@@ -2753,12 +2764,12 @@ let general_apply_in ?(respect_opaque=false) with_delta
     Tacticals.tclTHENFIRST (tclMAPFIRST tac lemmas_target) (ipat_tac id)
 *)
 
-let apply_in simple with_evars id lemmas ipat =
+let apply_in refine_flag with_evars id lemmas ipat =
   let lemmas = List.map (fun (k,{CAst.loc;v=l}) -> k, CAst.make ?loc (fun _ sigma -> (sigma,l))) lemmas in
-  general_apply_in simple simple with_evars id lemmas ipat Tacticals.tclIDTAC
+  general_apply_in refine_flag (refine_flag <> Some false) with_evars id lemmas ipat Tacticals.tclIDTAC
 
-let apply_delayed_in simple with_evars id lemmas ipat then_tac =
-  general_apply_in ~respect_opaque:true simple simple with_evars id lemmas ipat then_tac
+let apply_delayed_in refine_flag with_evars id lemmas ipat then_tac =
+  general_apply_in ~respect_opaque:true refine_flag (refine_flag <> Some false) with_evars id lemmas ipat then_tac
 
 (*****************************)
 (* Tactics abstracting terms *)
@@ -5334,14 +5345,14 @@ module Simple = struct
   let intro x = intro_move (Some x) MoveLast
 
   let apply c =
-    apply_with_bindings_gen false false [None,(CAst.make (c,NoBindings))]
+    apply_with_bindings_gen (Some false) false [None,(CAst.make (c,NoBindings))]
   let eapply c =
-    apply_with_bindings_gen false true [None,(CAst.make (c,NoBindings))]
+    apply_with_bindings_gen (Some false) true [None,(CAst.make (c,NoBindings))]
   let elim c   = elim false None (c,NoBindings) None
   let case   c = general_case_analysis false None (c,NoBindings)
 
   let apply_in id c =
-    apply_in false false id [None,(CAst.make (c, NoBindings))] None
+    apply_in (Some false) false id [None,(CAst.make (c, NoBindings))] None
 
 end
 

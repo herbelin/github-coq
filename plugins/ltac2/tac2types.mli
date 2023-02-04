@@ -15,7 +15,7 @@ open Proofview
 (** Redefinition of Ltac1 data structures because of impedance mismatch *)
 
 type evars_flag = bool
-type advanced_flag = bool
+type advanced_flag = bool option
 
 type 'a thunk = (unit, 'a) Tac2ffi.fun1
 

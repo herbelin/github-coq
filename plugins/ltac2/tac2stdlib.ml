@@ -248,7 +248,7 @@ let () = define_prim2 "tac_intros" bool intro_patterns begin fun ev ipat ->
 end
 
 let () = define_prim4 "tac_apply" bool bool (list (thunk constr_with_bindings)) (option (pair ident (option intro_pattern))) begin fun adv ev cb ipat ->
-  Tac2tactics.apply adv ev cb ipat
+  Tac2tactics.apply (Some adv) ev cb ipat
 end
 
 let () = define_prim3 "tac_elim" bool constr_with_bindings (option constr_with_bindings) begin fun ev c copt ->

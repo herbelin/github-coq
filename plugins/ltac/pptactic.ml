@@ -761,8 +761,11 @@ let pr_goal_selector ~toplevel s =
                     | _ -> spc () ++ prlist_with_sep spc (Miscprint.pr_intro_pattern @@ pr.pr_dconstr env sigma) p))
         | TacApply (a,ev,cb,inhyp) ->
           hov 1 (
-            (if a then mt() else primitive "simple ") ++
-              primitive (with_evars ev "apply") ++ spc () ++
+            (match a with
+             | Some true -> primitive (with_evars ev "apply")
+             | Some false -> primitive "simple " ++ primitive (with_evars ev "apply")
+             | None -> primitive (with_evars ev "rapply"))
+              ++ spc () ++
               prlist_with_sep pr_comma pr_with_bindings_arg cb ++
               pr_non_empty_arg (pr_in_hyp_as (pr.pr_dconstr env sigma) pr.pr_name) inhyp
           )
