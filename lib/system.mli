@@ -22,6 +22,8 @@ val (//) : unix_path -> string -> unix_path
 
 val exists_dir : unix_path -> bool
 
+val mkdirhier : unix_path -> unit
+
 (** [exclude_search_in_dirname path] excludes [path] when processing
     directories *)
 
