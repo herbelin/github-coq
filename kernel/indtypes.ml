@@ -383,7 +383,7 @@ let check_positivity ~chkpos kn names env_ar_par paramsctxt finite inds =
   let nmr = Context.Rel.nhyps paramsctxt in
   let check_one i (_,lcnames) (nindices,lc) =
     let ra_env_ar_par =
-      List.init nparamsctxt (fun _ -> (Norec,mk_norec)) @ ra_env_ar in
+      List.init nparamsctxt (fun i -> (Norec,Rtree.mk_param (nparamsctxt - i - 1))) @ ra_env_ar in
     let ienv = (env_ar_par, 1+nparamsctxt, ntypes, ra_env_ar_par) in
     check_positivity_one ~chkpos recursive ienv paramsctxt (kn,i) nindices lcnames lc
   in

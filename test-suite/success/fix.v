@@ -96,3 +96,95 @@ assumption.
 apply bcons.
 assumption.
 Qed.
+
+Module Wish9045.
+
+Require Import Coq.Init.Notations.
+Require Import Coq.Init.Datatypes.
+
+Inductive Wrapper (T : Type) :=
+  | Wrap : T -> Wrapper T
+  .
+Inductive Unwrapper :=
+  | Empty : Unwrapper
+  | Unwrap : Wrapper Unwrapper -> Unwrapper
+  .
+
+Fixpoint Unwrapper_size (u : Unwrapper) {struct u} : nat :=
+  match u with
+  | Empty => O
+  | Unwrap w => Wrapper_size w
+  end
+
+with Wrapper_size (w : Wrapper Unwrapper) {struct w} : nat :=
+  match w with
+  | Wrap _ t => Unwrapper_size t
+  end.
+
+End Wish9045.
+
+Module Wish12781.
+
+Inductive tree :=
+| Foo : list tree -> tree.
+
+Fixpoint f (l : list tree) {struct l} :=
+  match l with
+  | nil => 0
+  | cons (Foo l') _ => f l'
+  end.
+
+End Wish12781.
+
+Module Wish13855.
+
+Inductive exp :=
+  | If : list exp -> exp.
+
+Fixpoint c_exps_notc (z : exp) : nat :=
+  match z with
+  | If l0 =>
+    let fix c_exps (zs : list exp) : nat :=
+       match zs with
+       | nil => 0
+       | cons e zs1 => c_exps_notc e
+       end
+    in c_exps l0
+  end.
+
+Fixpoint c_exps (zs : list exp) : nat :=
+  match zs as l return nat with
+  | nil => 0
+  | cons e zs1 =>
+    (let fix c_exp_notc (z : exp) : nat :=
+     match z return nat with
+      | If l0 => (c_exps l0)
+      end in
+    c_exp_notc) e
+  end.
+
+End Wish13855.
+
+Module Wish15932.
+
+Inductive A (B : Set) (par : bool) : Set :=
+  | A0 : A B par
+  | A1 : B -> A B par.
+
+Inductive B : Set :=
+  | B0 : B
+  | B1 : forall (par : bool) (a : A B par), B.
+
+Fixpoint testB (x : B) {struct x}: unit :=
+  match x with
+  | B0 => tt
+  | B1 p a => testA p a
+  end
+
+with testA (par : bool) (y : A B par) {struct y}: unit :=
+  match y with
+  | A0 _ _ => tt
+  | A1 _ _ b => testB b
+  end.
+
+End Wish15932.

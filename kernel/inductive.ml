@@ -500,6 +500,17 @@ let contract_cofix (bodynum,(_,_,bodies as typedbodies)) =
   substl closure bodies.(bodynum)
 
 (************************************************************************)
+
+let rec get_tree finiteness env ((ind, _u), args) =
+  let find_tree t =
+    try get_tree finiteness env (find_inductive env t) with Not_found -> mk_norec in
+  let mib, mip = lookup_mind_specif env ind in
+  let params = List.firstn mib.mind_nparams args in
+  let param_trees = List.map find_tree params in
+  if mib.mind_finite != finiteness then mk_norec
+  else Rtree.instantiate_params param_trees mip.mind_recargs
+
+(************************************************************************)
 (************************************************************************)
 
 (* Guard conditions for fix and cofix-points *)
@@ -1516,14 +1527,14 @@ let inductive_of_mutfix ?evars env ((nvect,bodynum),(names,types,bodies as recde
               let env' = push_rel (LocalAssum (x,a)) env in
               if Int.equal n (k + 1) then
                 (* get the inductive type of the fixpoint *)
-                let (ind, _) =
+                let (ind, args) =
                   try find_inductive ?evars env a
                   with Not_found ->
                     raise_err env i (RecursionNotOnInductiveType a) in
                 let mib,mip = lookup_mind_specif env (out_punivs ind) in
                 check_finiteness mib.mind_finite i a;
                 check_relevance ind i mip;
-                (ind, (env', b))
+                ((ind, args), (env', b))
               else check_occur env' (n+1) b
             else anomaly ~label:"check_one_fix" (Pp.str "Bad occurrence of recursive call.")
         | _ -> raise_err env i NotEnoughAbstractionInFixBody
@@ -1539,11 +1550,7 @@ let check_fix ?evars env ((nvect,_),(names,_,bodies as recdef) as fix) =
   let (minds, rdef) = inductive_of_mutfix ?evars env fix in
   let flags = Environ.typing_flags env in
   if flags.check_guarded then
-    let get_tree (kn,i) =
-      let mib = Environ.lookup_mind kn env in
-      mib.mind_packets.(i).mind_recargs
-    in
-    let trees = Array.map (fun (mind,_) -> get_tree mind) minds in
+    let trees = Array.map (get_tree Finite env) minds in
     for i = 0 to Array.length bodies - 1 do
       let (fenv,body) = rdef.(i) in
       let renv = make_renv fenv nvect.(i) trees.(i) in
@@ -1654,8 +1661,7 @@ let check_one_cofix ?evars env nbfix def deftype =
           | Ind _ | Fix _ | Proj _ | Int _ | Float _ | Array _ ->
            raise (CoFixGuardError (env,NotGuardedForm t)) in
 
-  let ((mind, _),_) = codomain_is_coind ?evars env deftype in
-  let vlra = lookup_subterms env mind in
+  let vlra = get_tree CoFinite env (codomain_is_coind ?evars env deftype) in
   check_rec_call env false 1 vlra (dest_subterms vlra) def
 
 (* The  function which checks that the whole block of definitions
