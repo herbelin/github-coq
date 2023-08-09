@@ -17,22 +17,26 @@ open Util
      Warning: Var's indices both start at 0!
    - Node denotes the usual tree node, labelled with 'a, to the
      exception that it takes an array of arrays as argument
+   - Param denotes global parameters (like de Bruijn levels)
    - Rec(j,v1..vn) introduces infinite tree. It denotes
      v(j+1) with variables 0..n-1 replaced by
      Rec(0,v1..vn)..Rec(n-1,v1..vn) respectively.
  *)
 type 'a t =
     Var of int * int
+  | Param of int
   | Node of 'a * 'a t array array
   | Rec of int * 'a t array
 
 (* Building trees *)
 let mk_rec_calls i = Array.init i (fun j -> Var(0,j))
 let mk_node lab sons = Node (lab, sons)
+let mk_param i = Param i
 
 (* The usual lift operation *)
 let rec lift_rtree_rec depth n = function
     Var (i,j) as t -> if i < depth then t else Var (i+n,j)
+  | Param i -> Param i
   | Node (l,sons) -> Node (l,Array.map (Array.map (lift_rtree_rec depth n)) sons)
   | Rec(j,defs) ->
       Rec(j, Array.map (lift_rtree_rec (depth+1) n) defs)
@@ -46,6 +50,7 @@ let rec subst_rtree_rec depth sub = function
       else if i = depth then
         lift depth (Rec (j, sub))
       else Var (i - 1, j)
+  | Param i -> Param i
   | Node (l,sons) -> Node (l,Array.map (Array.map (subst_rtree_rec depth sub)) sons)
   | Rec(j,defs) ->
       Rec(j, Array.map (subst_rtree_rec (depth+1) sub) defs)
@@ -95,8 +100,14 @@ let is_node t =
       Node _ -> true
     | _ -> false
 
+let is_param t =
+  match expand t with
+      Param _ -> true
+    | _ -> false
+
 let rec map f t = match t with
     Var(i,j) -> Var(i,j)
+  | Param i -> Param i
   | Node (a,sons) -> Node (f a, Array.map (Array.map (map f)) sons)
   | Rec(j,defs) -> Rec (j, Array.map (map f) defs)
 
@@ -105,6 +116,7 @@ struct
 
   let map f t = match t with
       Var _ -> t
+    | Param _ -> t
     | Node (a,sons) ->
         let a'=f a and sons' = Array.Smart.map (Array.Smart.map (map f)) sons in
         if a'==a && sons'==sons then t
@@ -115,6 +127,18 @@ struct
         else Rec(j,defs')
 
 end
+
+let rec instantiate_params l = function
+    Var _ as t -> t
+  | Param i -> List.nth l i
+  | Node (a, sons) as t ->
+      let sons' = Array.Smart.map (Array.Smart.map (instantiate_params l)) sons in
+      if sons'==sons then t
+      else Node (a, sons')
+  | Rec(j,defs) as t ->
+      let defs' = Array.Smart.map (instantiate_params l) defs in
+      if defs'==defs then t
+      else Rec (j, defs')
 
 (** Structural equality test, parameterized by an equality on elements *)
 
@@ -157,6 +181,8 @@ let rec inter cmp interlbl def n histo t t' =
   match t, t' with
   | Var (i,j), Var (i',j') ->
       assert (Int.equal i i' && Int.equal j j'); t
+  | Param i, Param i' ->
+      assert (Int.equal i i'); t
   | Node (x, a), Node (x', a') ->
       (match interlbl x x' with
       | None -> mk_node def [||]
@@ -199,6 +225,7 @@ open Pp
 let rec pr_tree prl t =
   match t with
     | Var (i,j) -> str"#"++int i++str":"++int j
+    | Param i -> str "Param{"++int i++str "}"
     | Node(lab,[||]) -> prl lab
     | Node(lab,v) ->
         hov 0 (prl lab++str","++spc()++

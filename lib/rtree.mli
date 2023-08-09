@@ -24,6 +24,9 @@ type 'a t
 (** Build a node given a label and a vector of vectors of sons *)
 val mk_node  : 'a -> 'a t array array -> 'a t
 
+(** build a node referring to a global parameter *)
+val mk_param  : int -> 'a t
+
 (** Build mutually recursive trees:
     X_1 = f_1(X_1,..,X_n) ... X_n = f_n(X_1,..,X_n)
    is obtained by the following pseudo-code
@@ -50,6 +53,8 @@ val mk_rec   : 'a t array -> 'a t array
 val lift : int -> 'a t -> 'a t
 
 val is_node : 'a t -> bool
+
+val is_param : 'a t -> bool
 
 (** Destructors (recursive calls are expanded) *)
 val dest_node  : 'a t -> 'a * 'a t array array
@@ -85,6 +90,8 @@ val map : ('a -> 'b) -> 'a t -> 'b t
 
 (** Pretty-printer *)
 val pr_tree : ('a -> Pp.t) -> 'a t -> Pp.t
+
+val instantiate_params : 'a t list -> 'a t -> 'a t
 
 module Smart :
 sig
