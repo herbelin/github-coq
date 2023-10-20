@@ -132,6 +132,8 @@ let dummy = {
 let synterp_state = ref dummy
 let interp_state = ref ([] : Summary.Interp.frozen library_segment)
 
+let library_comments = ref (Some "Hello!")
+
 let contents () = !interp_state
 
 let start_compilation s mp =
@@ -658,7 +660,7 @@ let end_compilation dir =
   synterp_state := { !synterp_state with comp_name = None };
   let syntax_after = Synterp.classify_segment syntax_after in
   let after = Interp.classify_segment after in
-  !synterp_state.path_prefix, after, syntax_after
+  !synterp_state.path_prefix, !library_comments, after, syntax_after
 
 (** Compatibility layer *)
 let init () =
