@@ -29,6 +29,14 @@ type 'a t =
 let mk_rec_calls i = Array.init i (fun j -> Param(0,j))
 let mk_node lab sons = Node (lab, sons)
 
+(** Structural equality test, parametrized by an equality on elements *)
+
+let rec raw_eq cmp t t' = match t, t' with
+  | Param (i,j), Param (i',j') -> Int.equal i i' && Int.equal j j'
+  | Node (x, a), Node (x', a') -> cmp x x' && Array.equal (raw_eq cmp) a a'
+  | Rec (i, a), Rec (i', a') -> Int.equal i i' && Array.equal (raw_eq cmp) a a'
+  | _ -> false
+
 (* The usual lift operation *)
 let rec lift_rtree_rec depth n = function
     Param (i,j) as t -> if i < depth then t else Param (i+n,j)
@@ -38,21 +46,34 @@ let rec lift_rtree_rec depth n = function
 
 let lift n t = if Int.equal n 0 then t else lift_rtree_rec 0 n t
 
-(* The usual subst operation *)
+(* Replace t by Param(depth,k) in v *)
+
+let rec replace_and_lift t depth k v =
+  if raw_eq (=) t v then Param (depth,k) else
+    match v with
+    | Param (i,j) as t -> if i < depth then t else Param (i+1, j)
+    | Node (l,sons) -> Node (l, Array.map (replace_and_lift t depth k) sons)
+    | Rec (j,defs) -> Rec (j, Array.map (replace_and_lift (lift 1 t) (depth+1) k) defs)
+
+(* Substitute [Param(0,j)] by [sub.(j)] but compacting recursive terms that can be shared *)
+
 let rec subst_rtree_rec depth sub = function
     Param (i,j) as t ->
       if i < depth then t
       else if i = depth then
-        lift depth (Rec (j, sub))
+        Rec (j, sub)
       else Param (i - 1, j)
-  | Node (l,sons) -> Node (l,Array.map (subst_rtree_rec depth sub) sons)
-  | Rec(j,defs) ->
-      Rec(j, Array.map (subst_rtree_rec (depth+1) sub) defs)
+  | Node (l,sons) ->
+      Node (l,Array.map (subst_rtree_rec depth sub) sons)
+  | Rec(j,defs) as t ->
+      Rec(j, Array.map (subst_rtree_rec (depth+1) (Array.map (replace_and_lift t 1 j) sub)) defs)
 
 let subst_rtree sub t = subst_rtree_rec 0 sub t
 
-(* To avoid looping, we must check that every body introduces a node
+(* An expansion function maximally compacting the representation.
+   To avoid looping, we must check that every body introduces a node
    or a parameter *)
+
 let rec expand = function
   | Rec(j,defs) ->
       expand (subst_rtree defs defs.(j))
@@ -115,14 +136,6 @@ struct
 
 end
 
-(** Structural equality test, parametrized by an equality on elements *)
-
-let rec raw_eq cmp t t' = match t, t' with
-  | Param (i,j), Param (i',j') -> Int.equal i i' && Int.equal j j'
-  | Node (x, a), Node (x', a') -> cmp x x' && Array.equal (raw_eq cmp) a a'
-  | Rec (i, a), Rec (i', a') -> Int.equal i i' && Array.equal (raw_eq cmp) a a'
-  | _ -> false
-
 let raw_eq2 cmp (t,u) (t',u') = raw_eq cmp t t' && raw_eq cmp u u'
 
 (** Equivalence test on expanded trees. It is parametrized by two
@@ -148,32 +161,27 @@ let equal cmp t t' =
   t == t' || raw_eq cmp t t' || equiv cmp cmp t t'
 
 (** Intersection of rtrees of same arity *)
-let rec inter cmp interlbl def n histo t t' =
-  try
-    let (i,j) = List.assoc_f (raw_eq2 cmp) (t,t') histo in
-    Param (n-i-1,j)
-  with Not_found ->
+let rec inter cmp interlbl def n t t' =
   match t, t' with
   | Param (i,j), Param (i',j') ->
       assert (Int.equal i i' && Int.equal j j'); t
   | Node (x, a), Node (x', a') ->
       (match interlbl x x' with
       | None -> mk_node def [||]
-      | Some x'' -> Node (x'', Array.map2 (inter cmp interlbl def n histo) a a'))
+      | Some x'' -> Node (x'', Array.map2 (inter cmp interlbl def n) a a'))
   | Rec (i,v), Rec (i',v') ->
      (* If possible, we preserve the shape of input trees *)
      if Int.equal i i' && Int.equal (Array.length v) (Array.length v') then
-       let histo = ((t,t'),(n,i))::histo in
-       Rec(i, Array.map2 (inter cmp interlbl def (n+1) histo) v v')
+       Rec(i, Array.map2 (inter cmp interlbl def (n+1)) v v')
      else
      (* Otherwise, mutually recursive trees are transformed into nested trees *)
-       let histo = ((t,t'),(n,0))::histo in
-       Rec(0, [|inter cmp interlbl def (n+1) histo (expand t) (expand t')|])
-  | Rec _, _ -> inter cmp interlbl def n histo (expand t) t'
-  | _ , Rec _ -> inter cmp interlbl def n histo t (expand t')
-  | _ -> assert false
+       let t = expand t and t' = expand t' in
+       Rec(0, [|inter cmp interlbl def (n+1) t t'|])
+  | Rec _, Node _ -> inter cmp interlbl def n (expand t) t'
+  | Node _ , Rec _ -> inter cmp interlbl def n t (expand t')
+  | Param _, _ | _, Param _ -> assert false
 
-let inter cmp interlbl def t t' = inter cmp interlbl def 0 [] t t'
+let inter cmp interlbl def t t' = inter cmp interlbl def 0 t t'
 
 (** Inclusion of rtrees. We may want a more efficient implementation. *)
 let incl cmp interlbl def t t' =
