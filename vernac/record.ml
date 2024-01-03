@@ -650,10 +650,10 @@ let extract_record_data records =
 
 let implicits_of_context ctx =
   List.map (fun name -> CAst.make (Some (name,true)))
-    (List.rev (Anonymous :: (List.filter_map (function
+    (List.rev (List.filter_map (function
          | LocalDef _ -> None
          | LocalAssum _ as d -> Some (RelDecl.get_name d))
-         ctx)))
+         ctx))
 
 (* deprecated in 8.16, to be removed at the end of the deprecation phase
    (c.f., https://github.com/coq/coq/pull/15802 ) *)
@@ -711,7 +711,7 @@ let check_proj_flags kind rf =
 (* remove the definitional argument at the end of the deprecation phase
    (started in 8.17)
    (c.f., https://github.com/coq/coq/pull/16230 ) *)
-let pre_process_structure ?(definitional=false) udecl kind ~poly (records : Ast.t list) =
+let pre_process_structure ?(definitional=false) udecl kind ~poly ~implicit_params (records : Ast.t list) =
   let indlocs = check_unique_names records in
   let () = check_priorities kind records in
   let ps, data = extract_record_data records in
@@ -725,8 +725,10 @@ let pre_process_structure ?(definitional=false) udecl kind ~poly (records : Ast.
         typecheck_params_and_fields (kind = Class true) poly udecl ps data) ()
   in
   let adjust_impls impls = match kind_class kind with
-    | NotClass -> impargs @ [CAst.make None] @ impls
-    | _ -> implicits_of_context params @ impls in
+    | NotClass ->
+      let params_impls = if implicit_params then implicits_of_context params else impargs in
+      params_impls @ [CAst.make None] @ impls
+    | _ -> implicits_of_context params @ [CAst.make (Some (Anonymous,true))] @ impls in
   let data = List.map (fun ({ DataR.implfs; _ } as d) -> { d with DataR.implfs = List.map adjust_impls implfs }) data in
   let map rdata { Ast.name; is_coercion; cfs; idbuild; default_inhabitant_id; _ } =
     let proj_flags = List.map (fun (_, rf) -> check_proj_flags kind rf) cfs in
@@ -749,7 +751,7 @@ let pre_process_structure ?(definitional=false) udecl kind ~poly (records : Ast.
     Decls.(match kind_class kind with NotClass -> StructureComponent | _ -> Method) in
   impargs, params, univs, variances, projections_kind, data, indlocs
 
-let interp_structure_core ~cumulative finite ~univs ~variances ~primitive_proj impargs params template ~projections_kind ~indlocs data =
+let interp_structure_core ~cumulative finite ~univs ~variances ~primitive_proj ~implicit_params impargs params template ~projections_kind ~indlocs data =
   let nparams = List.length params in
   let (univs, ubinders) = univs in
   let poly, projunivs =
@@ -805,7 +807,8 @@ let interp_structure_core ~cumulative finite ~univs ~variances ~primitive_proj i
       mind_entry_variance = variance;
     }
   in
-  let impls = List.map (fun _ -> impargs, []) data in
+  let build_impl = if implicit_params then implicits_of_context params else [] in
+  let impls = List.map (fun _ -> impargs, [build_impl]) data in
   let open Record_decl in
   { mie; primitive_proj; impls; globnames; global_univ_decls; projunivs;
     ubinders; projections_kind; poly; records = data;
@@ -813,11 +816,11 @@ let interp_structure_core ~cumulative finite ~univs ~variances ~primitive_proj i
   }
 
 
-let interp_structure udecl kind ~template ~cumulative ~poly ~primitive_proj finite records =
+let interp_structure udecl kind ~template ~cumulative ~poly ~primitive_proj ~implicit_params finite records =
   assert (kind <> Vernacexpr.Class true);
   let impargs, params, univs, variances, projections_kind, data, indlocs =
-    pre_process_structure udecl kind ~poly records in
-  interp_structure_core ~cumulative finite ~univs ~variances ~primitive_proj impargs params template ~projections_kind ~indlocs data
+    pre_process_structure udecl kind ~poly ~implicit_params records in
+  interp_structure_core ~cumulative finite ~univs ~variances ~primitive_proj ~implicit_params impargs params template ~projections_kind ~indlocs data
 
 let declare_structure { Record_decl.mie; primitive_proj; impls; globnames; global_univ_decls; projunivs; ubinders; projections_kind; poly; records; indlocs } =
   Option.iter (Global.push_context_set ~strict:true) global_univ_decls;
@@ -1014,11 +1017,11 @@ let declare_existing_class g =
     list telling if the corresponding fields must me declared as coercions
     or subinstances. *)
 
-let definition_structure udecl kind ~template ~cumulative ~poly ~primitive_proj
+let definition_structure udecl kind ~template ~cumulative ~poly ~primitive_proj ~implicit_params
     finite (records : Ast.t list) : GlobRef.t list =
   let impargs, params, univs, variances, projections_kind, data, indlocs =
     let definitional = kind_class kind = DefClass in
-    pre_process_structure ~definitional udecl kind ~poly records
+    pre_process_structure ~definitional udecl kind ~poly ~implicit_params records
   in
   let inds, def = match kind_class kind with
     | DefClass -> declare_class_constant ~univs impargs params data
@@ -1029,7 +1032,7 @@ let definition_structure udecl kind ~template ~cumulative ~poly ~primitive_proj
           List.map (fun d -> { d with Data.is_coercion = false }) data in
       let structure =
         interp_structure_core
-          ~cumulative finite ~univs ~variances ~primitive_proj
+          ~cumulative finite ~univs ~variances ~primitive_proj ~implicit_params
           impargs params template ~projections_kind ~indlocs data in
       declare_structure structure
   in

@@ -32,6 +32,7 @@ val definition_structure
   -> cumulative:bool
   -> poly:bool
   -> primitive_proj:bool
+  -> implicit_params:bool
   -> Declarations.recursivity_kind
   -> Ast.t list
   -> GlobRef.t list
@@ -82,6 +83,7 @@ val interp_structure
   -> cumulative:bool
   -> poly:bool
   -> primitive_proj:bool
+  -> implicit_params:bool
   -> Declarations.recursivity_kind
   -> Ast.t list
   -> Record_decl.t

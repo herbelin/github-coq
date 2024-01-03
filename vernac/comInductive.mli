@@ -28,6 +28,7 @@ val do_mutual_inductive
   -> ?typing_flags:Declarations.typing_flags
   -> private_ind:bool
   -> uniform:uniform_inductive_flag
+  -> implicit_params:bool
   -> Declarations.recursivity_kind
   -> unit
 
@@ -68,6 +69,7 @@ val interp_mutual_inductive
   -> ?typing_flags:Declarations.typing_flags
   -> private_ind:bool
   -> uniform:uniform_inductive_flag
+  -> implicit_params:bool
   -> Declarations.recursivity_kind
   -> Mind_decl.t
 

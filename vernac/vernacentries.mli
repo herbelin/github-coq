@@ -54,6 +54,7 @@ module Preprocessed_Mind_decl : sig
     cumulative : bool;
     poly : bool;
     finite : Declarations.recursivity_kind;
+    implicit_params : bool;
   }
   type record = {
     flags : flags;
@@ -78,3 +79,5 @@ val preprocess_inductive_decl
   -> Vernacexpr.inductive_kind
   -> (Vernacexpr.inductive_expr * Vernacexpr.notation_declaration list) list
   -> Preprocessed_Mind_decl.t
+
+val get_implicit_parameters : unit -> bool

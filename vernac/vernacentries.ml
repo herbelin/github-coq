@@ -807,6 +807,13 @@ let should_treat_as_uniform () =
   then ComInductive.UniformParameters
   else ComInductive.NonUniformParameters
 
+(** Flag governing automatic setting of parameters as implicit *)
+let { Goptions.get = get_implicit_parameters } =
+  Goptions.declare_bool_option_and_ref
+    ~key:["Maximal";"Implicit";"Parameters"]
+    ~value:false
+    ()
+
 let vernac_record ~template udecl ~cumulative k ~poly ?typing_flags ~primitive_proj finite records =
   let map ((is_coercion, name), binders, sort, nameopt, cfs, ido) =
     let idbuild = match nameopt with
@@ -873,6 +880,7 @@ module Preprocessed_Mind_decl = struct
     cumulative : bool;
     poly : bool;
     finite : Declarations.recursivity_kind;
+    implicit_params : bool;
   }
   type record = {
     flags : flags;
@@ -939,8 +947,9 @@ let preprocess_inductive_decl ~atts kind indl =
               rf_locality ; rf_notation = [] ; rf_canonical = true } in
     let recordl = [id, bl, c, None, [f], None] in
     let kind = Class true in
+    let implicit_params = get_implicit_parameters () in
     let records = vernac_record ~template udecl ~cumulative kind ~poly ?typing_flags ~primitive_proj finite recordl in
-    indl, Preprocessed_Mind_decl.(Record { flags = { template; udecl; cumulative; poly; finite; }; primitive_proj; kind; records })
+    indl, Preprocessed_Mind_decl.(Record { flags = { template; udecl; cumulative; poly; finite; implicit_params; }; primitive_proj; kind; records })
   else if List.for_all is_record indl then
     (* Mutual record case *)
     let () = match kind with
@@ -982,9 +991,10 @@ let preprocess_inductive_decl ~atts kind indl =
     | Constructors _ -> assert false (* ruled out above *)
     in
     let kind = match kind with Class _ -> Class false | _ -> kind in
+    let implicit_params = get_implicit_parameters () in
     let recordl = List.map unpack indl in
     let records = vernac_record ~template udecl ~cumulative kind ~poly ?typing_flags ~primitive_proj finite recordl in
-    indl, Preprocessed_Mind_decl.(Record { flags = { template; udecl; cumulative; poly; finite; }; primitive_proj; kind; records })
+    indl, Preprocessed_Mind_decl.(Record { flags = { template; udecl; cumulative; poly; finite; implicit_params; }; primitive_proj; kind; records })
   else if List.for_all is_constructor indl then
     (* Mutual inductive case *)
     let () = match kind with
@@ -1008,7 +1018,8 @@ let preprocess_inductive_decl ~atts kind indl =
     in
     let inductives = List.map unpack indl in
     let uniform = should_treat_as_uniform () in
-    indl, Preprocessed_Mind_decl.(Inductive { flags = { template; udecl; cumulative; poly; finite }; typing_flags; private_ind; uniform; inductives })
+    let implicit_params = get_implicit_parameters () in
+    indl, Preprocessed_Mind_decl.(Inductive { flags = { template; udecl; cumulative; poly; finite; implicit_params; }; typing_flags; private_ind; uniform; inductives })
   else
     user_err (str "Mixed record-inductive definitions are not allowed.")
 
@@ -1040,12 +1051,12 @@ let vernac_inductive ~atts kind indl =
   let indl_for_glob, decl = preprocess_inductive_decl ~atts kind indl in
   dump_inductive indl_for_glob decl;
   match decl with
-  | Record { flags = { template; udecl; cumulative; poly; finite; }; kind; primitive_proj; records } ->
+  | Record { flags = { template; udecl; cumulative; poly; finite; implicit_params; }; kind; primitive_proj; records } ->
     let _ : _ list =
-      Record.definition_structure ~template udecl kind ~cumulative ~poly ~primitive_proj finite records in
+      Record.definition_structure ~template udecl kind ~cumulative ~poly ~primitive_proj ~implicit_params finite records in
     ()
-  | Inductive { flags = { template; udecl; cumulative; poly; finite; }; typing_flags; private_ind; uniform; inductives } ->
-    ComInductive.do_mutual_inductive ~template udecl inductives ~cumulative ~poly ?typing_flags ~private_ind ~uniform finite
+  | Inductive { flags = { template; udecl; cumulative; poly; finite; implicit_params; }; typing_flags; private_ind; uniform; inductives } ->
+    ComInductive.do_mutual_inductive ~template udecl inductives ~cumulative ~poly ?typing_flags ~private_ind ~uniform ~implicit_params finite
 
 let preprocess_inductive_decl ~atts kind indl =
   snd @@ preprocess_inductive_decl ~atts kind indl

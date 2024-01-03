@@ -568,7 +568,7 @@ let maybe_unify_params_in env_ar_par sigma ~ninds ~nparams ~binders:k c =
   in
   aux (env_ar_par,k) sigma c
 
-let interp_mutual_inductive_gen env0 ~template udecl (uparamsl,paramsl,indl) notations ~cumulative ~poly ~private_ind finite =
+let interp_mutual_inductive_gen env0 ~template udecl (uparamsl,paramsl,indl) notations ~cumulative ~poly ~private_ind ~implicit_params finite =
   check_all_names_different indl;
   List.iter check_param paramsl;
   if not (List.is_empty uparamsl) && not (List.is_empty notations)
@@ -644,7 +644,7 @@ let interp_mutual_inductive_gen env0 ~template udecl (uparamsl,paramsl,indl) not
       constructors
   in
   let ctx_params = ctx_params @ ctx_uparams in
-  let userimpls = useruimpls @ userimpls in
+  let construct_userimpls = if implicit_params then [] else useruimpls @ userimpls in
   let indimpls = List.map (fun iimpl -> useruimpls @ iimpl) indimpls in
   let fullarities = List.map (fun c -> EConstr.it_mkProd_or_LetIn c ctx_uparams) fullarities in
   let env_ar = push_types env0 indnames relevances fullarities in
@@ -654,7 +654,7 @@ let interp_mutual_inductive_gen env0 ~template udecl (uparamsl,paramsl,indl) not
   let impls =
     List.map2 (fun indimpls cimpls ->
         indimpls, List.map (fun impls ->
-            userimpls @ impls) cimpls)
+            construct_userimpls @ impls) cimpls)
       indimpls cimpls
   in
   let mie, binders, ctx = interp_mutual_inductive_constr ~template ~sigma ~ctx_params ~udecl ~variances ~arities ~arityconcl ~constructors ~env_ar_params ~poly ~finite ~cumulative ~private_ind ~indnames in
@@ -726,27 +726,28 @@ let rec count_binder_expr = function
   | CLocalPattern {CAst.loc} :: _ ->
     Loc.raise ?loc (Gramlib.Grammar.Error "pattern with quote not allowed here")
 
-let interp_mutual_inductive ~env ~template udecl indl ~cumulative ~poly ?typing_flags ~private_ind ~uniform finite =
+let interp_mutual_inductive ~env ~template udecl indl ~cumulative ~poly ?typing_flags ~private_ind ~uniform ~implicit_params finite =
   let indlocs = List.map (fun ((n,_,_,_),_) -> n.CAst.loc) indl in
   let (params,indl),coercions,ntns = extract_mutual_inductive_declaration_components indl in
   let where_notations = List.map Metasyntax.prepare_where_notation ntns in
   (* Interpret the types *)
   let indl, nuparams = match params with
+
     | uparams, Some params -> (uparams, params, indl), Some (count_binder_expr params)
     | params, None -> match uniform with
       | UniformParameters -> (params, [], indl), Some 0
       | NonUniformParameters -> ([], params, indl), None
   in
   let env = Environ.update_typing_flags ?typing_flags env in
-  let mie, univ_binders, implicits, uctx = interp_mutual_inductive_gen env ~template udecl indl where_notations ~cumulative ~poly ~private_ind finite in
+  let mie, univ_binders, implicits, uctx = interp_mutual_inductive_gen env ~template udecl indl where_notations ~cumulative ~poly ~private_ind ~implicit_params finite in
   let open Mind_decl in
   { mie; nuparams; univ_binders; implicits; uctx; where_notations; coercions; indlocs }
 
-let do_mutual_inductive ~template udecl indl ~cumulative ~poly ?typing_flags ~private_ind ~uniform finite =
+let do_mutual_inductive ~template udecl indl ~cumulative ~poly ?typing_flags ~private_ind ~uniform ~implicit_params finite =
   let open Mind_decl in
   let env = Global.env () in
   let { mie; univ_binders; implicits; uctx; where_notations; coercions; indlocs} =
-    interp_mutual_inductive ~env ~template udecl indl ~cumulative ~poly ?typing_flags ~private_ind ~uniform finite in
+    interp_mutual_inductive ~env ~template udecl indl ~cumulative ~poly ?typing_flags ~private_ind ~uniform ~implicit_params finite in
   (* Slightly hackish global universe declaration due to template types. *)
   let binders = match mie.mind_entry_universes with
   | Monomorphic_ind_entry -> (UState.Monomorphic_entry uctx, univ_binders)
