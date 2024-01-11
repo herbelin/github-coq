@@ -172,9 +172,20 @@ type constant_evaluation =
 
 (* We use a cache registered as a global table *)
 
-type frozen = constant_evaluation Cmap.t
+module ConstantWithEInstanceOrder =
+struct
+  type t = Constant.t * EInstance.t
+  let compare (cst1,u1) (cst2,u2) =
+    let c = Constant.CanOrd.compare cst1 cst2 in
+    if Int.equal c 0 then Stdlib.compare u1 u2
+    else c
+end
 
-let eval_table = Summary.ref (Cmap.empty : frozen) ~name:"evaluation"
+module CMapWithEInstance = Map.Make(ConstantWithEInstanceOrder)
+
+type frozen = constant_evaluation CMapWithEInstance.t
+
+let eval_table = Summary.ref (CMapWithEInstance.empty : frozen) ~name:"evaluation"
 
 (* [compute_consteval] determines whether f is an "elimination constant"
 
@@ -351,12 +362,12 @@ let compute_consteval allowed_reds env sigma ref u =
 
 let reference_eval allowed_reds env sigma ref u =
   match ref with
-  | EvalConst cst as ref when EInstance.is_empty u ->
+  | EvalConst cst as ref ->
       (try
-         Cmap.find cst !eval_table
+         CMapWithEInstance.find (cst,u) !eval_table
        with Not_found -> begin
          let v = compute_consteval allowed_reds env sigma ref u in
-         eval_table := Cmap.add cst v !eval_table;
+         eval_table := CMapWithEInstance.add (cst,u) v !eval_table;
          v
        end)
   | ref -> compute_consteval allowed_reds env sigma ref u
