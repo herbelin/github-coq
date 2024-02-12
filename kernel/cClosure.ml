@@ -75,6 +75,8 @@ type table_key = Constant.t UVars.puniverses tableKey
 
 type evar_repack = Evar.t * constr list -> constr
 
+type gfix = Constr.t option
+
 type fconstr = {
   mutable mark : red_state;
   mutable term: fterm;
@@ -88,7 +90,7 @@ and fterm =
   | FConstruct of pconstructor
   | FApp of fconstr * fconstr array
   | FProj of Projection.t * Sorts.relevance * fconstr
-  | FFix of fixpoint * usubs
+  | FFix of fixpoint * usubs * gfix
   | FCoFix of cofixpoint * usubs
   | FCaseT of case_info * UVars.Instance.t * constr array * case_return * fconstr * case_branch array * usubs (* predicate and branches are closures *)
   | FCaseInvert of case_info * UVars.Instance.t * constr array * case_return * finvert * fconstr * case_branch array * usubs
@@ -220,8 +222,8 @@ let rec lft_fconstr n ft =
     | (FInd _|FConstruct _|FFlex(ConstKey _|VarKey _)|FInt _|FFloat _|FString _|FIrrelevant) -> ft
     | FRel i -> {mark=ft.mark;term=FRel(i+n)}
     | FLambda(k,tys,f,e) -> {mark=Cstr; term=FLambda(k,tys,f,usubs_shft(n,e))}
-    | FFix(fx,e) ->
-      {mark=Cstr; term=FFix(fx,usubs_shft(n,e))}
+    | FFix(fx,e,gfix) ->
+      {mark=Cstr; term=FFix(fx,usubs_shft(n,e),gfix)}
     | FCoFix(cfx,e) ->
       {mark=Cstr; term=FCoFix(cfx,usubs_shft(n,e))}
     | FLIFT(k,m) -> lft_fconstr (n+k) m
@@ -338,7 +340,15 @@ let is_irrelevant info r = match info.i_cache.i_mode with
 
 (************************************************************************)
 
-type table_val = (fconstr * bool array, Empty.t, UVars.Instance.t * bool * rewrite_rule list) constant_def
+type gfix_info = {
+  gfix_nargs : int;
+  gfix_tys : (Name.t binder_annot * constr) list;
+  gfix_univs : UVars.Instance.t;
+  gfix_body : fixpoint;
+  gfix_refold : Constr.t;
+}
+
+type table_val = (fconstr * gfix_info option * bool array, Empty.t, UVars.Instance.t * bool * rewrite_rule list) constant_def
 
 module Table : sig
   type t
@@ -366,12 +376,31 @@ end = struct
     | NamedDecl.LocalAssum (_, _) -> raise Not_found
 
   let constant_value_in u = function
-    | Def b -> injectu b u
+    | Def b -> b
     | OpaqueDef _ -> raise (NotEvaluableConst Opaque)
     | Undef _ -> raise (NotEvaluableConst NoBody)
     | Primitive p -> raise (NotEvaluableConst (IsPrimitive (u,p)))
     | Symbol _ -> assert false
     (*  Should already be dealt with *)
+
+  let expand_global_fixpoint info cst c = match info.i_cache.i_mode with
+  | Reduction -> None
+  | Conversion ->
+    let ctx, body = Term.decompose_lambda c in
+    match destFix body with
+    | fix ->
+      let nargs = List.length ctx in
+      let args = Array.init nargs (fun i -> mkRel (nargs - i)) in
+      let inst = UVars.Instance.abstract_instance @@ UVars.Instance.length @@ snd cst in
+      let refold = mkApp (mkConstU (fst cst, inst), args) in
+      Some {
+        gfix_nargs = nargs;
+        gfix_tys = List.rev ctx;
+        gfix_univs = snd cst;
+        gfix_body = fix;
+        gfix_refold = refold;
+      }
+    | exception DestKO -> None
 
   let value_of info ref =
     try
@@ -389,14 +418,14 @@ end = struct
           | RelDecl.LocalAssum _ -> raise Not_found
           | RelDecl.LocalDef (_, t, _) -> lift n t
         in
-        Def (inject body, [||])
+        Def (inject body, None, [||])
       | VarKey id ->
         let def = Environ.lookup_named id env in
         shortcut_irrelevant info
           (binder_relevance (NamedDecl.get_annot def));
         let ts = RedFlags.red_transparent info.i_flags in
         if TransparentState.is_transparent_variable ts id then
-          Def (assoc_defined def, [||])
+          Def (assoc_defined def, None, [||])
         else
           raise Not_found
       | ConstKey (cst,u) ->
@@ -405,11 +434,13 @@ end = struct
         let ts = RedFlags.red_transparent info.i_flags in
         if TransparentState.is_transparent_constant ts cst then match cb.const_body with
         | Undef _ | Def _ | OpaqueDef _ | Primitive _ ->
+          let body = constant_value_in u cb.const_body in
+          let gfix = expand_global_fixpoint info (cst, u) body in
           let mask = match cb.const_body_code with
           | None | Some (Vmemitcodes.BCalias _ | Vmemitcodes.BCconstant) -> [||]
           | Some (Vmemitcodes.BCdefined (mask, _, _)) -> mask
           in
-          Def (constant_value_in u cb.const_body, mask)
+          Def (injectu body u, gfix, mask)
         | Symbol b ->
           let r = match Cmap_env.find_opt cst env.symb_pats with
           | None -> assert false
@@ -419,7 +450,7 @@ end = struct
         else
           raise Not_found
     with
-    | Irrelevant -> Def (mk_irrelevant, [||])
+    | Irrelevant -> Def (mk_irrelevant, None, [||])
     | NotEvaluableConst (IsPrimitive (_u,op)) (* Const *) -> Primitive op
     | NotEvaluableConst (HasRules (u, b, r)) -> Symbol (u, b, r)
     | Not_found (* List.assoc *)
@@ -501,7 +532,7 @@ let rec to_constr (lfts, usubst as ulfts) v =
     | FCaseInvert (ci, u, pms, p, indices, c, ve, env) ->
       let iv = CaseInvert {indices=Array.Fun1.map to_constr ulfts indices} in
       to_constr_case ulfts ci u pms p iv c ve env
-    | FFix ((op,(lna,tys,bds)) as fx, e) ->
+    | FFix ((op,(lna,tys,bds)) as fx, e, _) ->
       if is_subs_id (fst e) && is_lift_id lfts then
         subst_instance_constr (usubst_instance ulfts (snd e)) (mkFix fx)
       else
@@ -950,10 +981,17 @@ let rec project_nth_arg n = function
 let contract_fix_vect fix =
   let (thisbody, make_body, env, nfix) =
     match [@ocaml.warning "-4"] fix with
-      | FFix (((reci,i),(_,_,bds as rdcl)),env) ->
+      | FFix (((reci,i),(_,_,bds as rdcl)),env, None) ->
           (bds.(i),
            (fun j -> { mark = Cstr;
-                       term = FFix (((reci,j),rdcl),env) }),
+                       term = FFix (((reci,j),rdcl),env, None) }),
+           env, Array.length bds)
+      | FFix (((reci,i),(_,_,bds as rdcl)),env, Some refold) -> (* FIXME *)
+          (bds.(i),
+           (fun j -> if Int.equal i j then
+              { mark = Cstr; term = FCLOS (refold, env) }
+            else { mark = Cstr;
+                       term = FFix (((reci,j),rdcl),env, None) }),
            env, Array.length bds)
       | FCoFix ((i,(_,_,bds as rdcl)),env) ->
           (bds.(i),
@@ -1341,7 +1379,7 @@ let rec knh info m stk =
         (mk_irrelevant, skip_irrelevant_stack info stk)
       else
         knh info t (ZcaseT(ci,u,pms,p,br,e)::zupdate info m stk)
-    | FFix (((ri, n), (lna, _, _)), e) ->
+    | FFix (((ri, n), (lna, _, _)), e, _) ->
       if is_irrelevant info (usubst_relevance e (lna.(n)).binder_relevance) then
         (mk_irrelevant, skip_irrelevant_stack info stk)
       else
@@ -1382,7 +1420,7 @@ and knht info e t stk =
       if is_irrelevant info (usubst_relevance e (lna.(n)).binder_relevance) then
         (mk_irrelevant, skip_irrelevant_stack info stk)
       else
-        knh info { mark = Cstr; term = FFix (fx, e) } stk
+        knh info { mark = Cstr; term = FFix (fx, e, None) } stk
     | Cast(a,_,_) -> knht info e a stk
     | Rel n -> knh info (clos_rel (fst e) n) stk
     | Proj (p, r, c) ->
@@ -1841,7 +1879,18 @@ let rec knr : 'a. _ -> _ -> pat_state: 'a depth -> _ -> _ -> 'a =
         | Inr lam, s -> knr_ret info tab ~pat_state (lam,s))
   | FFlex fl when red_set info.i_flags fDELTA ->
       (match Table.lookup info tab fl with
-        | Def (v, _) -> kni info tab ~pat_state v stk
+        | Def (v, None, _) -> kni info tab ~pat_state v stk
+        | Def (v, Some gfix, _) ->
+          if Int.equal gfix.gfix_nargs 0 then
+              let refold = Some gfix.gfix_refold in
+              kni info tab { mark = Cstr; term = FFix (gfix.gfix_body, (subs_id 0, gfix.gfix_univs), refold) } ~pat_state stk
+          else if red_set info.i_flags fBETA then
+            match get_args gfix.gfix_nargs gfix.gfix_tys (mkFix gfix.gfix_body) (subs_id 0, gfix.gfix_univs) stk with
+            | Inl e, stk ->
+              let refold = Some gfix.gfix_refold in
+              kni info tab { mark = Cstr; term = FFix (gfix.gfix_body, e, refold) } ~pat_state stk
+            | Inr lam, stk -> knr_ret info tab ~pat_state (lam, stk)
+          else kni info tab v ~pat_state stk
         | Primitive op ->
           if check_native_args op stk then
             let c = match fl with ConstKey c -> c | RelKey _ | VarKey _ -> assert false in
@@ -2089,7 +2138,7 @@ and norm_head info tab m =
           let ftys = Array.map (fun ty -> klt info tab e ty) tys in
           let fbds = Array.map (fun bd -> klt infobd tab (usubs_liftn (Array.length na) e) bd) bds in
           mkCoFix (n, (na, ftys, fbds))
-      | FFix((n,(na,tys,bds)),e) ->
+      | FFix((n,(na,tys,bds)), e, _) ->
           let na = Array.Smart.map (usubst_binder e) na in
           let infobd = push_relevances info na in
           let ftys = Array.map (fun ty -> klt info tab e ty) tys in
@@ -2183,7 +2232,18 @@ let infos_with_reds infos reds =
 
 let unfold_ref_with_args infos tab fl v =
   match Table.lookup infos tab fl with
-  | Def (def, _) -> Some (def, v)
+  | Def (def, None, _) -> Some (def, v)
+  | Def (def, Some gfix, _) ->
+    if Int.equal gfix.gfix_nargs 0 then
+      let refold = Some gfix.gfix_refold in
+      Some ({ mark = Cstr; term = FFix (gfix.gfix_body, (subs_id 0, gfix.gfix_univs), refold) }, v)
+    else if red_set infos.i_flags fBETA then
+      match get_args gfix.gfix_nargs gfix.gfix_tys (mkFix gfix.gfix_body) (subs_id 0, gfix.gfix_univs) v with
+      | Inl e, stk ->
+        let refold = Some gfix.gfix_refold in
+        Some ({ mark = Cstr; term = FFix (gfix.gfix_body, e, refold) }, stk)
+      | Inr _, _ -> Some (def, v)
+    else Some (def, v)
   | Primitive op when check_native_args op v ->
     let c = match [@ocaml.warning "-4"] fl with ConstKey c -> c | _ -> assert false in
     let rargs, a, nargs, v = get_native_args1 op c v in
@@ -2193,5 +2253,5 @@ let unfold_ref_with_args infos tab fl v =
   | Undef _ | OpaqueDef _ | Primitive _ -> None
 
 let get_ref_mask info tab fl = match Table.lookup info tab fl with
-| Def (_, mask) -> mask
+| Def (_, _, mask) -> mask
 | Primitive _ | Symbol _ | Undef _ | OpaqueDef _ -> [||]
