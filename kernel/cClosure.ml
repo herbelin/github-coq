@@ -385,8 +385,8 @@ end = struct
     (*  Should already be dealt with *)
 
   let expand_global_fixpoint info cst c = match info.i_cache.i_mode with
-  | Conversion -> None
-  | Reduction ->
+  | Reduction -> None
+  | Conversion ->
     let ctx, body = Term.decompose_lambda c in
     match destFix body with
     | fix ->
