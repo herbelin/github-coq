@@ -295,6 +295,26 @@ let introduction id =
     | _ -> raise (RefinerError (env, sigma, IntroNeedsProduct))
   end
 
+let goal_pure_attributes sigma gl =
+  let evk = Proofview.Goal.goal gl in
+  let name = evar_ident evk sigma in
+  let src = Evd.evar_source (Evd.find_undefined sigma evk) in
+  name, src
+
+let goal_attributes sigma gl =
+  let name, src = goal_pure_attributes sigma gl in
+  Option.map (fun id -> IntroIdentifier id) name, src
+
+let change_evar ~typecheck env sigma ?cast ty gl =
+  let naming, src = goal_attributes sigma gl in
+  Refine.refine ~typecheck begin fun sigma ->
+    let sigma, c = Evarutil.new_evar env sigma ~principal:true ?naming ~src ty in
+    let c = match cast with
+    | Some (k, conclty) -> mkCast (c,k,conclty)
+    | None -> c in
+    (sigma, c)
+  end
+
 (* Not sure if being able to disable [cast] is useful. Uses seem picked somewhat randomly. *)
 let convert_concl ~cast ~check ty k =
   Proofview.Goal.enter begin fun gl ->
