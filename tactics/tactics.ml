@@ -561,14 +561,22 @@ let clear_hyps2 env sigma ids sign t cl =
   with Evarutil.ClearDependencyError (id,err,inglobal) ->
     error_replacing_dependency env sigma id err inglobal
 
-(* Turn a substitution into an instance, assuming names are in the same order *)
-let rec make_instance subst sign =
-  match subst, sign with
-  | (id, c) :: subst, (NamedDecl.LocalAssum ({binder_name=id'}, _) | NamedDecl.LocalDef ({binder_name=id'}, _, _)) :: sign when Id.equal id id' ->
-    SList.cons c (make_instance subst sign)
-  | _, _ :: sign -> SList.default (make_instance subst sign)
-  | [], _ -> SList.defaultn (List.length sign) SList.empty
-  | _, [] -> assert false (* subst has unbound variables *)
+let make_extended_evar sigma subst sign ev =
+  let rec add_let sigma subst c =
+    match subst with
+    | [] -> c
+    | [(id,(r,b,t))] -> mkLetIn (make_annot (Name id) r, b, t, c) (* No dep: we optimise *)
+    | (id,(r,b,t)) :: subst -> add_let sigma subst (mkNamedLetIn sigma (make_annot id r) b t c) in
+  (* Turn a substitution into an instance, assuming names are in the same order *)
+  let rec make_instance subst n sign =
+    match subst, sign with
+    | (id, _) :: subst, (NamedDecl.LocalAssum ({binder_name=id'}, _) |
+                         NamedDecl.LocalDef ({binder_name=id'}, _, _)) :: sign when Id.equal id id' ->
+      SList.cons (mkRel n) (make_instance subst (n+1) sign)
+    | _, _ :: sign -> SList.default (make_instance subst n sign)
+    | [], _ -> SList.defaultn (List.length sign) SList.empty
+    | _, [] -> assert false (* subst has unbound variables *) in
+  add_let sigma subst (mkEvar (ev, make_instance subst 1 sign))
 
 let internal_cut ?(check=true) replace id t =
   Proofview.Goal.enter begin fun gl ->
@@ -577,25 +585,26 @@ let internal_cut ?(check=true) replace id t =
     let concl = Proofview.Goal.concl gl in
     let sign = named_context_val env in
     let r = Retyping.relevance_of_type env sigma t in
-    let sign',t,concl,sigma =
+    let sign',t,concl,nexthyp,sigma =
       if replace then
         let nexthyp = get_next_hyp_position env sigma id (named_context_of_val sign) in
         let sigma,sign',t,concl = clear_hyps2 env sigma (Id.Set.singleton id) sign t concl in
-        let sign' = insert_decl_in_named_context env sigma (LocalAssum (make_annot id r,t)) nexthyp sign' in
-        sign',t,concl,sigma
+        sign',t,concl,nexthyp,sigma
       else
         (if check && mem_named_context_val id sign then
            error (IntroAlreadyDeclared id);
-         push_named_context_val (LocalAssum (make_annot id r,t)) sign,t,concl,sigma) in
+         sign,t,concl,MoveLast,sigma) in
     let nf_t = nf_betaiota env sigma t in
+    let (sigma, ev) = Evarutil.new_evar env sigma nf_t in
     Proofview.tclTHEN
       (Proofview.Unsafe.tclEVARS sigma)
       (Refine.refine ~typecheck:false begin fun sigma ->
-        let (sigma, ev) = Evarutil.new_evar env sigma nf_t in
         let name, src = goal_pure_attributes sigma gl in
+        let subst = [id, (r, ev, t)] in
+        let sign' = insert_decl_in_named_context env sigma (LocalAssum (make_annot id r,t)) nexthyp sign' in
         let sigma, ev' = Evarutil.new_pure_evar ~principal:true sign' sigma ?name ~src concl in
         (* Note: if we contract the LetIn, a conversion blowup occurs in uint63.v *)
-        let body = mkLetIn (make_annot (Name id) r, ev, t, mkEvar (ev', make_instance [id,mkRel 1] sign'.env_named_ctx)) in
+        let body = make_extended_evar sigma subst sign'.env_named_ctx ev' in
         (sigma, body)
       end)
   end
@@ -2715,7 +2724,7 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
     in
     let rel = Retyping.relevance_of_term env sigma c in
     let lastlhyp = decode_hyp lastlhyp in
-    let sigma, sign', subst = match with_eq with
+    let sigma, sign', subst, eq_tac = match with_eq with
       | Some (lr,{CAst.loc;v=ido}) ->
           let heq = match ido with
             | IntroAnonymous -> new_fresh_id (Id.Set.singleton id) (add_prefix "Heq" id) gl
@@ -2727,26 +2736,26 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
           let (sigma, refl) = Evd.fresh_global env sigma eqdata.refl in
           let sigma, eq = Typing.checked_applist env sigma eq [t] in
           let eq = applist (eq, args) in
-          let refl = applist (refl, [t; c]) in
-          let sign = insert_decl_in_named_context env sigma (LocalAssum (make_annot id rel, t)) lastlhyp sign in
-          let sign = insert_decl_in_named_context env sigma (LocalAssum (make_annot heq Sorts.Relevant, eq)) lastlhyp sign in
-          let subst = [(heq,refl);(id,c)] in
-          sigma, sign, subst
+          let refl = applist (refl, [t; mkVar id]) in
+          let sign = insert_decl_in_named_context env sigma (LocalDef (make_annot id rel, c, t)) lastlhyp sign in
+          let sign = insert_decl_in_named_context env sigma (LocalDef (make_annot heq Sorts.Relevant, refl, eq)) lastlhyp sign in
+          let subst = [(heq,(rel,refl,eq));(id,(Sorts.Relevant,c,t))] in
+          sigma, sign, subst, clear_body [heq;id]
       | None ->
           let sign = insert_decl_in_named_context env sigma (LocalDef (make_annot id rel, c, t)) lastlhyp sign in
-          let subst = [(id,c)] in
-          sigma, sign, subst
+          let subst = [(id,(rel,c,t))] in
+          sigma, sign, subst, (Proofview.tclUNIT ())
     in
     Tacticals.tclTHENLIST
       [Proofview.Unsafe.tclEVARS sigma;
        Refine.refine ~typecheck:false begin fun sigma ->
         let name, src = goal_pure_attributes sigma gl in
         let sigma, ev' = Evarutil.new_pure_evar ~principal:true sign' sigma ?name ~src ccl in
-        let body = mkEvar (ev', make_instance subst sign'.env_named_ctx) in
+        let body = make_extended_evar sigma subst sign'.env_named_ctx ev' in
         (sigma, body)
        end;
-       Tacticals.tclMAP (convert_hyp ~check:false ~reorder:false) depdecls]
-
+       Tacticals.tclMAP (convert_hyp ~check:false ~reorder:false) depdecls;
+       eq_tac]
   end
 
 let pose_tac na c =
