@@ -341,9 +341,7 @@ let convert_hyp ~check ~reorder d =
     let ty = Proofview.Goal.concl gl in
     let sign = convert_hyp ~check ~reorder env sigma d in
     let env = reset_with_named_context sign env in
-    Refine.refine ~typecheck:false begin fun sigma ->
-      Evarutil.new_evar env sigma ~principal:true ty
-    end
+    change_evar ~typecheck:false env sigma ty gl
   end
 
 let convert_gen pb x y =
