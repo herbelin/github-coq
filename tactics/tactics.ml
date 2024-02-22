@@ -407,9 +407,7 @@ let move_hyp id dest =
     let sign = named_context_val env in
     let sign' = move_hyp_in_named_context env sigma id dest sign in
     let env = reset_with_named_context sign' env in
-    Refine.refine ~typecheck:false begin fun sigma ->
-      Evarutil.new_evar env sigma ~principal:true ty
-    end
+    change_evar ~typecheck:false env sigma ty gl
   end
 
 (* Renaming hypotheses *)
