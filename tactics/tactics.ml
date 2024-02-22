@@ -2186,9 +2186,7 @@ let clear_body idl =
         else sigma
       in
       Proofview.Unsafe.tclEVARS sigma <*>
-      Refine.refine ~typecheck:false begin fun sigma ->
-        Evarutil.new_evar env sigma ~principal:true concl
-        end
+      change_evar ~typecheck:false env sigma concl gl
     with DependsOnBody _ as exn ->
       let _, info = Exninfo.capture exn in
       Proofview.tclZERO ~info exn
