@@ -466,7 +466,8 @@ let rename_hyp repl =
       in
       let instance = List.fold_right2 fold ohyps nhyps SList.empty in
       Refine.refine ~typecheck:false begin fun sigma ->
-        let sigma, ev = Evarutil.new_pure_evar nctx sigma nconcl ~principal:true in
+        let name, src = goal_pure_attributes sigma gl in
+        let sigma, ev = Evarutil.new_pure_evar ~principal:true nctx sigma nconcl ?name ~src in
         sigma, mkEvar (ev, instance)
       end
     end
