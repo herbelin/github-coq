@@ -319,20 +319,19 @@ let change_evar ~typecheck env sigma ?cast ty gl =
 let convert_concl ~cast ~check ty k =
   Proofview.Goal.enter begin fun gl ->
     let env = Proofview.Goal.env gl in
+    let sigma = Tacmach.project gl in
     let conclty = Proofview.Goal.concl gl in
-    Refine.refine ~typecheck:false begin fun sigma ->
-      let sigma =
-        if check then begin
-          let sigma, _ = Typing.type_of env sigma ty in
-          match Reductionops.infer_conv env sigma ty conclty with
-          | None -> error NotConvertible
-          | Some sigma -> sigma
-        end else sigma
-      in
-      let (sigma, x) = Evarutil.new_evar env sigma ~principal:true ty in
-      let ans = if not cast then x else mkCast(x,k,conclty) in
-      (sigma, ans)
-    end
+    let sigma = if check then begin
+      let sigma, _ = Typing.type_of env sigma ty in
+      match Reductionops.infer_conv env sigma ty conclty with
+      | None -> error NotConvertible
+      | Some sigma -> sigma
+    end else sigma
+    in
+    let cast = if not cast then None else Some (k, conclty) in
+    Proofview.Unsafe.tclEVARS sigma
+    <*>
+    change_evar ~typecheck:false env sigma ?cast ty gl
   end
 
 let convert_hyp ~check ~reorder d =
