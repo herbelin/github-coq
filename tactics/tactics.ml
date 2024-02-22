@@ -378,9 +378,7 @@ let clear_gen fail = function
     in
     let env = reset_with_named_context hyps env in
     Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma)
-    (Refine.refine ~typecheck:false begin fun sigma ->
-      Evarutil.new_evar env sigma ~principal:true concl
-    end)
+    (change_evar ~typecheck:false env sigma concl gl)
   end
 
 let clear ids = clear_gen error_clear_dependency ids
