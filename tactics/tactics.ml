@@ -2706,6 +2706,7 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
   Proofview.Goal.enter begin fun gl ->
     let sigma = Proofview.Goal.sigma gl in
     let env = Proofview.Goal.env gl in
+    let sign = named_context_val env in
     let (sigma, t) = match ty with
     | Some t -> (sigma, t)
     | None ->
@@ -2713,7 +2714,8 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
       Evarsolve.refresh_universes ~onlyalg:true (Some false) env sigma t
     in
     let rel = Retyping.relevance_of_term env sigma c in
-    let (sigma, (newcl, eq_tac)) = match with_eq with
+    let lastlhyp = decode_hyp lastlhyp in
+    let sigma, sign', subst = match with_eq with
       | Some (lr,{CAst.loc;v=ido}) ->
           let heq = match ido with
             | IntroAnonymous -> new_fresh_id (Id.Set.singleton id) (add_prefix "Heq" id) gl
@@ -2725,25 +2727,26 @@ let letin_tac_gen with_eq (id,depdecls,lastlhyp,ccl,c) ty =
           let (sigma, refl) = Evd.fresh_global env sigma eqdata.refl in
           let sigma, eq = Typing.checked_applist env sigma eq [t] in
           let eq = applist (eq, args) in
-          let refl = applist (refl, [t;mkVar id]) in
-          let term = mkNamedLetIn sigma (make_annot id rel) c t
-              (mkLetIn (make_annot (Name heq) Sorts.Relevant, refl, eq, ccl)) in
-          let ans = term,
-            Tacticals.tclTHENLIST
-              [
-               intro_gen (NamingMustBe CAst.(make ?loc heq)) (decode_hyp lastlhyp) ~force:true ~dep:false;
-              clear_body [heq;id]]
-          in
-          (sigma, ans)
+          let refl = applist (refl, [t; c]) in
+          let sign = insert_decl_in_named_context env sigma (LocalAssum (make_annot id rel, t)) lastlhyp sign in
+          let sign = insert_decl_in_named_context env sigma (LocalAssum (make_annot heq Sorts.Relevant, eq)) lastlhyp sign in
+          let subst = [(heq,refl);(id,c)] in
+          sigma, sign, subst
       | None ->
-          (sigma, (mkNamedLetIn sigma (make_annot id rel) c t ccl, Proofview.tclUNIT ()))
+          let sign = insert_decl_in_named_context env sigma (LocalDef (make_annot id rel, c, t)) lastlhyp sign in
+          let subst = [(id,c)] in
+          sigma, sign, subst
     in
-      Tacticals.tclTHENLIST
-      [ Proofview.Unsafe.tclEVARS sigma;
-        convert_concl ~cast:false ~check:false newcl DEFAULTcast;
-        intro_gen (NamingMustBe (CAst.make id)) (decode_hyp lastlhyp) ~force:true ~dep:false;
-        Tacticals.tclMAP (convert_hyp ~check:false ~reorder:false) depdecls;
-        eq_tac ]
+    Tacticals.tclTHENLIST
+      [Proofview.Unsafe.tclEVARS sigma;
+       Refine.refine ~typecheck:false begin fun sigma ->
+        let name, src = goal_pure_attributes sigma gl in
+        let sigma, ev' = Evarutil.new_pure_evar ~principal:true sign' sigma ?name ~src ccl in
+        let body = mkEvar (ev', make_instance subst sign'.env_named_ctx) in
+        (sigma, body)
+       end;
+       Tacticals.tclMAP (convert_hyp ~check:false ~reorder:false) depdecls]
+
   end
 
 let pose_tac na c =
