@@ -2755,12 +2755,12 @@ let pose_tac na c =
     in
     Proofview.Unsafe.tclEVARS sigma <*>
     Refine.refine ~typecheck:false begin fun sigma ->
-      let id = make_annot id rel in
-      let nhyps = EConstr.push_named_context_val (NamedDecl.LocalDef (id, c, t)) hyps in
-      let (sigma, ev) = Evarutil.new_pure_evar nhyps sigma concl in
-      let inst = EConstr.identity_subst_val hyps in
-      let body = mkEvar (ev, SList.cons (mkRel 1) inst) in
-      (sigma, mkLetIn (map_annot Name.mk_name id, c, t, body))
+      let nhyps = EConstr.push_named_context_val (NamedDecl.LocalDef (make_annot id rel, c, t)) hyps in
+      let name, src = goal_pure_attributes sigma gl in
+      let sigma, ev = Evarutil.new_pure_evar nhyps sigma ?name ~src concl in
+      let inst = SList.cons c (EConstr.identity_subst_val hyps) in
+      let body = mkEvar (ev, inst) in
+      (sigma, body)
     end
   end
 
