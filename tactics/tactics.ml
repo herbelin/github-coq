@@ -841,9 +841,7 @@ let e_change_in_hyps ~check ~reorder f args = match args with
     let ty = Proofview.Goal.concl gl in
     Proofview.Unsafe.tclEVARS sigma
     <*>
-    Refine.refine ~typecheck:false begin fun sigma ->
-      Evarutil.new_evar env sigma ~principal:true ty
-    end
+    change_evar ~typecheck:false env sigma ty gl
   end
 
 let e_reduct_in_concl = e_change_in_concl
