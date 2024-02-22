@@ -1,0 +1,79 @@
+2 goals
+  
+  n := 0 : nat
+  ============================
+  nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n := 0 : nat
+  ============================
+  nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n : nat
+  ============================
+  nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n : nat
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n : id nat
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n := 0 : nat
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n, m := 0 : nat
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  n, p := 0 : nat
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
+2 goals
+  
+  p, n := 0 : nat
+  ============================
+  id nat
+
+goal 2 is:
+ (?x : nat) = 0
