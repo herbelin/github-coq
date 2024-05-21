@@ -35,17 +35,17 @@ let lift_univs info univ_hyps = function
     info, univ_hyps, Polymorphic auctx
 
 (********************************)
-(* Discharging opaque proof terms *)
+(* Discharging sealed proof terms *)
 
 let lift_private_univs info = function
-  | Opaqueproof.PrivateMonomorphic () as priv ->
+  | Sealedproof.PrivateMonomorphic () as priv ->
     let () = lift_private_mono_univs info () in
     priv
-  | Opaqueproof.PrivatePolymorphic ctx ->
+  | Sealedproof.PrivatePolymorphic ctx ->
     let ctx = lift_private_poly_univs info ctx in
-    Opaqueproof.PrivatePolymorphic ctx
+    Sealedproof.PrivatePolymorphic ctx
 
-let cook_opaque_proofterm info c =
+let cook_sealed_proofterm info c =
   let fold info (c, priv) =
     let priv = lift_private_univs info priv in
     let c = abstract_as_body (create_cache info) c in
@@ -64,8 +64,8 @@ let cook_constant _env info cb =
   let body = match cb.const_body with
   | Undef _ as x -> x
   | Def cs -> Def (map cs)
-  | OpaqueDef o ->
-    OpaqueDef (Opaqueproof.discharge_opaque info o)
+  | SealedDef o ->
+    SealedDef (Sealedproof.discharge_sealed info o)
   | Primitive _ -> CErrors.anomaly (Pp.str "Primitives cannot be cooked")
   | Symbol _ -> CErrors.anomaly (Pp.str "Symbols cannot be cooked")
   in

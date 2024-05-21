@@ -87,7 +87,7 @@ module Info = struct
     ; ntns : Metasyntax.notation_interpretation_decl list
     }
 
-  (** Note that [opaque] doesn't appear here as it is not known at the
+  (** Note that [sealed] doesn't appear here as it is not known at the
      start of the proof in the interactive case. *)
   let make ?(poly=false) ?(inline=false) ?(kind=Decls.(IsDefinition Definition))
       ?(udecl=UState.default_univ_decl) ?(scope=Locality.default_scope)
@@ -106,11 +106,11 @@ type 'a pproof_entry = {
   proof_entry_feedback : Stateid.t option;
   proof_entry_type        : Constr.types option;
   proof_entry_universes   : UState.named_universes_entry;
-  proof_entry_opaque      : bool;
+  proof_entry_sealed      : bool;
   proof_entry_inline_code : bool;
 }
 
-type proof_entry = Evd.side_effects Opaques.const_entry_body pproof_entry
+type proof_entry = Evd.side_effects Sealed.const_entry_body pproof_entry
 
 type parameter_entry = {
   parameter_entry_secctx : Id.Set.t option;
@@ -134,14 +134,14 @@ let default_univ_entry = UState.Monomorphic_entry Univ.ContextSet.empty
 let default_named_univ_entry = default_univ_entry, UnivNames.empty_binders
 
 (** [univsbody] are universe-constraints attached to the body-only,
-   used in vio-delayed opaque constants and private poly universes *)
-let definition_entry_core ?(opaque=false) ?using ?(inline=false) ?types
+   used in vio-delayed sealed constants and private poly universes *)
+let definition_entry_core ?(sealed=false) ?using ?(inline=false) ?types
     ?(univs=default_named_univ_entry) ?(eff=Evd.empty_side_effects) ?(univsbody=Univ.ContextSet.empty) body =
   { proof_entry_body = Future.from_val ((body,univsbody), eff);
     proof_entry_secctx = using;
     proof_entry_type = types;
     proof_entry_universes = univs;
-    proof_entry_opaque = opaque;
+    proof_entry_sealed = sealed;
     proof_entry_feedback = None;
     proof_entry_inline_code = inline}
 
@@ -241,10 +241,10 @@ let register_constant kn kind ?user_warns local =
   update_tables kn
 
 let register_side_effect (c, body, role) =
-  (* Register the body in the opaque table *)
+  (* Register the body in the sealed table *)
   let () = match body with
   | None -> ()
-  | Some opaque -> Opaques.declare_private_opaque opaque
+  | Some sealed -> Sealed.declare_private_sealed sealed
   in
   let () = register_constant c Decls.(IsProof Theorem) Locality.ImportDefaultBehavior in
   match role with
@@ -275,22 +275,22 @@ let record_aux env s_ty s_bo =
         (keep_hyps env s_bo)) in
   Aux_file.record_in_aux "context_used" v
 
-let pure_definition_entry ?(opaque=false) ?(inline=false) ?types
+let pure_definition_entry ?(sealed=false) ?(inline=false) ?types
     ?(univs=default_named_univ_entry) body =
   { proof_entry_body = ((body,Univ.ContextSet.empty), ());
     proof_entry_secctx = None;
     proof_entry_type = types;
     proof_entry_universes = univs;
-    proof_entry_opaque = opaque;
+    proof_entry_sealed = sealed;
     proof_entry_feedback = None;
     proof_entry_inline_code = inline}
 
-let delayed_definition_entry ~opaque ?feedback_id ~using ~univs ?types body =
+let delayed_definition_entry ~sealed ?feedback_id ~using ~univs ?types body =
   { proof_entry_body = body
   ; proof_entry_secctx = using
   ; proof_entry_type = types
   ; proof_entry_universes = univs
-  ; proof_entry_opaque = opaque
+  ; proof_entry_sealed = sealed
   ; proof_entry_feedback = feedback_id
   ; proof_entry_inline_code = false
   }
@@ -308,7 +308,7 @@ let cast_proof_entry e =
         (* This can actually happen, try compiling EqdepFacts for instance *)
         UState.Monomorphic_entry (Univ.ContextSet.union ctx' ctx)
       | UState.Polymorphic_entry _ ->
-        CErrors.anomaly Pp.(str "Local universes in non-opaque polymorphic definition.");
+        CErrors.anomaly Pp.(str "Local universes in non-sealed polymorphic definition.");
   in
   let univ_entry, ctx = extract_monomorphic univ_entry in
   { Entries.const_entry_body = body;
@@ -320,10 +320,10 @@ let cast_proof_entry e =
   ctx
 
 type ('a, 'b) effect_entry =
-| EffectEntry : (private_constants Opaques.const_entry_body, unit) effect_entry
+| EffectEntry : (private_constants Sealed.const_entry_body, unit) effect_entry
 | PureEntry : (unit Entries.proof_output, Constr.constr) effect_entry
 
-let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a pproof_entry) : b Entries.opaque_entry * _ =
+let cast_sealed_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a pproof_entry) : b Entries.sealed_entry * _ =
   let typ = match e.proof_entry_type with
   | None -> assert false
   | Some typ -> typ
@@ -366,10 +366,10 @@ let cast_opaque_proof_entry (type a b) (entry : (a, b) effect_entry) (e : a ppro
     body, univ_entry
   | EffectEntry -> (), extract_monomorphic (fst (e.proof_entry_universes))
   in
-  { Entries.opaque_entry_body = body;
-    opaque_entry_secctx = secctx;
-    opaque_entry_type = typ;
-    opaque_entry_universes = univ_entry;
+  { Entries.sealed_entry_body = body;
+    sealed_entry_secctx = secctx;
+    sealed_entry_type = typ;
+    sealed_entry_universes = univ_entry;
   },
   ctx
 
@@ -389,7 +389,7 @@ let declare_constant_core ~name ~typing_flags cd =
   let decl, unsafe, ubinders, delayed = match cd with
     | DefinitionEntry de ->
       (* We deal with side effects *)
-      if not de.proof_entry_opaque then
+      if not de.proof_entry_sealed then
         let body, eff = Future.force de.proof_entry_body in
         (* This globally defines the side-effects in the environment
            and registers their libobjects. *)
@@ -407,7 +407,7 @@ let declare_constant_core ~name ~typing_flags cd =
         let body = Future.chain de.proof_entry_body map in
         let feedback_id = de.proof_entry_feedback in
         let de = { de with proof_entry_body = body } in
-        let cd, ctx = cast_opaque_proof_entry EffectEntry de in
+        let cd, ctx = cast_sealed_proof_entry EffectEntry de in
         let ubinders = make_ubinders ctx de.proof_entry_universes in
         let () = Global.push_context_set ~strict:true ctx in
         OpaqueEntry cd, false, ubinders, Some (body, feedback_id)
@@ -461,9 +461,9 @@ let declare_constant ?(local = Locality.ImportDefaultBehavior) ~name ~kind ~typi
   | Some (body, feedback_id) ->
     let open Declarations in
     match (Global.lookup_constant kn).const_body with
-    | OpaqueDef o ->
-      let (_, _, _, i) = Opaqueproof.repr o in
-      Opaques.declare_defined_opaque ?feedback_id i body
+    | SealedDef o ->
+      let (_, _, _, i) = Sealedproof.repr o in
+      Sealed.declare_defined_sealed ?feedback_id i body
     | Def _ | Undef _ | Primitive _ | Symbol _ -> assert false
   in
   let () = register_constant kn kind local ?user_warns in
@@ -471,12 +471,12 @@ let declare_constant ?(local = Locality.ImportDefaultBehavior) ~name ~kind ~typi
 
 let declare_private_constant ?role ?(local = Locality.ImportDefaultBehavior) ~name ~kind de =
   let de, ctx =
-    if not de.proof_entry_opaque then
+    if not de.proof_entry_sealed then
       let de, ctx = cast_proof_entry de in
       DefinitionEff de, ctx
     else
-      let de, ctx = cast_opaque_proof_entry PureEntry de in
-      OpaqueEff de, ctx
+      let de, ctx = cast_sealed_proof_entry PureEntry de in
+      SealedEff de, ctx
   in
   let kn, eff = Global.add_private_constant name ctx de in
   let () = register_constant kn kind local in
@@ -519,7 +519,7 @@ let declare_variable ~name ~kind ~typing_flags d =
   if Decls.variable_exists name then
     raise (DeclareUniv.AlreadyDeclared (None, name));
 
-  let impl,opaque = match d with (* Fails if not well-typed *)
+  let impl,sealed = match d with (* Fails if not well-typed *)
     | SectionLocalAssum {typ;impl;univs} ->
       let () = match fst univs with
         | UState.Monomorphic_entry uctx -> Global.push_context_set ~strict:true uctx
@@ -546,8 +546,8 @@ let declare_variable ~name ~kind ~typing_flags d =
           Global.push_section_context
             (UVars.UContext.of_context_set mk_anon_names Sorts.QVar.Set.empty body_uctx)
       in
-      let opaque = de.proof_entry_opaque in
-      let se = if opaque then
+      let sealed = de.proof_entry_sealed in
+      let se = if sealed then
           let cname = Id.of_string (Id.to_string name ^ "_subproof") in
           let cname = Namegen.next_global_ident_away cname Id.Set.empty in
           let poly = match fst de.proof_entry_universes with
@@ -560,7 +560,7 @@ let declare_variable ~name ~kind ~typing_flags d =
             proof_entry_feedback = de.proof_entry_feedback;
             proof_entry_type = de.proof_entry_type;
             proof_entry_universes = UState.univ_entry ~poly UState.empty;
-            proof_entry_opaque = true;
+            proof_entry_sealed = true;
             proof_entry_inline_code = de.proof_entry_inline_code;
           }
           in
@@ -577,11 +577,11 @@ let declare_variable ~name ~kind ~typing_flags d =
         secdef_type = de.proof_entry_type;
       } in
       let () = Global.push_named_def (name, se) in
-      (* opaque implies clearbody, so we don't see useless "foo := foo_subproof" in the context *)
-      Glob_term.Explicit, opaque || clearbody
+      (* sealed implies clearbody, so we don't see useless "foo := foo_subproof" in the context *)
+      Glob_term.Explicit, sealed || clearbody
   in
   Nametab.push (Nametab.Until 1) (Libnames.make_path DirPath.empty name) (GlobRef.VarRef name);
-  Decls.(add_variable_data name {opaque;kind});
+  Decls.(add_variable_data name {sealed;kind});
   Lib.add_leaf (inVariable name);
   Impargs.declare_var_implicits ~impl name;
   Notation.declare_ref_arguments_scope (GlobRef.VarRef name)
@@ -635,8 +635,8 @@ module Internal = struct
   let map_entry_type ~f entry =
     { entry with proof_entry_type = f entry.proof_entry_type }
 
-  let set_opacity ~opaque entry =
-    { entry with proof_entry_opaque = opaque }
+  let set_sealedness ~sealed entry =
+    { entry with proof_entry_sealed = sealed }
 
   let rec shrink ctx sign c t accu =
     let open Constr in
@@ -695,7 +695,7 @@ let declare_definition_scheme ~internal ~univs ~role ~name ?loc c =
 (* Locality stuff *)
 let declare_entry_core ~name ?(scope=Locality.default_scope) ?(clearbody=false) ~kind ~typing_flags ~user_warns ?hook ~obls ~impargs ~uctx entry =
   let should_suggest =
-    entry.proof_entry_opaque
+    entry.proof_entry_sealed
     && not (List.is_empty (Global.named_context()))
     && Option.is_empty entry.proof_entry_secctx
   in
@@ -757,7 +757,7 @@ let mutual_make_bodies env ~typing_flags ~fixitems ~rec_declaration ~possible_gu
   let fixdecls = CList.map_i (fun i _ -> select_body i body) 0 fixitems in
   vars, fixdecls, indexes
 
-let declare_mutually_recursive ~info ~cinfo ~opaque ~uctx ~rec_declaration ~possible_guard ?using () =
+let declare_mutually_recursive ~info ~cinfo ~sealed ~uctx ~rec_declaration ~possible_guard ?using () =
   let { Info.poly; udecl; scope; clearbody; kind; typing_flags; user_warns; ntns; _ } = info in
   let env = Global.env() in
   let vars, fixdecls, indexes =
@@ -774,7 +774,7 @@ let declare_mutually_recursive ~info ~cinfo ~opaque ~uctx ~rec_declaration ~poss
   in
   let csts = CList.map2
       (fun CInfo.{ name; typ; impargs } body ->
-         let entry = definition_entry ~opaque ~types:typ ~univs ?using body in
+         let entry = definition_entry ~sealed ~types:typ ~univs ?using body in
          declare_entry ~name ~scope ~clearbody ~kind ~impargs ~uctx ~typing_flags ~user_warns entry)
       cinfo fixdecls
   in
@@ -824,7 +824,7 @@ let check_evars_are_solved env sigma t =
   let evars = Evarutil.undefined_evars_of_term sigma t in
   if not (Evar.Set.is_empty evars) then error_unresolved_evars env sigma t evars
 
-let prepare_definition ~info ~opaque ?using ~name ~body ~typ sigma =
+let prepare_definition ~info ~sealed ?using ~name ~body ~typ sigma =
   let { Info.poly; udecl; inline; _ } = info in
   let sigma, (body, types) = Evarutil.finalize ~abort_on_undefined_evars:false
       sigma (fun nf -> nf body, Option.map nf typ)
@@ -838,20 +838,20 @@ let prepare_definition ~info ~opaque ?using ~name ~body ~typ sigma =
   Option.iter (check_evars_are_solved env sigma) types;
   check_evars_are_solved env sigma body;
   let univs = Evd.check_univ_decl ~poly sigma udecl in
-  let entry = definition_entry ~opaque ?using ~inline ?types ~univs body in
+  let entry = definition_entry ~sealed ?using ~inline ?types ~univs body in
   let uctx = Evd.evar_universe_context sigma in
   entry, uctx
 
-let declare_definition_core ~info ~cinfo ~opaque ~obls ~body ?using sigma =
+let declare_definition_core ~info ~cinfo ~sealed ~obls ~body ?using sigma =
   let { CInfo.name; impargs; typ; _ } = cinfo in
-  let entry, uctx = prepare_definition ~info ~opaque ?using ~name ~body ~typ sigma in
+  let entry, uctx = prepare_definition ~info ~sealed ?using ~name ~body ~typ sigma in
   let { Info.scope; clearbody; kind; hook; typing_flags; user_warns; ntns; _ } = info in
   let gref = declare_entry_core ~name ~scope ~clearbody ~kind ~impargs ~typing_flags ~user_warns ~obls ?hook ~uctx entry in
   List.iter (Metasyntax.add_notation_interpretation ~local:(info.scope=Locality.Discharge) (Global.env ())) ntns;
   gref, uctx
 
-let declare_definition ~info ~cinfo ~opaque ~body ?using sigma =
-  declare_definition_core ~obls:[] ~info ~cinfo ~opaque ~body ?using sigma |> fst
+let declare_definition ~info ~cinfo ~sealed ~body ?using sigma =
+  declare_definition_core ~obls:[] ~info ~cinfo ~sealed ~body ?using sigma |> fst
 
 let prepare_obligation ~name ~types ~body sigma =
   let env = Global.env () in
@@ -913,7 +913,7 @@ module ProgramDecl = struct
     { prg_cinfo : constr CInfo.t
     ; prg_info : Info.t
     ; prg_using : Vernacexpr.section_subset_expr option
-    ; prg_opaque : bool
+    ; prg_sealed : bool
     ; prg_hook : 'a option
     ; prg_body : constr
     ; prg_uctx : UState.t
@@ -925,7 +925,7 @@ module ProgramDecl = struct
 
   open Obligation
 
-  let make ~info ~cinfo ~opaque ~reduce ~deps ~uctx ~body ~possible_guard ?obl_hook ?using obls =
+  let make ~info ~cinfo ~sealed ~reduce ~deps ~uctx ~body ~possible_guard ?obl_hook ?using obls =
     let obls', body =
       match body with
       | None ->
@@ -957,7 +957,7 @@ module ProgramDecl = struct
     ; prg_info = info
     ; prg_using = using
     ; prg_hook = obl_hook
-    ; prg_opaque = opaque
+    ; prg_sealed = sealed
     ; prg_body = body
     ; prg_uctx
     ; prg_obligations = {obls = obls'; remaining = Array.length obls'}
@@ -1094,8 +1094,8 @@ let declare_obligation prg obl ~uctx ~types ~body =
     let prg_uctx = UState.union prg.prg_uctx uctx in
     let prg = ProgramDecl.Internal.set_uctx ~uctx:prg_uctx prg in
     (prg, {obl with obl_body = Some (TermObl body)}, [])
-  | force, Evar_kinds.Define opaque ->
-    let opaque = (not force) && opaque in
+  | force, Evar_kinds.Define sealed ->
+    let sealed = (not force) && sealed in
     let poly = prg.prg_info.Info.poly in
     let ctx, body, ty, args =
       if not poly then shrink_body body types
@@ -1104,7 +1104,7 @@ let declare_obligation prg obl ~uctx ~types ~body =
     let uctx' = current_obligation_uctx prg uctx (universes_of_decl body types) in
     let univs = UState.univ_entry ~poly uctx' in
     let inst = instance_of_univs univs in
-    let ce = definition_entry ?types:ty ~opaque ~univs body in
+    let ce = definition_entry ?types:ty ~sealed ~univs body in
     (* ppedrot: seems legit to have obligations as local *)
     let constant =
       declare_constant ~name:obl.obl_name
@@ -1127,7 +1127,7 @@ let declare_obligation prg obl ~uctx ~types ~body =
 
 let not_transp_msg =
   Pp.(
-    str "Obligation should be transparent but was declared opaque."
+    str "Obligation should be transparent but was declared Sealed."
     ++ spc ()
     ++ str "Use 'Defined' instead.")
 
@@ -1202,13 +1202,13 @@ module State = struct
     end
 
     type t =
-      { opaque : bool
+      { sealed : bool
       ; remaining : int
       ; obligations : Obl.t array
       }
 
-    let make { prg_opaque; prg_obligations; _ } =
-      { opaque = prg_opaque
+    let make { prg_sealed; prg_obligations; _ } =
+      { sealed = prg_sealed
       ; remaining = prg_obligations.remaining
       ; obligations = Array.map Obl.make prg_obligations.obls
       }
@@ -1287,10 +1287,10 @@ let declare_definition ~pm prg =
   let body, types = subst_prog varsubst prg in
   let body, types = EConstr.(of_constr body, of_constr types) in
   let cinfo = { prg.prg_cinfo with CInfo.typ = Some types } in
-  let name, info, opaque, using = prg.prg_cinfo.CInfo.name, prg.prg_info, prg.prg_opaque, prg.prg_using in
+  let name, info, sealed, using = prg.prg_cinfo.CInfo.name, prg.prg_info, prg.prg_sealed, prg.prg_using in
   let obls = List.map (fun (id, (_, c)) -> (id, c)) varsubst in
   (* XXX: This is doing normalization twice *)
-  let kn, uctx = declare_definition_core ~cinfo ~info ~obls ~body ~opaque ?using sigma in
+  let kn, uctx = declare_definition_core ~cinfo ~info ~obls ~body ~sealed ?using sigma in
   (* XXX: We call the obligation hook here, by consistency with the
      previous imperative behaviour, however I'm not sure this is right *)
   let pm = State.call_prg_hook prg
@@ -1345,7 +1345,7 @@ let declare_mutual_definition ~pm l =
   (* Declare the recursive definitions *)
   let kns =
     declare_mutually_recursive ~info:first.prg_info
-      ~uctx:first.prg_uctx ~rec_declaration ~possible_guard ~opaque:first.prg_opaque
+      ~uctx:first.prg_uctx ~rec_declaration ~possible_guard ~sealed:first.prg_sealed
       ~cinfo:fixitems ?using:first.prg_using ()
   in
   (* Only for the first constant *)
@@ -1453,7 +1453,7 @@ let obligation_terminator ~pm ~entry ~uctx ~oinfo:{name; num; auto; check_final}
   let {obls; remaining = rem} = prg.prg_obligations in
   let obl = obls.(num) in
   let status =
-    match (obl.obl_status, entry.proof_entry_opaque) with
+    match (obl.obl_status, entry.proof_entry_sealed) with
     | (_, Evar_kinds.Expand), true -> err_not_transp ()
     | (true, _), true -> err_not_transp ()
     | (false, _), true -> Evar_kinds.Define true
@@ -1584,12 +1584,12 @@ let initialize_named_context_for_proof () =
   List.fold_right
     (fun d signv ->
       let id = NamedDecl.get_id d in
-      let d = if Decls.variable_opacity id then NamedDecl.drop_body d else d in
+      let d = if Decls.variable_sealedness id then NamedDecl.drop_body d else d in
       Environ.push_named_context_val d signv) sign Environ.empty_named_context_val
 
 let start_proof_core ~name ~typ ~pinfo ?(sign=initialize_named_context_for_proof ()) ?using sigma =
   (* In ?sign, we remove the bodies of variables in the named context
-     marked "opaque", this is a hack tho, see #10446, and
+     marked "sealed", this is a hack tho, see #10446, and
      build_constant_by_tactic uses a different method that would break
      program_inference_hook *)
   let { Proof_info.info = { Info.poly; typing_flags; _ }; _ } = pinfo in
@@ -1899,15 +1899,12 @@ let make_univs ~poly ~uctx ~udecl eff (used_univs_typ, typ) (used_univs_body, bo
   in
   utyp, Univ.ContextSet.empty
 
-let close_proof ?warn_incomplete ~opaque ~keep_body_ucst_separate ps =
+let close_proof ?warn_incomplete ~sealed ~keep_body_ucst_separate ps =
 
   let { using; proof; initial_euctx; pinfo } = ps in
   let { Proof_info.info = { Info.udecl } } = pinfo in
   let { Proof.poly } = Proof.data proof in
   let elist, uctx = prepare_proof ?warn_incomplete ps in
-  let opaque = match opaque with
-    | Vernacexpr.Opaque -> true
-    | Vernacexpr.Transparent -> false in
 
   let make_entry ((((_ub, body) as b), eff), ((_ut, typ) as t)) =
     let utyp, ubody =
@@ -1915,11 +1912,11 @@ let close_proof ?warn_incomplete ~opaque ~keep_body_ucst_separate ps =
       if not poly && keep_body_ucst_separate
       then make_univs_deferred ~initial_euctx ~poly ~uctx ~udecl t b
       (* private_poly_univs case *)
-      else if poly && opaque && private_poly_univs ()
+      else if poly && sealed && private_poly_univs ()
       then make_univs_private_poly ~poly ~uctx ~udecl t b
       else make_univs ~poly ~uctx ~udecl eff.Evd.seff_private t b
     in
-    definition_entry_core ~opaque ?using ~univs:utyp ~univsbody:ubody ~types:typ ~eff body
+    definition_entry_core ~sealed ?using ~univs:utyp ~univsbody:ubody ~types:typ ~eff body
   in
   let entries = CList.map make_entry elist  in
   { entries; uctx; pinfo }
@@ -1940,9 +1937,9 @@ let close_proof_delayed ~feedback_id ps (fpl : closed_proof_output Future.comput
      normalise them for the kernel. *)
   let nf = Evarutil.nf_evars_universes (Evd.set_universe_context sigma initial_euctx) in
 
-  (* We only support opaque proofs, this will be enforced by using
+  (* We only support sealed proofs, this will be enforced by using
      different entries soon *)
-  let opaque = true in
+  let sealed = true in
   let make_entry i (_, _, types) =
     (* Already checked the univ_decl for the type universes when starting the proof. *)
     let univs = UState.univ_entry ~poly:false initial_euctx in
@@ -1963,7 +1960,7 @@ let close_proof_delayed ~feedback_id ps (fpl : closed_proof_output Future.comput
         let uctx = UState.restrict uctx used_univs in
         let uctx = UState.check_mono_univ_decl uctx udecl in
         (pt,uctx),eff)
-    |> delayed_definition_entry ~opaque ~feedback_id ~using ~univs ~types
+    |> delayed_definition_entry ~sealed ~feedback_id ~using ~univs ~types
   in
   let entries = CList.map_i make_entry 0 (Proofview.initial_goals entry) in
   { entries; uctx = initial_euctx; pinfo }
@@ -1981,14 +1978,14 @@ let next = let n = ref 0 in fun () -> incr n; !n
 
 let by tac = map_fold ~f:(Proof.solve (Goal_select.SelectNth 1) None tac)
 
-let build_constant_by_tactic ~name ?warn_incomplete ?(opaque=Vernacexpr.Transparent) ~sigma ~sign ~poly (typ : EConstr.t) tac =
+let build_constant_by_tactic ~name ?warn_incomplete ?(sealed=false) ~sigma ~sign ~poly (typ : EConstr.t) tac =
   let typ_ = EConstr.Unsafe.to_constr typ in
   let cinfo = [CInfo.make ~name ~typ:typ_ ()] in
   let info = Info.make ~poly () in
   let pinfo = Proof_info.make ~cinfo ~info () in
   let pf = start_proof_core ~name ~typ ~pinfo ~sign sigma in
   let pf, status = by tac pf in
-  let { entries; uctx } = close_proof ?warn_incomplete ~opaque ~keep_body_ucst_separate:false pf in
+  let { entries; uctx } = close_proof ?warn_incomplete ~sealed ~keep_body_ucst_separate:false pf in
   let { Proof.sigma } = Proof.data pf.proof in
   let sigma = Evd.set_universe_context sigma uctx in
   match entries with
@@ -2011,9 +2008,9 @@ let build_by_tactic env ~uctx ~poly ~typ tac =
   let cb, _uctx = inline_private_constants ~uctx env ce in
   cb, ce.proof_entry_type, ce.proof_entry_universes, status, uctx
 
-let declare_abstract ~name ~poly ~kind ~sign ~secsign ~opaque ~solve_tac sigma concl =
+let declare_abstract ~name ~poly ~kind ~sign ~secsign ~sealed ~solve_tac sigma concl =
   let (const, safe, sigma') =
-    try build_constant_by_tactic ~warn_incomplete:false ~name ~opaque:Vernacexpr.Transparent ~poly ~sigma ~sign:secsign concl solve_tac
+    try build_constant_by_tactic ~warn_incomplete:false ~name ~sealed:false ~poly ~sigma ~sign:secsign concl solve_tac
     with Logic_monad.TacticFailure e as src ->
     (* if the tactic [tac] fails, it reports a [TacticFailure e],
        which is an error irrelevant to the proof system (in fact it
@@ -2027,11 +2024,11 @@ let declare_abstract ~name ~poly ~kind ~sign ~secsign ~opaque ~solve_tac sigma c
   (* We drop the side-effects from the entry, they already exist in the ambient environment *)
   let const = Internal.pmap_entry_body const ~f:(fun _ -> body, ()) in
   (* EJGA: Hack related to the above call to
-     `build_constant_by_tactic` with `~opaque:Transparent`. Even if
-     the abstracted term is destined to be opaque, if we trigger the
-     `if poly && opaque && private_poly_univs ()` in `close_proof`
+     `build_constant_by_tactic` with `~sealed:false`. Even if
+     the abstracted term is destined to be sealed, if we trigger the
+     `if poly && sealed && private_poly_univs ()` in `close_proof`
      kernel will boom. This deserves more investigation. *)
-  let const = Internal.set_opacity ~opaque const in
+  let const = Internal.set_sealedness ~sealed const in
   let const, args = Internal.shrink_entry sign const in
   let cst () =
     (* do not compute the implicit arguments, it may be costly *)
@@ -2233,9 +2230,9 @@ let finish_derived ~f ~name ~entries =
       f_def, lemma_def
     | _ -> assert false
   in
-  (* The opacity of [f_def] is adjusted to be [false], as it
+  (* The sealedness of [f_def] is adjusted to be [false], as it
      must. Then [f] is declared in the global environment. *)
-  let f_def = Internal.set_opacity ~opaque:false f_def in
+  let f_def = Internal.set_sealedness ~sealed:false f_def in
   let f_kind = Decls.(IsDefinition Definition) in
   let f_def = DefinitionEntry f_def in
   let f_kn = declare_constant ~name:f ~kind:f_kind f_def ~typing_flags:None in
@@ -2321,17 +2318,17 @@ let process_idopt_for_save ~idopt info =
         err_save_forbidden_in_place_of_qed ()
     in { info with Proof_info.cinfo }
 
-let save ~pm ~proof ~opaque ~idopt =
+let save ~pm ~proof ~sealed ~idopt =
   (* Env and sigma are just used for error printing in save_remaining_recthms *)
-  let proof_obj = close_proof ~opaque ~keep_body_ucst_separate:false proof in
+  let proof_obj = close_proof ~sealed ~keep_body_ucst_separate:false proof in
   let proof_info = process_idopt_for_save ~idopt proof.pinfo in
   finalize_proof ~pm proof_obj proof_info
 
-let save_regular ~(proof : t) ~opaque ~idopt =
+let save_regular ~(proof : t) ~sealed ~idopt =
   let open Proof_ending in
   match CEphemeron.default proof.pinfo.Proof_info.proof_ending Regular with
   | Regular ->
-    let (_, grs) : Obls_.State.t * _ = save ~pm:Obls_.State.empty ~proof ~opaque ~idopt in
+    let (_, grs) : Obls_.State.t * _ = save ~pm:Obls_.State.empty ~proof ~sealed ~idopt in
     grs
   | _ -> CErrors.anomaly Pp.(str "save_regular: unexpected proof ending")
 
@@ -2638,10 +2635,10 @@ let msg_generating_obl name obls =
        str (String.plural len " obligation"))
 
 let add_definition ~pm ~cinfo ~info ?obl_hook ?term ~uctx
-    ?tactic ?(reduce = reduce) ?(opaque = false) ?using obls =
+    ?tactic ?(reduce = reduce) ?(sealed = false) ?using obls =
   let obl_hook = Option.map (fun h -> State.PrgHook h) obl_hook in
   let prg =
-    ProgramDecl.make ~info ~cinfo ~body:term ~opaque ~uctx ~reduce ~deps:[] ~possible_guard:None ?obl_hook ?using obls
+    ProgramDecl.make ~info ~cinfo ~body:term ~sealed ~uctx ~reduce ~deps:[] ~possible_guard:None ?obl_hook ?using obls
   in
   let name = CInfo.get_name cinfo in
   let {obls;_} = Internal.get_obligations prg in
@@ -2660,7 +2657,7 @@ let add_definition ~pm ~cinfo ~info ?obl_hook ?term ~uctx
     | _ -> pm, res
 
 let add_mutual_definitions ~pm ~info ?obl_hook ~uctx
-    ?tactic ?(reduce = reduce) ?(opaque = false) ?using ~possible_guard l =
+    ?tactic ?(reduce = reduce) ?(sealed = false) ?using ~possible_guard l =
   let obl_hook = Option.map (fun h -> State.PrgHook h) obl_hook in
   let deps = List.map (fun (ci,_,_) -> CInfo.get_name ci) l in
   let pm =
@@ -2670,7 +2667,7 @@ let add_mutual_definitions ~pm ~info ?obl_hook ~uctx
     List.fold_left
       (fun pm (cinfo, b, obls) ->
         let prg =
-          ProgramDecl.make ~info ~cinfo ~opaque ~body:(Some b) ~uctx ~deps
+          ProgramDecl.make ~info ~cinfo ~sealed ~body:(Some b) ~uctx ~deps
             ~possible_guard:(Some possible_guard) ~reduce ?obl_hook ?using obls
         in
         State.add pm (CInfo.get_name cinfo) prg)

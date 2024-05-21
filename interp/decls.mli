@@ -63,7 +63,7 @@ type logical_kind =
 (** Registration and access to the table of variable *)
 
 type variable_data = {
-  opaque:bool;
+  sealed:bool;
   kind:logical_kind;
 }
 
@@ -74,7 +74,7 @@ val variable_secpath : variable -> qualid
 val variable_kind : variable -> logical_kind
 
 (* User in Lemma, Very dubious *)
-val variable_opacity : variable -> bool
+val variable_sealedness : variable -> bool
 
 (* Used in declare, very dubious *)
 val variable_exists : variable -> bool

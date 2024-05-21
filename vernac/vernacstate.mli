@@ -79,7 +79,7 @@ type t =
   (** proofs of lemmas currently opened *)
   ; program : Declare.OblState.t NeList.t
   (** program mode table. One per open module/section including the toplevel module. *)
-  ; opaques : Opaques.Summary.t
+  ; sealeds : Sealed.Summary.t
   (** qed-terminated proofs *)
   }
 
@@ -143,7 +143,7 @@ module Declare : sig
     -> Declare.Proof.proof_object
 
   val close_proof
-    : opaque:Vernacexpr.opacity_flag
+    : sealed:bool
     -> keep_body_ucst_separate:bool
     -> Declare.Proof.proof_object
 

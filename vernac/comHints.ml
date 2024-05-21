@@ -54,7 +54,7 @@ let project_hint ~poly pri l2r r =
   let ctx = Evd.univ_entry ~poly sigma in
   let c = EConstr.to_constr sigma c in
   let cb =
-    Declare.(DefinitionEntry (definition_entry ~univs:ctx ~opaque:false c))
+    Declare.(DefinitionEntry (definition_entry ~univs:ctx ~sealed:false c))
   in
   let c =
     Declare.declare_constant ~local:Locality.ImportDefaultBehavior ~name

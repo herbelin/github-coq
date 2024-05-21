@@ -148,7 +148,7 @@ let print_reduction_behaviour = function
 (** Printing opacity status *)
 
 type opacity =
-  | FullyOpaque
+  | Sealed
   | TransparentMaybeOpacified of Conv_oracle.level
 
 let opacity env =
@@ -160,7 +160,7 @@ let opacity env =
       let cb = Environ.lookup_constant cst env in
       (match cb.const_body with
         | Undef _ | Primitive _ | Symbol _ -> None
-        | OpaqueDef _ -> Some FullyOpaque
+        | SealedDef _ -> Some Sealed
         | Def _ -> Some
           (TransparentMaybeOpacified
             (Conv_oracle.get_strategy (Environ.oracle env) (Conv_oracle.EvalConstRef cst))))
@@ -172,15 +172,15 @@ let print_opacity env ref =
     | Some s ->
        [pr_global ref ++ str " is " ++
         match s with
-          | FullyOpaque -> str "opaque"
+          | Sealed -> str "sealed"
           | TransparentMaybeOpacified Conv_oracle.Opaque ->
-              str "basically transparent but considered opaque for reduction"
+              str "basically unsealed but opaque for reduction"
           | TransparentMaybeOpacified lev when Conv_oracle.is_transparent lev ->
-              str "transparent"
+              str "unsealed"
           | TransparentMaybeOpacified (Conv_oracle.Level n) ->
-              str "transparent (with expansion weight " ++ int n ++ str ")"
+              str "unsealed (with expansion weight " ++ int n ++ str ")"
           | TransparentMaybeOpacified Conv_oracle.Expand ->
-              str "transparent (with minimal expansion weight)"]
+              str "unsealed (with minimal expansion weight)"]
 
 (** Printing coercion status *)
 
@@ -509,7 +509,7 @@ let print_constant env ~with_values with_implicit cst udecl =
     (* XXX print something for primitives? for symbols? *)
       | Undef _ | Symbol _ | Primitive _ -> None
       | Def c -> Some ((if Option.has_some with_values then Some c else None), None)
-      | OpaqueDef o ->
+      | SealedDef o ->
         match with_values with
         | None -> Some (None, None)
         | Some access ->
@@ -696,7 +696,7 @@ let print_full_pure_atomic access env sigma mp lobj =
         | Undef _ ->
           str "Parameter " ++
           print_basename con ++ str " :" ++ spc () ++ pr_ltype_env env sigma typ
-        | OpaqueDef lc ->
+        | SealedDef lc ->
           str "Theorem " ++ print_basename con ++ cut () ++
           str " : " ++ pr_ltype_env env sigma typ ++ str "." ++ fnl () ++
           str "Proof " ++ pr_lconstr_env env sigma

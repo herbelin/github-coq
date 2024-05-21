@@ -40,10 +40,10 @@ module OpaqueAccess : sig
     | Access : Global.indirect_accessor t
 end
 
-type ('prog,'proof,'opaque_access) state_gen = {
+type ('prog,'proof,'sealed_access) state_gen = {
   prog : 'prog;
   proof : 'proof;
-  opaque_access : 'opaque_access;
+  sealed_access : 'sealed_access;
 }
 
 type no_state = (unit, unit, unit) state_gen
@@ -92,4 +92,4 @@ val vtreadprogram : (pm:Declare.OblState.t -> unit) -> typed_vernac
 val vtmodifyprogram : (pm:Declare.OblState.t -> Declare.OblState.t) -> typed_vernac
 val vtdeclareprogram : (pm:Declare.OblState.t -> Declare.Proof.t) -> typed_vernac
 val vtopenproofprogram : (pm:Declare.OblState.t -> Declare.OblState.t * Declare.Proof.t) -> typed_vernac
-val vtopaqueaccess : (opaque_access:Global.indirect_accessor -> unit) -> typed_vernac
+val vtsealedaccess : (sealed_access:Global.indirect_accessor -> unit) -> typed_vernac

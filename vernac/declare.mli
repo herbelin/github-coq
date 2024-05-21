@@ -96,7 +96,7 @@ module Info : sig
 
   type t
 
-  (** Note that [opaque] doesn't appear here as it is not known at the
+  (** Note that [sealed] doesn't appear here as it is not known at the
      start of the proof in the interactive case. *)
   val make
     : ?poly:bool
@@ -125,7 +125,7 @@ end
 val declare_definition
   :  info:Info.t
   -> cinfo:EConstr.t option CInfo.t
-  -> opaque:bool
+  -> sealed:bool
   -> body:EConstr.t
   -> ?using:Vernacexpr.section_subset_expr
   -> Evd.evar_map
@@ -134,7 +134,7 @@ val declare_definition
 val declare_mutually_recursive
   : info:Info.t
   -> cinfo: Constr.t CInfo.t list
-  -> opaque:bool
+  -> sealed:bool
   -> uctx:UState.t
   -> rec_declaration:Constr.rec_declaration
   -> possible_guard:Pretyping.possible_guard
@@ -162,7 +162,7 @@ module OblState : sig
     end
 
     type t = private
-      { opaque : bool
+      { sealed : bool
       ; remaining : int
       ; obligations : Obl.t array
       }
@@ -226,14 +226,14 @@ module Proof : sig
   val save
     : pm:OblState.t
     -> proof:t
-    -> opaque:Vernacexpr.opacity_flag
+    -> sealed:bool
     -> idopt:Names.lident option
     -> OblState.t * GlobRef.t list
 
   (** For proofs known to have [Regular] ending, no need to touch program state. *)
   val save_regular
     : proof:t
-    -> opaque:Vernacexpr.opacity_flag
+    -> sealed:bool
     -> idopt:Names.lident option
     -> GlobRef.t list
 
@@ -311,7 +311,7 @@ module Proof : sig
       instead *)
   type proof_object
 
-  val close_proof : ?warn_incomplete:bool -> opaque:Vernacexpr.opacity_flag -> keep_body_ucst_separate:bool -> t -> proof_object
+  val close_proof : ?warn_incomplete:bool -> sealed:bool -> keep_body_ucst_separate:bool -> t -> proof_object
   val close_future_proof : feedback_id:Stateid.t -> t -> closed_proof_output Future.computation -> proof_object
 
   (** Special cases for delayed proofs, in this case we must provide the
@@ -343,7 +343,7 @@ type primitive_entry
 type symbol_entry
 
 val definition_entry
-  :  ?opaque:bool
+  :  ?sealed:bool
   -> ?using:Names.Id.Set.t
   -> ?inline:bool
   -> ?types:Constr.types
@@ -542,7 +542,7 @@ val add_definition :
   -> uctx:UState.t
   -> ?tactic:unit Proofview.tactic
   -> ?reduce:(Constr.t -> Constr.t)
-  -> ?opaque:bool
+  -> ?sealed:bool
   -> ?using:Vernacexpr.section_subset_expr
   -> RetrieveObl.obligation_info
   -> OblState.t * progress
@@ -558,7 +558,7 @@ val add_mutual_definitions :
   -> uctx:UState.t
   -> ?tactic:unit Proofview.tactic
   -> ?reduce:(Constr.t -> Constr.t)
-  -> ?opaque:bool
+  -> ?sealed:bool
   -> ?using:Vernacexpr.section_subset_expr
   -> possible_guard:Pretyping.possible_guard
   -> (Constr.t CInfo.t * Constr.t * RetrieveObl.obligation_info) list

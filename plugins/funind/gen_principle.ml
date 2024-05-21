@@ -1230,7 +1230,7 @@ let get_funs_constant mp =
         in
         let body = EConstr.Unsafe.to_constr body in
         body
-      | Undef _ | OpaqueDef _ | Primitive _ | Symbol _ ->
+      | Undef _ | SealedDef _ | Primitive _ | Symbol _ ->
         CErrors.user_err Pp.(str "Cannot define a principle over an axiom ")
     in
     let f = find_constant_body const in
@@ -1338,18 +1338,15 @@ let make_scheme evd (fas : (Constr.pconstant * Sorts.family) list) : _ list =
     | s :: l_schemes -> (s, l_schemes)
     | _ -> CErrors.anomaly (Pp.str "")
   in
-  let opaque =
+  let sealed =
     let finfos =
       match find_Function_infos (fst first_fun) with
       | None -> raise Not_found
       | Some finfos -> finfos
     in
     match finfos.equation_lemma with
-    | None -> Vernacexpr.Transparent (* non recursive definition *)
-    | Some equation ->
-      if Declareops.is_opaque (Global.lookup_constant equation) then
-        Vernacexpr.Opaque
-      else Vernacexpr.Transparent
+    | None -> false (* non recursive definition *)
+    | Some equation -> Declareops.is_sealed (Global.lookup_constant equation)
   in
   let body, typ, univs, _hook, sigma0 =
     try
@@ -1363,7 +1360,7 @@ let make_scheme evd (fas : (Constr.pconstant * Sorts.family) list) : _ list =
   evd := sigma0;
   incr i;
   (* The others are just deduced *)
-  if List.is_empty other_princ_types then [(body, typ, univs, opaque)]
+  if List.is_empty other_princ_types then [(body, typ, univs, sealed)]
   else
     let other_fun_princ_types =
       let funs = Array.map Constr.mkConstU this_block_funs in
@@ -1416,15 +1413,15 @@ let make_scheme evd (fas : (Constr.pconstant * Sorts.family) list) : _ list =
                 (fun _ _ -> ())
             in
             evd := sigma0;
-            (body, typ, univs, opaque)
+            (body, typ, univs, sealed)
           with Found_type i ->
             let princ_body =
               Term.it_mkLambda_or_LetIn (Constr.mkFix ((idxs, i), decl)) ctxt
             in
-            (princ_body, Some scheme_type, univs, opaque))
+            (princ_body, Some scheme_type, univs, sealed))
         other_fun_princ_types
     in
-    (body, typ, univs, opaque) :: other_result
+    (body, typ, univs, sealed) :: other_result
 
 (* [derive_correctness funs graphs] create correctness and completeness
    lemmas for each function in [funs] w.r.t. [graphs]
@@ -1477,7 +1474,7 @@ let derive_correctness (funs : Constr.pconstant list) (graphs : inductive list)
         with Not_found ->
           Array.of_list
             (List.map
-               (fun (body, typ, _opaque, _univs) ->
+               (fun (body, typ, _sealed, _univs) ->
                  (EConstr.of_constr body, EConstr.of_constr (Option.get typ)))
                (make_scheme evd
                   (Array.map_to_list (fun const -> (const, Sorts.InType)) funs)))
@@ -1499,7 +1496,7 @@ let derive_correctness (funs : Constr.pconstant list) (graphs : inductive list)
           let lemma = fst @@ Declare.Proof.by (proving_tac i) lemma in
           let (_ : _ list) =
             Declare.Proof.save_regular ~proof:lemma
-              ~opaque:Vernacexpr.Transparent ~idopt:None
+              ~sealed:false ~idopt:None
           in
           let finfo =
             match find_Function_infos (fst f_as_constant) with
@@ -1572,7 +1569,7 @@ let derive_correctness (funs : Constr.pconstant list) (graphs : inductive list)
           in
           let (_ : _ list) =
             Declare.Proof.save_regular ~proof:lemma
-              ~opaque:Vernacexpr.Transparent ~idopt:None
+              ~sealed:false ~idopt:None
           in
           let finfo =
             match find_Function_infos (fst f_as_constant) with
@@ -2059,7 +2056,7 @@ let make_graph (f_ref : GlobRef.t) =
     | _ -> CErrors.user_err Pp.(str "Not a function reference")
   in
   match c_body.Declarations.const_body with
-  | Undef _ | Primitive _ | Symbol _ | OpaqueDef _ -> CErrors.user_err (Pp.str "Cannot build a graph over an axiom!")
+  | Undef _ | Primitive _ | Symbol _ | SealedDef _ -> CErrors.user_err (Pp.str "Cannot build a graph over an axiom!")
   | Def body ->
     let env = Global.env () in
     let extern_body, extern_type =
@@ -2177,10 +2174,9 @@ let build_scheme fas =
   in
   let bodies_types = make_scheme evd pconstants in
   List.iter2
-    (fun (princ_id, _, _) (body, types, univs, opaque) ->
+    (fun (princ_id, _, _) (body, types, univs, sealed) ->
       let (_ : Constant.t) =
-        let opaque = if opaque = Vernacexpr.Opaque then true else false in
-        let def_entry = Declare.definition_entry ~univs ~opaque ?types body in
+        let def_entry = Declare.definition_entry ~univs ~sealed ?types body in
         Declare.declare_constant ~name:princ_id
           ~kind:Decls.(IsProof Theorem)
           (Declare.DefinitionEntry def_entry)

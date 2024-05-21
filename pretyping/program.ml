@@ -61,13 +61,13 @@ let mk_coq_and env sigma l =
          EConstr.(mkApp (and_typ, [| c ; conj |])))
       l
 
-(* true = transparent by default, false = opaque if possible *)
-let proofs_transparency = ref true
+(* true = unsealed by default, false = sealed if possible *)
+let proofs_unsealedness = ref true
 let program_cases = ref true
 let program_generalized_coercion = ref true
 
-let set_proofs_transparency = (:=) proofs_transparency
-let get_proofs_transparency () = !proofs_transparency
+let set_proofs_unsealedness = (:=) proofs_unsealedness
+let get_proofs_unsealedness () = !proofs_unsealedness
 
 let is_program_generalized_coercion () = !program_generalized_coercion
 let is_program_cases () = !program_cases
@@ -79,8 +79,8 @@ let () =
   { optstage = Summary.Stage.Interp;
     optdepr  = None;
     optkey   = ["Transparent";"Obligations"];
-    optread  = get_proofs_transparency;
-    optwrite = set_proofs_transparency; }
+    optread  = get_proofs_unsealedness;
+    optwrite = set_proofs_unsealedness; }
 
 let () =
   declare_bool_option

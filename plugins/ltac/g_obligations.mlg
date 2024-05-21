@@ -84,7 +84,7 @@ open Declare.Obls
 let obligation ~pm obl tac = with_tac (fun t -> obligation ~pm obl t) tac
 let next_obligation ~pm ?final obl tac = with_tac (fun t -> next_obligation ~pm ?final obl t) tac
 
-let classify_obbl _ = Vernacextend.(VtStartProof (Doesn'tGuaranteeOpacity,[]))
+let classify_obbl _ = Vernacextend.(VtStartProof (Doesn'tGuaranteeSealedness,[]))
 
 }
 

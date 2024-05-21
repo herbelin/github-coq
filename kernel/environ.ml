@@ -591,7 +591,7 @@ let constant_type env (kn,u) =
 
 type const_evaluation_result =
   | NoBody
-  | Opaque
+  | Sealed
   | IsPrimitive of UVars.Instance.t * CPrimitives.t
   | HasRules of UVars.Instance.t * bool * rewrite_rule list
 
@@ -603,7 +603,7 @@ let constant_value_and_type env (kn, u) =
   let cst = UVars.AbstractContext.instantiate u uctx in
   let b' = match cb.const_body with
     | Def l_body -> Some (subst_instance_constr u l_body)
-    | OpaqueDef _ -> None
+    | SealedDef _ -> None
     | Undef _ | Primitive _ | Symbol _ -> None
   in
   b', subst_instance_constr u cb.const_type, cst
@@ -622,7 +622,7 @@ let constant_value_in env (kn,u) =
   match cb.const_body with
     | Def l_body ->
       subst_instance_constr u l_body
-    | OpaqueDef _ -> raise (NotEvaluableConst Opaque)
+    | SealedDef _ -> raise (NotEvaluableConst Sealed)
     | Undef _ -> raise (NotEvaluableConst NoBody)
     | Primitive p -> raise (NotEvaluableConst (IsPrimitive (u,p)))
     | Symbol b ->
@@ -634,12 +634,12 @@ let constant_opt_value_in env cst =
   try Some (constant_value_in env cst)
   with NotEvaluableConst _ -> None
 
-(* A global const is evaluable if it is defined and not opaque *)
+(* A global const is evaluable if it is defined and not sealed *)
 let evaluable_constant kn env =
   let cb = lookup_constant kn env in
     match cb.const_body with
     | Def _ -> true
-    | OpaqueDef _ -> false
+    | SealedDef _ -> false
     | Undef _ | Primitive _ | Symbol _ -> false
 
 let is_primitive env c =

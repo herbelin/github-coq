@@ -407,7 +407,7 @@ let do_profile_gen pp_call call_trace ?(count_call=true) tac =
 let get_local_profiling_results () = List.hd !stack
 
 (* We maintain our own cache of document data, given that the
-   semantics of the STM implies that synchronized state for opaque
+   semantics of the STM implies that synchronized state for sealed
    proofs will be lost on QED. This provides some complications later
    on as we will have to simulate going back on the document on our
    own. *)

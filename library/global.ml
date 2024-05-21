@@ -100,7 +100,7 @@ let rewrite_rules_allowed () = Environ.rewrite_rules_allowed (env())
 let export_private_constants cd = globalize (Safe_typing.export_private_constants cd)
 let add_constant ?typing_flags id d = globalize (Safe_typing.add_constant ?typing_flags (i2l id) d)
 let add_private_constant id u d = globalize (Safe_typing.add_private_constant (i2l id) u d)
-let fill_opaque c = globalize0 (Safe_typing.fill_opaque c)
+let fill_sealed c = globalize0 (Safe_typing.fill_sealed c)
 let add_rewrite_rules id c = globalize0 (Safe_typing.add_rewrite_rules (i2l id) c)
 let add_mind ?typing_flags id mie = globalize (Safe_typing.add_mind ?typing_flags (i2l id) mie)
 let add_modtype id me inl = globalize (Safe_typing.add_modtype (i2l id) me inl)
@@ -141,11 +141,11 @@ let lookup_modtype kn = Environ.lookup_modtype kn (env())
 let exists_objlabel id = Safe_typing.exists_objlabel id (safe_env ())
 
 type indirect_accessor = {
-  access_proof : Opaqueproof.opaque -> Opaqueproof.opaque_proofterm option;
+  access_proof : Sealedproof.sealed -> Sealedproof.sealed_proofterm option;
 }
 
 let force_proof access o = match access.access_proof o with
-| None -> CErrors.user_err Pp.(str "Cannot access opaque delayed proof")
+| None -> CErrors.user_err Pp.(str "Cannot access sealed delayed proof")
 | Some (c, u) -> (c, u)
 
 let body_of_constant_body access cb =
@@ -155,11 +155,11 @@ let body_of_constant_body access cb =
      None
   | Def c ->
     let u = match cb.const_universes with
-    | Monomorphic -> Opaqueproof.PrivateMonomorphic ()
-    | Polymorphic auctx -> Opaqueproof.PrivatePolymorphic Univ.ContextSet.empty
+    | Monomorphic -> Sealedproof.PrivateMonomorphic ()
+    | Polymorphic auctx -> Sealedproof.PrivatePolymorphic Univ.ContextSet.empty
     in
     Some (c, u, Declareops.constant_polymorphic_context cb)
-  | OpaqueDef o ->
+  | SealedDef o ->
     let c, u = force_proof access o in
     Some (c, u, Declareops.constant_polymorphic_context cb)
 

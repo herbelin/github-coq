@@ -2,5 +2,5 @@ id : ∀ {A : Type}, A -> A
 
 id is not universe polymorphic
 Arguments id {A}%type_scope a
-id is transparent
+id is unsealed
 Expands to: Constant Utf8Impargs.id

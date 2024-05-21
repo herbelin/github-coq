@@ -60,7 +60,7 @@ let set_strategy_one ref l =
   match ref, l with
   | Evaluable.EvalConstRef sp, Conv_oracle.Opaque -> ()
   | Evaluable.EvalConstRef sp, _ ->
-    if Declareops.is_opaque (Global.lookup_constant sp) then
+    if Declareops.is_sealed (Global.lookup_constant sp) then
       user_err
         (str "Cannot make" ++ spc () ++
             Nametab.pr_global_env Id.Set.empty (GlobRef.ConstRef sp) ++

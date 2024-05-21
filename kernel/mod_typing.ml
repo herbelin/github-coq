@@ -85,7 +85,7 @@ let rec check_with_def (cst, ustate) env struc (idl, wth) mp reso =
         match cb.const_universes, wth.w_univs with
         | Monomorphic, Monomorphic ->
           let cst = match cb.const_body with
-            | Undef _ | OpaqueDef _ ->
+            | Undef _ | SealedDef _ ->
               let j = Typeops.infer env' wth.w_def in
               assert (j.uj_val == wth.w_def); (* relevances should already be correct here *)
               let typ = cb.const_type in
@@ -105,7 +105,7 @@ let rec check_with_def (cst, ustate) env struc (idl, wth) mp reso =
           (** Terms are compared in a context with De Bruijn universe indices *)
           let env' = Environ.push_context ~strict:false (UVars.AbstractContext.repr uctx) env in
           let () = match cb.const_body with
-            | Undef _ | OpaqueDef _ ->
+            | Undef _ | SealedDef _ ->
               let j = Typeops.infer env' wth.w_def in
               assert (j.uj_val == wth.w_def); (* relevances should already be correct here *)
               let typ = cb.const_type in

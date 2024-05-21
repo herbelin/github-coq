@@ -53,7 +53,7 @@ val export_private_constants :
 val add_constant :
   ?typing_flags:typing_flags ->
   Id.t -> Safe_typing.global_declaration -> Constant.t
-val fill_opaque : Safe_typing.opaque_certificate -> unit
+val fill_sealed : Safe_typing.sealed_certificate -> unit
 val add_private_constant :
   Id.t -> Univ.ContextSet.t -> Safe_typing.side_effect_declaration -> Constant.t * Safe_typing.private_constants
 val add_rewrite_rules : Id.t -> rewrite_rules_body -> unit
@@ -120,13 +120,13 @@ val constant_of_delta_kn : KerName.t -> Constant.t
 val mind_of_delta_kn : KerName.t -> MutInd.t
 
 type indirect_accessor = {
-  access_proof : Opaqueproof.opaque -> Opaqueproof.opaque_proofterm option;
+  access_proof : Sealedproof.sealed -> Sealedproof.sealed_proofterm option;
 }
 
-val force_proof : indirect_accessor -> Opaqueproof.opaque -> Opaqueproof.opaque_proofterm
+val force_proof : indirect_accessor -> Sealedproof.sealed -> Sealedproof.sealed_proofterm
 
 val body_of_constant : indirect_accessor -> Constant.t ->
-  (Constr.constr * unit Opaqueproof.delayed_universes * UVars.AbstractContext.t) option
+  (Constr.constr * unit Sealedproof.delayed_universes * UVars.AbstractContext.t) option
 (** Returns the body of the constant if it has any, and the polymorphic context
     it lives in. For monomorphic constant, the latter is empty, and for
     polymorphic constants, the term contains De Bruijn universe variables that
@@ -134,7 +134,7 @@ val body_of_constant : indirect_accessor -> Constant.t ->
 
 val body_of_constant_body : indirect_accessor ->
   constant_body ->
-    (Constr.constr * unit Opaqueproof.delayed_universes * UVars.AbstractContext.t) option
+    (Constr.constr * unit Sealedproof.delayed_universes * UVars.AbstractContext.t) option
 (** Same as {!body_of_constant} but on {!constant_body}. *)
 
 (** {6 Compiled libraries } *)

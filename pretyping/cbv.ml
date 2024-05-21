@@ -602,7 +602,7 @@ and norm_head_ref k info env stack normt t =
           | RelKey _ | VarKey _ -> assert false
         in
         (SYMBOL { cst; unfoldfix; rules; stk=TOP }, stack)
-      | Declarations.OpaqueDef _ | Declarations.Undef _ ->
+      | Declarations.SealedDef _ | Declarations.Undef _ ->
          debug_cbv (fun () -> Pp.(str "Not unfolding " ++ debug_pr_key normt));
          (VAL(0,make_constr_ref k normt t),stack)
   else

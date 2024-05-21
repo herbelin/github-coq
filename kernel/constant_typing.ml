@@ -243,14 +243,14 @@ let infer_constant ~sec_univs env = function
   | ParameterEntry entry -> infer_parameter ~sec_univs env entry
   | DefinitionEntry entry -> infer_definition ~sec_univs env entry
 
-(** Definition is opaque (Qed), so we delay the typing of its body. *)
-let infer_opaque ~sec_univs env entry =
-  let env, usubst, _, univs = process_universes env entry.opaque_entry_universes in
-  let typj = Typeops.infer_type env entry.opaque_entry_type in
-  let context = TyCtx (env, typj, entry.opaque_entry_secctx, usubst, univs) in
-  let def = OpaqueDef () in
+(** Definition is sealed (Qed), so we delay the typing of its body. *)
+let infer_sealed ~sec_univs env entry =
+  let env, usubst, _, univs = process_universes env entry.sealed_entry_universes in
+  let typj = Typeops.infer_type env entry.sealed_entry_type in
+  let context = TyCtx (env, typj, entry.sealed_entry_secctx, usubst, univs) in
+  let def = SealedDef () in
   let typ = Vars.subst_univs_level_constr usubst typj.utj_val in
-  let hyps = used_section_variables env (Some entry.opaque_entry_secctx) None typ in
+  let hyps = used_section_variables env (Some entry.sealed_entry_secctx) None typ in
   {
     const_hyps = hyps;
     const_univ_hyps = make_univ_hyps sec_univs;
@@ -271,12 +271,12 @@ let check_delayed (type a) (handle : a effect_handler) tyenv (body : a proof_out
   let env, univs = match univs with
     | Monomorphic ->
        assert (UVars.is_empty_sort_subst usubst);
-       push_context_set uctx env, Opaqueproof.PrivateMonomorphic uctx
+       push_context_set uctx env, Sealedproof.PrivateMonomorphic uctx
     | Polymorphic _ ->
        assert (Int.equal valid_signatures 0);
        push_subgraph uctx env,
        let private_univs = on_snd (subst_univs_level_constraints (snd usubst)) uctx in
-       Opaqueproof.PrivatePolymorphic private_univs
+       Sealedproof.PrivatePolymorphic private_univs
   in
   (* Note: non-trivial trusted side-effects only in monomorphic case *)
   let body,env,ectx = skip_trusted_seff valid_signatures body env in

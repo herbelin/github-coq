@@ -89,7 +89,7 @@ module NamedDecl = Context.Named.Declaration
       These fields could be deduced from [revstruct], but they allow faster
       name freshness checks.
  - [univ] : current universe constraints
- - [future_cst] : delayed opaque constants yet to be checked
+ - [future_cst] : delayed sealed constants yet to be checked
  - [required] : names and digests of Require'd libraries since big-bang.
       This field will only grow
  - [loads] : list of libraries Require'd inside the current module.
@@ -134,7 +134,7 @@ type section_data = {
   rev_revstruct : structure_body;
 }
 
-module HandleMap = Opaqueproof.HandleMap
+module HandleMap = Sealedproof.HandleMap
 
 (** We rely on uniqueness of pointers to provide a simple implementation of
     kernel certificates. For this to work across processes, one needs the
@@ -167,7 +167,7 @@ type safe_environment =
     required : vodigest DPmap.t;
     loads : (ModPath.t * module_body) list;
     local_retroknowledge : Retroknowledge.action list;
-    opaquetab : Opaqueproof.opaquetab;
+    sealedtab : Sealedproof.sealedtab;
 }
 
 and modvariant =
@@ -197,7 +197,7 @@ let empty_environment =
     required = DPmap.empty;
     loads = [];
     local_retroknowledge = [];
-    opaquetab = Opaqueproof.empty_opaquetab;
+    sealedtab = Sealedproof.empty_sealedtab;
 }
 
 let is_initial senv =
@@ -376,7 +376,7 @@ let side_effects_of_private_constants l =
 (* Only used to push in an Environ.env. *)
 let lift_constant c =
   let body = match c.const_body with
-  | OpaqueDef _ -> Undef None
+  | SealedDef _ -> Undef None
   | Def _ | Undef _ | Primitive _ | Symbol _ as body -> body
   in
   { c with const_body = body }
@@ -629,21 +629,21 @@ let update_resolver f senv = { senv with modresolver = f senv.modresolver }
 
 type global_declaration =
 | ConstantEntry : Entries.constant_entry -> global_declaration
-| OpaqueEntry : unit Entries.opaque_entry -> global_declaration
+| OpaqueEntry : unit Entries.sealed_entry -> global_declaration
 
-type exported_opaque = {
-  exp_handle : Opaqueproof.opaque_handle;
+type exported_sealed = {
+  exp_handle : Sealedproof.sealed_handle;
   exp_body : Constr.t;
   exp_univs : (int * int) option;
   (* Minimal amount of data needed to rebuild the private universes. We enforce
      in the API that private constants have no internal constraints. *)
 }
-type exported_private_constant = Constant.t * exported_opaque option
+type exported_private_constant = Constant.t * exported_sealed option
 
-let repr_exported_opaque o =
+let repr_exported_sealed o =
   let priv = match o .exp_univs with
-  | None -> Opaqueproof.PrivateMonomorphic ()
-  | Some _ -> Opaqueproof.PrivatePolymorphic Univ.ContextSet.empty
+  | None -> Sealedproof.PrivateMonomorphic ()
+  | Some _ -> Sealedproof.PrivatePolymorphic Univ.ContextSet.empty
   in
   (o.exp_handle, (o.exp_body, priv))
 
@@ -686,9 +686,9 @@ let inline_side_effects env body side_eff =
     (** Second step: compute the lifts and substitutions to apply *)
     let cname c r = Context.make_annot (Name (Label.to_id (Constant.label c))) r in
     let fold (subst, var, ctx, args) { seff_constant = c; seff_body = cb; seff_univs = univs; _ } =
-      let (b, opaque) = match cb.const_body with
+      let (b, sealed) = match cb.const_body with
       | Def b -> (b, false)
-      | OpaqueDef b -> (b, true)
+      | SealedDef b -> (b, true)
       | _ -> assert false
       in
       match cb.const_universes with
@@ -697,7 +697,7 @@ let inline_side_effects env body side_eff =
         let ty = cb.const_type in
         let subst = Cmap_env.add c (Inr var) subst in
         let ctx = Univ.ContextSet.union ctx univs in
-        (subst, var + 1, ctx, (cname c cb.const_relevance, b, ty, opaque) :: args)
+        (subst, var + 1, ctx, (cname c cb.const_relevance, b, ty, sealed) :: args)
       | Polymorphic _ ->
         let () = assert (Univ.ContextSet.is_empty univs) in
         (** Inline the term to emulate universe polymorphism *)
@@ -723,16 +723,16 @@ let inline_side_effects env body side_eff =
       else mkRel (n + len - i - 1)
     | _ -> Constr.map_with_binders ((+) 1) (fun k t -> subst_const i k t) k t
     in
-    let map_args i (na, b, ty, opaque) =
+    let map_args i (na, b, ty, sealed) =
       (** Both the type and the body may mention other constants *)
       let ty = subst_const (len - i - 1) 0 ty in
       let b = subst_const (len - i - 1) 0 b in
-      (na, b, ty, opaque)
+      (na, b, ty, sealed)
     in
     let args = List.mapi map_args args in
     let body = subst_const 0 0 body in
-    let fold_arg (na, b, ty, opaque) accu =
-      if opaque then mkApp (mkLambda (na, ty, accu), [|b|])
+    let fold_arg (na, b, ty, sealed) accu =
+      if sealed then mkApp (mkLambda (na, ty, accu), [|b|])
       else mkLetIn (na, b, ty, accu)
     in
     let body = List.fold_right fold_arg args body in
@@ -775,7 +775,7 @@ let check_signatures senv sl =
 
 type side_effect_declaration =
 | DefinitionEff : Entries.definition_entry -> side_effect_declaration
-| OpaqueEff : Constr.constr Entries.opaque_entry -> side_effect_declaration
+| SealedEff : Constr.constr Entries.sealed_entry -> side_effect_declaration
 
 let constant_entry_of_side_effect eff =
   let cb = eff.seff_body in
@@ -789,15 +789,15 @@ let constant_entry_of_side_effect eff =
   in
   let p =
     match cb.const_body with
-    | OpaqueDef b -> b
+    | SealedDef b -> b
     | Def b -> b
     | _ -> assert false in
-  if Declareops.is_opaque cb then
-  OpaqueEff {
-    opaque_entry_body = p;
-    opaque_entry_secctx = Context.Named.to_vars cb.const_hyps;
-    opaque_entry_type = cb.const_type;
-    opaque_entry_universes = univs;
+  if Declareops.is_sealed cb then
+  SealedEff {
+    sealed_entry_body = p;
+    sealed_entry_secctx = Context.Named.to_vars cb.const_hyps;
+    sealed_entry_type = cb.const_type;
+    sealed_entry_universes = univs;
   }
   else
   DefinitionEff {
@@ -811,23 +811,23 @@ let export_eff eff =
   (eff.seff_constant, eff.seff_body)
 
 let is_empty_private = function
-| Opaqueproof.PrivateMonomorphic ctx -> Univ.ContextSet.is_empty ctx
-| Opaqueproof.PrivatePolymorphic ctx -> Univ.ContextSet.is_empty ctx
+| Sealedproof.PrivateMonomorphic ctx -> Univ.ContextSet.is_empty ctx
+| Sealedproof.PrivatePolymorphic ctx -> Univ.ContextSet.is_empty ctx
 
 let compile_bytecode env cb =
   let code = Vmbytegen.compile_constant_body ~fail_on_error:false env cb.const_universes cb.const_body in
   { cb with const_body_code = code }
 
-(* Special function to call when the body of an opaque definition is provided.
+(* Special function to call when the body of an sealed definition is provided.
   It performs the type-checking of the body immediately. *)
-let infer_direct_opaque ~sec_univs env ce =
-  let cb, ctx = Constant_typing.infer_opaque ~sec_univs env ce in
-  let body = ce.Entries.opaque_entry_body, Univ.ContextSet.empty in
+let infer_direct_sealed ~sec_univs env ce =
+  let cb, ctx = Constant_typing.infer_sealed ~sec_univs env ce in
+  let body = ce.Entries.sealed_entry_body, Univ.ContextSet.empty in
   let handle _env c () = (c, Univ.ContextSet.empty, 0) in
   let (c, u) = Constant_typing.check_delayed handle ctx (body, ()) in
   (* No constraints can be generated, we set it empty everywhere *)
   let () = assert (is_empty_private u) in
-  { cb with const_body = OpaqueDef c }
+  { cb with const_body = SealedDef c }
 
 let export_side_effects senv eff =
   let sec_univs = Option.map Section.all_poly_univs senv.sections in
@@ -862,8 +862,8 @@ let export_side_effects senv eff =
           let cb = match ce with
             | DefinitionEff ce ->
               Constant_typing.infer_constant ~sec_univs env (DefinitionEntry ce)
-            | OpaqueEff ce ->
-              infer_direct_opaque ~sec_univs env ce
+            | SealedEff ce ->
+              infer_direct_sealed ~sec_univs env ce
           in
           let cb = compile_bytecode env cb in
           let eff = { eff with seff_body = cb } in
@@ -873,31 +873,31 @@ let export_side_effects senv eff =
     in
     recheck_seff seff Univ.ContextSet.empty [] env
 
-let push_opaque_proof senv =
-  let o, otab = Opaqueproof.create (library_dp_of_senv senv) senv.opaquetab in
-  let senv = { senv with opaquetab = otab } in
+let push_sealed_proof senv =
+  let o, otab = Sealedproof.create (library_dp_of_senv senv) senv.sealedtab in
+  let senv = { senv with sealedtab = otab } in
   senv, o
 
 let export_private_constants eff senv =
   let uctx, exported = export_side_effects senv eff in
   let senv = push_context_set ~strict:true uctx senv in
   let map senv (kn, c) = match c.const_body with
-  | OpaqueDef body ->
-    (* Don't care about the body, it has been checked by {!infer_direct_opaque} *)
-    let senv, o = push_opaque_proof senv in
-    let (_, _, _, h) = Opaqueproof.repr o in
+  | SealedDef body ->
+    (* Don't care about the body, it has been checked by {!infer_direct_sealed} *)
+    let senv, o = push_sealed_proof senv in
+    let (_, _, _, h) = Sealedproof.repr o in
     let univs = match c.const_universes with
     | Monomorphic -> None
     | Polymorphic auctx -> Some (UVars.AbstractContext.size auctx)
     in
     let body = Constr.hcons body in
-    let opaque = { exp_body = body; exp_handle = h; exp_univs = univs } in
-    senv, (kn, { c with const_body = OpaqueDef o }, Some opaque)
+    let sealed = { exp_body = body; exp_handle = h; exp_univs = univs } in
+    senv, (kn, { c with const_body = SealedDef o }, Some sealed)
   | Def _ | Undef _ | Primitive _ | Symbol _ as body ->
     senv, (kn, { c with const_body = body }, None)
   in
   let senv, bodies = List.fold_left_map map senv exported in
-  let exported = List.map (fun (kn, _, opaque) -> kn, opaque) bodies in
+  let exported = List.map (fun (kn, _, sealed) -> kn, sealed) bodies in
   (* No delayed constants to declare *)
   let fold senv (kn, cb, _) = add_constant_aux senv (kn, cb) in
   let senv = List.fold_left fold senv bodies in
@@ -909,14 +909,14 @@ let add_constant l decl senv =
     let sec_univs = Option.map Section.all_poly_univs senv.sections in
       match decl with
       | OpaqueEntry ce ->
-        let senv, o = push_opaque_proof senv in
-        let cb, ctx = Constant_typing.infer_opaque ~sec_univs senv.env ce in
+        let senv, o = push_sealed_proof senv in
+        let cb, ctx = Constant_typing.infer_sealed ~sec_univs senv.env ce in
         (* Push the delayed data in the environment *)
-        let (_, _, _, i) = Opaqueproof.repr o in
+        let (_, _, _, i) = Sealedproof.repr o in
         let nonce = Nonce.create () in
         let future_cst = HandleMap.add i (ctx, senv, nonce) senv.future_cst in
         let senv = { senv with future_cst } in
-        senv, { cb with const_body = OpaqueDef o; const_body_code = Some Vmemitcodes.BCconstant }
+        senv, { cb with const_body = SealedDef o; const_body_code = Some Vmemitcodes.BCconstant }
       | ConstantEntry ce ->
         let cb = Constant_typing.infer_constant ~sec_univs senv.env ce in
         let cb = compile_bytecode senv.env cb in
@@ -936,18 +936,18 @@ let add_constant l decl senv =
 let add_constant ?typing_flags l decl senv =
   with_typing_flags ?typing_flags senv ~f:(add_constant l decl)
 
-type opaque_certificate = {
+type sealed_certificate = {
   opq_body : Constr.t;
-  opq_univs : Univ.ContextSet.t Opaqueproof.delayed_universes;
-  opq_handle : Opaqueproof.opaque_handle;
+  opq_univs : Univ.ContextSet.t Sealedproof.delayed_universes;
+  opq_handle : Sealedproof.sealed_handle;
   opq_nonce : Nonce.t;
 }
 
-let check_opaque senv (i : Opaqueproof.opaque_handle) pf =
+let check_sealed senv (i : Sealedproof.sealed_handle) pf =
   let ty_ctx, trust, nonce =
     try HandleMap.find i senv.future_cst
     with Not_found ->
-      CErrors.anomaly Pp.(str "Missing opaque with identifier " ++ int (Opaqueproof.repr_handle i))
+      CErrors.anomaly Pp.(str "Missing sealed with identifier " ++ int (Sealedproof.repr_handle i))
   in
   let handle env body eff =
     let body, uctx, signatures, skip = inline_side_effects env body eff in
@@ -961,33 +961,33 @@ let check_opaque senv (i : Opaqueproof.opaque_handle) pf =
   let (c, ctx) = Constant_typing.check_delayed handle ty_ctx pf in
   let c = Constr.hcons c in
   let ctx = match ctx with
-  | Opaqueproof.PrivateMonomorphic u ->
-    Opaqueproof.PrivateMonomorphic (Univ.hcons_universe_context_set u)
-  | Opaqueproof.PrivatePolymorphic u ->
-    Opaqueproof.PrivatePolymorphic (Univ.hcons_universe_context_set u)
+  | Sealedproof.PrivateMonomorphic u ->
+    Sealedproof.PrivateMonomorphic (Univ.hcons_universe_context_set u)
+  | Sealedproof.PrivatePolymorphic u ->
+    Sealedproof.PrivatePolymorphic (Univ.hcons_universe_context_set u)
   in
   { opq_body = c; opq_univs = ctx; opq_handle = i; opq_nonce = nonce }
 
-let fill_opaque { opq_univs = ctx; opq_handle = i; opq_nonce = n; _ } senv =
+let fill_sealed { opq_univs = ctx; opq_handle = i; opq_nonce = n; _ } senv =
   let () = if not @@ HandleMap.mem i senv.future_cst then
-    CErrors.anomaly Pp.(str "Missing opaque handle" ++ spc () ++ int (Opaqueproof.repr_handle i))
+    CErrors.anomaly Pp.(str "Missing sealed handle" ++ spc () ++ int (Sealedproof.repr_handle i))
   in
   let _, _, nonce = HandleMap.find i senv.future_cst in
   let () =
     if not (Nonce.equal n nonce) then
-      CErrors.anomaly  Pp.(str "Invalid opaque certificate")
+      CErrors.anomaly  Pp.(str "Invalid sealed certificate")
   in
   (* TODO: Drop the the monomorphic constraints, they should really be internal
      but the higher levels use them haphazardly. *)
   let senv = match ctx with
-  | Opaqueproof.PrivateMonomorphic ctx -> add_constraints ctx senv
-  | Opaqueproof.PrivatePolymorphic _ -> senv
+  | Sealedproof.PrivateMonomorphic ctx -> add_constraints ctx senv
+  | Sealedproof.PrivatePolymorphic _ -> senv
   in
   (* Mark the constant as having been checked *)
   { senv with future_cst = HandleMap.remove i senv.future_cst }
 
-let is_filled_opaque i senv =
-  let () = assert (Opaqueproof.mem_handle i senv.opaquetab) in
+let is_filled_sealed i senv =
+  let () = assert (Sealedproof.mem_handle i senv.sealedtab) in
   not (HandleMap.mem i senv.future_cst)
 
 let repr_certificate { opq_body = body; opq_univs = ctx; _ } =
@@ -1003,9 +1003,9 @@ let add_private_constant l uctx decl senv : (Constant.t * private_constants) * s
     let cb =
       let sec_univs = Option.map Section.all_poly_univs senv.sections in
       match decl with
-      | OpaqueEff ce ->
-        let () = assert (check_constraints uctx ce.Entries.opaque_entry_universes) in
-        infer_direct_opaque ~sec_univs senv.env ce
+      | SealedEff ce ->
+        let () = assert (check_constraints uctx ce.Entries.sealed_entry_universes) in
+        infer_direct_sealed ~sec_univs senv.env ce
       | DefinitionEff ce ->
         let () = assert (check_constraints uctx ce.Entries.const_entry_universes) in
         Constant_typing.infer_constant ~sec_univs senv.env (Entries.DefinitionEntry ce)
@@ -1013,10 +1013,10 @@ let add_private_constant l uctx decl senv : (Constant.t * private_constants) * s
   let cb = compile_bytecode senv.env cb in
   let dcb = match cb.const_body with
   | Def _ as const_body -> { cb with const_body }
-  | OpaqueDef _ ->
-    (* We drop the body, to save the definition of an opaque and thus its
+  | SealedDef _ ->
+    (* We drop the body, to save the definition of an sealed and thus its
        hashconsing. It does not matter since this only happens inside a proof,
-       and depending of the opaque status of the latter, this proof term will be
+       and depending of the sealed status of the latter, this proof term will be
        either inlined or reexported. *)
     { cb with const_body = Undef None }
   | Undef _ | Primitive _ | Symbol _ -> assert false
@@ -1144,7 +1144,7 @@ let start_mod_modtype ~istype l senv =
     paramresolver = Mod_subst.add_delta_resolver senv.modresolver senv.paramresolver;
     univ = senv.univ;
     required = senv.required;
-    opaquetab = senv.opaquetab;
+    sealedtab = senv.sealedtab;
     sections = None; (* checked in check_empty_context *)
 
     (* module local fields *)
@@ -1240,7 +1240,7 @@ let propagate_senv newdef newenv newresolver senv oldsenv =
    * exctly as before: the same universe constraints are added to modules *)
   if not !allow_delayed_constants && not (HandleMap.is_empty senv.future_cst) then
     CErrors.anomaly ~label:"safe_typing"
-      Pp.(str "True Future.t were created for opaque constants even if -async-proofs is off");
+      Pp.(str "True Future.t were created for sealed constants even if -async-proofs is off");
   { oldsenv with
     env = newenv;
     modresolver = newresolver;
@@ -1252,7 +1252,7 @@ let propagate_senv newdef newenv newresolver senv oldsenv =
     loads = senv.loads@oldsenv.loads;
     local_retroknowledge =
       senv.local_retroknowledge@oldsenv.local_retroknowledge;
-    opaquetab = senv.opaquetab;
+    sealedtab = senv.sealedtab;
   }
 
 let end_module l restype senv =
@@ -1378,7 +1378,7 @@ let start_library dir senv =
     univ = Univ.ContextSet.empty;
     loads = [];
     local_retroknowledge = [];
-    opaquetab = Opaqueproof.empty_opaquetab;
+    sealedtab = Sealedproof.empty_sealedtab;
   }
 
 let export ~output_native_objects senv dir =

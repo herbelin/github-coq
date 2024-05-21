@@ -11,40 +11,40 @@
 open Names
 open Mod_subst
 
-(** This module implements the handling of opaque proof terms.
+(** This module implements the handling of sealed proof terms.
     Opaque proof terms are special since:
     - they can be lazily computed and substituted
     - they are stored in an optionally loaded segment of .vo files
-    An [opaque] proof terms holds an index into an opaque table. *)
+    An [sealed] proof terms holds an index into an sealed table. *)
 
 type 'a delayed_universes =
 | PrivateMonomorphic of 'a
 | PrivatePolymorphic of Univ.ContextSet.t (** local constraints *)
 
-type opaquetab
-type opaque
+type sealedtab
+type sealed
 
-val empty_opaquetab : opaquetab
+val empty_sealedtab : sealedtab
 
-val create : DirPath.t -> opaquetab -> opaque * opaquetab
+val create : DirPath.t -> sealedtab -> sealed * sealedtab
 
-type opaque_proofterm = Constr.t * unit delayed_universes
+type sealed_proofterm = Constr.t * unit delayed_universes
 
-type opaque_handle
+type sealed_handle
 
-module HandleMap : CSig.MapS with type key = opaque_handle
+module HandleMap : CSig.MapS with type key = sealed_handle
 
 (** Opaque terms are indexed by their library
     dirpath and an integer index. The two functions above activate
     this indirect storage, by telling how to retrieve terms.
 *)
 
-val subst_opaque : substitution -> opaque -> opaque
+val subst_sealed : substitution -> sealed -> sealed
 
-val discharge_opaque : Cooking.cooking_info -> opaque -> opaque
+val discharge_sealed : Cooking.cooking_info -> sealed -> sealed
 
-val repr_handle : opaque_handle -> int
+val repr_handle : sealed_handle -> int
 
-val mem_handle : opaque_handle -> opaquetab -> bool
+val mem_handle : sealed_handle -> sealedtab -> bool
 
-val repr : opaque -> substitution list * Cooking.cooking_info list * DirPath.t * opaque_handle
+val repr : sealed -> substitution list * Cooking.cooking_info list * DirPath.t * sealed_handle

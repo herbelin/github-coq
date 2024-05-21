@@ -186,7 +186,7 @@ let declare_projection name instance_id r =
   let cinfo = Declare.CInfo.make ~name ~impargs ~typ:types () in
   let info = Declare.Info.make ~kind ~udecl ~poly () in
   let _r : GlobRef.t =
-    Declare.declare_definition ~cinfo ~info ~opaque:false ~body sigma
+    Declare.declare_definition ~cinfo ~info ~sealed:false ~body sigma
   in ()
 
 let add_setoid atts binders a aeq t n =

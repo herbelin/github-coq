@@ -62,7 +62,7 @@ type logical_kind =
 (** Data associated to section variables and local definitions *)
 
 type variable_data = {
-  opaque:bool;
+  sealed:bool;
   kind:logical_kind;
 }
 
@@ -72,7 +72,7 @@ let vartab =
 let secpath () = drop_dirpath_prefix (Lib.library_dp()) (Lib.cwd())
 let add_variable_data id o = vartab := Id.Map.add id (o,secpath()) !vartab
 
-let variable_opacity id = let {opaque},_ = Id.Map.find id !vartab in opaque
+let variable_sealedness id = let {sealed},_ = Id.Map.find id !vartab in sealed
 let variable_kind id = let {kind},_ = Id.Map.find id !vartab in kind
 
 let variable_secpath id =

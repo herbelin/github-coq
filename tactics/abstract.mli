@@ -12,14 +12,14 @@ open Names
 open EConstr
 
 val cache_term_by_tactic_then
-  :  opaque:bool
+  :  sealed:bool
   -> name_op:Id.t option
   -> ?goal_type:(constr option)
   -> unit Proofview.tactic
   -> (constr -> constr list -> unit Proofview.tactic)
   -> unit Proofview.tactic
 
-val tclABSTRACT : ?opaque:bool -> Id.t option -> unit Proofview.tactic -> unit Proofview.tactic
+val tclABSTRACT : ?sealed:bool -> Id.t option -> unit Proofview.tactic -> unit Proofview.tactic
 
 val declare_abstract :
   (  name:Names.Id.t
@@ -27,7 +27,7 @@ val declare_abstract :
   -> kind:Decls.logical_kind
   -> sign:EConstr.named_context
   -> secsign:Environ.named_context_val
-  -> opaque:bool
+  -> sealed:bool
   -> solve_tac:unit Proofview.tactic
   -> Evd.evar_map
   -> EConstr.t

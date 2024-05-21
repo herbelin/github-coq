@@ -39,7 +39,7 @@ Nat.add : nat -> nat -> nat
 
 Nat.add is not universe polymorphic
 Arguments Nat.add (n m)%nat_scope
-Nat.add is transparent
+Nat.add is unsealed
 Expands to: Constant Coq.Init.Nat.add
 Nat.add : nat -> nat -> nat
 
@@ -47,7 +47,7 @@ plus_n_O : forall n : nat, n = n + 0
 
 plus_n_O is not universe polymorphic
 Arguments plus_n_O n%nat_scope
-plus_n_O is opaque
+plus_n_O is sealed
 Expands to: Constant Coq.Init.Peano.plus_n_O
 Inductive le (n : nat) : nat -> Prop :=
     le_n : n <= n | le_S : forall m : nat, n <= m -> n <= S m.
@@ -83,7 +83,7 @@ eq_sym : forall [A : Type] [x y : A], x = y -> y = x
 
 eq_sym is not universe polymorphic
 Arguments eq_sym [A]%type_scope [x y] _
-eq_sym is transparent
+eq_sym is unsealed
 Expands to: Constant Coq.Init.Logic.eq_sym
 Inductive eq (A : Type) (x : A) : A -> Prop :=  eq_refl : x = x.
 
@@ -119,7 +119,7 @@ forall [A : Type] (x : A) (P : A -> Prop), P x -> forall y : A, x = y -> P y
 Alias.eq_ind is not universe polymorphic
 Arguments Alias.eq_ind [A]%type_scope x P%function_scope f y e
   (where some original arguments have been renamed)
-Alias.eq_ind is transparent
+Alias.eq_ind is unsealed
 Expands to: Constant PrintInfos.Alias.eq_ind (syntactically equal to
 Coq.Init.Logic.eq_ind)
 fst : forall A B : Type, prod A B -> A
@@ -127,12 +127,12 @@ fst : forall A B : Type, prod A B -> A
 fst is not universe polymorphic
 fst is a projection of prod
 Arguments fst (A B)%type_scope p
-fst is transparent
+fst is unsealed
 Expands to: Constant PrintInfos.AboutProj.fst
 fst : forall A B : Type, prod A B -> A
 
 fst is not universe polymorphic
 fst is a primitive projection of prod
 Arguments fst (A B)%type_scope p
-fst is transparent
+fst is unsealed
 Expands to: Constant PrintInfos.AboutPrimProj.fst

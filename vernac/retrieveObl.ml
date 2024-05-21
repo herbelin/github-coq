@@ -249,7 +249,7 @@ let retrieve_obligations env name evm fs ?deps ?status t ty =
             match status with
             | Some o -> o
             | None ->
-              Evar_kinds.Define (not (Program.get_proofs_transparency ())) )
+              Evar_kinds.Define (not (Program.get_proofs_unsealedness ())) )
         in
         let force_status, status, chop =
           match status with

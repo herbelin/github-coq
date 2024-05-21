@@ -363,7 +363,7 @@ end = struct
 
   let constant_value_in u = function
     | Def b -> injectu b u
-    | OpaqueDef _ -> raise (NotEvaluableConst Opaque)
+    | SealedDef _ -> raise (NotEvaluableConst Sealed)
     | Undef _ -> raise (NotEvaluableConst NoBody)
     | Primitive p -> raise (NotEvaluableConst (IsPrimitive (u,p)))
     | Symbol _ -> assert false
@@ -1811,7 +1811,7 @@ let rec knr : 'a. _ -> _ -> pat_state: 'a depth -> _ -> _ -> 'a =
             red_ret = knr_ret;
           } in
           RedPattern.match_symbol red info tab ~pat_state fl (u, b, r) stk
-        | Undef _ | OpaqueDef _ -> (set_ntrl m; knr_ret info tab ~pat_state (m,stk)))
+        | Undef _ | SealedDef _ -> (set_ntrl m; knr_ret info tab ~pat_state (m,stk)))
   | FConstruct c ->
      let use_match = red_set info.i_flags fMATCH in
      let use_fix = red_set info.i_flags fFIX in
@@ -2143,4 +2143,4 @@ let unfold_ref_with_args infos tab fl v =
     Some (a, (Zupdate a::(Zprimitive(op,c,rargs,nargs)::v)))
   | Symbol (u, b, r) ->
     RedPattern.match_symbol knred (infos_with_reds infos all) tab ~pat_state:(RedPattern.Nil Yes) fl (u, b, r) v
-  | Undef _ | OpaqueDef _ | Primitive _ -> None
+  | Undef _ | SealedDef _ | Primitive _ -> None

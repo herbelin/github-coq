@@ -16,5 +16,5 @@ Nat.pow : nat -> nat -> nat
 
 Nat.pow is not universe polymorphic
 Arguments Nat.pow (n m)%nat_scope
-Nat.pow is transparent
+Nat.pow is unsealed
 Expands to: Constant Coq.Init.Nat.pow

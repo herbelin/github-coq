@@ -110,7 +110,7 @@ let eval_flexible_term ts env evd c sk =
                (delta) step. *)
             let unf = unfold_projection_under_eta env evd ts c def in
             Some (Option.default def unf, sk)
-        | OpaqueDef _ | Undef _ | Primitive _ -> None
+        | SealedDef _ | Undef _ | Primitive _ -> None
         | Symbol b ->
             try
             let r = match Cmap_env.find_opt c env.symb_pats with Some r -> r | None -> assert false in

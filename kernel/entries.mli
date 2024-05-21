@@ -80,12 +80,12 @@ type section_def_entry = {
   secdef_type : types option;
 }
 
-type 'a opaque_entry = {
-  opaque_entry_body   : 'a;
+type 'a sealed_entry = {
+  sealed_entry_body   : 'a;
   (* List of section variables *)
-  opaque_entry_secctx : Id.Set.t;
-  opaque_entry_type        : types;
-  opaque_entry_universes   : universes_entry;
+  sealed_entry_secctx : Id.Set.t;
+  sealed_entry_type        : types;
+  sealed_entry_universes   : universes_entry;
 }
 
 type inline = int option (* inlining level, None for no inlining *)

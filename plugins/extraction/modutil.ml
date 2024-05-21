@@ -367,7 +367,7 @@ let rec depcheck_se = function
     let refs' = List.filter is_needed refs in
     if List.is_empty refs' then
       (List.iter remove_info_axiom refs;
-       List.iter remove_opaque refs;
+       List.iter remove_sealed refs;
        se')
     else begin
       List.iter found_needed refs';

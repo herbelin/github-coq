@@ -40,10 +40,10 @@ let name_op_to_name ~name_op ~name suffix =
   | Some s -> s
   | None -> Nameops.add_suffix name suffix
 
-let declare_abstract = ref (fun ~name ~poly ~kind ~sign ~secsign ~opaque ~solve_tac sigma concl ->
+let declare_abstract = ref (fun ~name ~poly ~kind ~sign ~secsign ~sealed ~solve_tac sigma concl ->
   CErrors.anomaly (Pp.str "Abstract declaration hook not registered"))
 
-let cache_term_by_tactic_then ~opaque ~name_op ?(goal_type=None) tac tacK =
+let cache_term_by_tactic_then ~sealed ~name_op ?(goal_type=None) tac tacK =
   let open Tacticals in
   let open Tacmach in
   let open Proofview.Notations in
@@ -54,7 +54,7 @@ let cache_term_by_tactic_then ~opaque ~name_op ?(goal_type=None) tac tacK =
      redundancy on constant declaration. This opens up an interesting
      question, how does abstract behave when discharge is local for example?
   *)
-  let suffix, kind = if opaque
+  let suffix, kind = if sealed
     then "_subproof", Decls.(IsProof Lemma)
     else "_subterm", Decls.(IsDefinition Definition)
   in
@@ -85,7 +85,7 @@ let cache_term_by_tactic_then ~opaque ~name_op ?(goal_type=None) tac tacK =
          tac)
     in
     let effs, sigma, lem, args, safe =
-      !declare_abstract ~name ~poly ~sign ~secsign ~kind ~opaque ~solve_tac sigma concl
+      !declare_abstract ~name ~poly ~sign ~secsign ~kind ~sealed ~solve_tac sigma concl
     in
     let solve =
       Proofview.tclEFFECTS effs <*>
@@ -95,8 +95,8 @@ let cache_term_by_tactic_then ~opaque ~name_op ?(goal_type=None) tac tacK =
     Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma) tac
   end
 
-let abstract_subproof ~opaque tac =
-  cache_term_by_tactic_then ~opaque tac (fun lem args -> Tactics.exact_no_check (applist (lem, args)))
+let abstract_subproof ~sealed tac =
+  cache_term_by_tactic_then ~sealed tac (fun lem args -> Tactics.exact_no_check (applist (lem, args)))
 
-let tclABSTRACT ?(opaque=true) name_op tac =
-  abstract_subproof ~opaque ~name_op tac
+let tclABSTRACT ?(sealed=true) name_op tac =
+  abstract_subproof ~sealed ~name_op tac

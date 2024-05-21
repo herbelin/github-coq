@@ -1508,7 +1508,7 @@ let is_not_strict t =
    Furthermore we don't expand fixpoints.
 
    Moreover, as mentioned by X. Leroy (bug #2241),
-   inlining a constant from inside an opaque module might
+   inlining a constant from inside an sealed module might
    break types. To avoid that, we require below that
    both [r] and its body are globally visible. This isn't
    fully satisfactory, since [r] might not be visible (functor),

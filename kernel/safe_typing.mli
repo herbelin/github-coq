@@ -72,16 +72,16 @@ val is_joined_environment : safe_environment -> bool
 
 type global_declaration =
 | ConstantEntry : Entries.constant_entry -> global_declaration
-| OpaqueEntry : unit Entries.opaque_entry -> global_declaration
+| OpaqueEntry : unit Entries.sealed_entry -> global_declaration
 
 type side_effect_declaration =
 | DefinitionEff : Entries.definition_entry -> side_effect_declaration
-| OpaqueEff : Constr.constr Entries.opaque_entry -> side_effect_declaration
+| SealedEff : Constr.constr Entries.sealed_entry -> side_effect_declaration
 
-type exported_opaque
-type exported_private_constant = Constant.t * exported_opaque option
+type exported_sealed
+type exported_private_constant = Constant.t * exported_sealed option
 
-val repr_exported_opaque : exported_opaque -> Opaqueproof.opaque_handle * Opaqueproof.opaque_proofterm
+val repr_exported_sealed : exported_sealed -> Sealedproof.sealed_handle * Sealedproof.sealed_proofterm
 
 val export_private_constants :
   private_constants ->
@@ -100,29 +100,29 @@ val add_private_constant :
 
 (** Witness that a delayed Qed hole has a proof. This datatype is marshallable
     but care must be taken to marshal it at the same time as the environment
-    it is referring to, since {!fill_opaque} relies on a shared pointer between
+    it is referring to, since {!fill_sealed} relies on a shared pointer between
     the environment and the certificate. *)
-type opaque_certificate
+type sealed_certificate
 
 (** Check that the provided proof is correct for the corresponding handle. This
-    does not modify the environment. Call {!fill_opaque} below for that. *)
-val check_opaque : safe_environment -> Opaqueproof.opaque_handle ->
-  private_constants Entries.proof_output -> opaque_certificate
+    does not modify the environment. Call {!fill_sealed} below for that. *)
+val check_sealed : safe_environment -> Sealedproof.sealed_handle ->
+  private_constants Entries.proof_output -> sealed_certificate
 
-(** Given an already checked proof for an opaque hole, actually fill it with the
+(** Given an already checked proof for an sealed hole, actually fill it with the
     proof. This might fail if the current set of global universes is
-    inconsistent with the one at the time of the call to {!check_opaque}.
+    inconsistent with the one at the time of the call to {!check_sealed}.
     Precondition: the underlying handle must exist and must not have been
     filled. *)
-val fill_opaque : opaque_certificate -> safe_transformer0
+val fill_sealed : sealed_certificate -> safe_transformer0
 
 (** Check whether a handle was filled. It assumes that the handle was introduced
-    in the opaque table and throws an anomaly otherwise. *)
-val is_filled_opaque : Opaqueproof.opaque_handle -> safe_environment -> bool
+    in the sealed table and throws an anomaly otherwise. *)
+val is_filled_sealed : Sealedproof.sealed_handle -> safe_environment -> bool
 
 (** Get the proof term that was checked by the kernel. *)
-val repr_certificate : opaque_certificate ->
-  Constr.t * Univ.ContextSet.t Opaqueproof.delayed_universes
+val repr_certificate : sealed_certificate ->
+  Constr.t * Univ.ContextSet.t Sealedproof.delayed_universes
 
 (** {5 Rewrite rules} *)
 

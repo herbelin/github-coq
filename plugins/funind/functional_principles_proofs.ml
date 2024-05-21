@@ -832,7 +832,7 @@ let generate_equation_lemma env evd fnames f fun_num nb_params nb_args rec_args_
   in
   let f_body = match f_def.const_body with
   | Def d -> d
-  | OpaqueDef _ | Primitive _ | Symbol _ | Undef _ ->
+  | SealedDef _ | Primitive _ | Symbol _ | Undef _ ->
     CErrors.user_err (Pp.str "Definition without a body")
   in
   let f_body = EConstr.of_constr f_body in
@@ -889,8 +889,7 @@ let generate_equation_lemma env evd fnames f fun_num nb_params nb_args rec_args_
   let lemma = Declare.Proof.start ~cinfo ~info evd in
   let lemma, _ = Declare.Proof.by prove_replacement lemma in
   let (_ : _ list) =
-    Declare.Proof.save_regular ~proof:lemma ~opaque:Vernacexpr.Transparent
-      ~idopt:None
+    Declare.Proof.save_regular ~proof:lemma ~sealed:false ~idopt:None
   in
   evd
 
@@ -1002,7 +1001,7 @@ let prove_princ_for_struct (evd : Evd.evar_map ref) interactive_proof fun_num
           Tacred.cbv_norm_flags ~strong:true
             (RedFlags.mkflags [RedFlags.fZETA])
             env sigma (EConstr.of_constr body)
-        | Undef _ | Primitive _ | Symbol _ | OpaqueDef _ -> user_err Pp.(str "Cannot define a principle over an axiom ")
+        | Undef _ | Primitive _ | Symbol _ | SealedDef _ -> user_err Pp.(str "Cannot define a principle over an axiom ")
       in
       let fbody = get_body fnames.(fun_num) in
       let f_ctxt, f_body = decompose_lambda sigma fbody in

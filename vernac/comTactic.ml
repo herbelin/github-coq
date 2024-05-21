@@ -74,7 +74,7 @@ let check_par_applicable pstate =
 let par_implementation = ref (fun ~pstate ~info t ~abstract ~with_end_tac ->
   let t = interp_tac t in
   let t = Proofview.Goal.enter (fun _ ->
-    if abstract then Abstract.tclABSTRACT None ~opaque:true t else t) 
+    if abstract then Abstract.tclABSTRACT None ~sealed:true t else t) 
   in
   solve_core ~pstate Goal_select.SelectAll ~info t ~with_end_tac)
 

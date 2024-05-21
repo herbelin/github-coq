@@ -773,7 +773,7 @@ and lambda_of_app cache env sigma f args =
           in
           let args = Array.mapi mapi args in
           mkLapp (Lconst (kn, u)) args
-      | OpaqueDef _ | Undef _ | Symbol _ ->
+      | SealedDef _ | Undef _ | Symbol _ ->
           mkLapp (Lconst (kn, u)) (lambda_of_args cache env sigma 0 args)
       end
   | Construct ((ind,_ as c),_) ->

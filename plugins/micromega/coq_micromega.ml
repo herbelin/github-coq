@@ -1961,7 +1961,7 @@ let micromega_gen parse_arith pre_process cnf spec dumpexpr prover tac =
 (*tclABSTRACT fails in certain corner cases.*)
 Tacticals.tclTHEN
            clear_all_no_check
-           (Abstract.tclABSTRACT ~opaque:false None (Tacticals.tclTHEN tac_arith tac)) in *)
+           (Abstract.tclABSTRACT ~sealed:false None (Tacticals.tclTHEN tac_arith tac)) in *)
           Tacticals.tclTHEN
             (Tactics.assert_by (Names.Name goal_name) arith_goal
                (*Proofview.tclTIME  (Some "kill_arith")*) kill_arith)

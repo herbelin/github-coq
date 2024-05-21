@@ -28,7 +28,7 @@
 
 *)
 
-type vernac_keep_as = VtKeepAxiom | VtKeepDefined | VtKeepOpaque
+type vernac_keep_as = VtKeepAxiom | VtKeepDefined | VtKeepSealed
 
 type vernac_qed_type = VtKeep of vernac_keep_as | VtDrop
 
@@ -55,11 +55,11 @@ type vernac_classification =
   | VtProofMode of Pvernac.proof_mode
   (* To be removed *)
   | VtMeta
-and vernac_start = opacity_guarantee * Names.Id.t list
+and vernac_start = sealedness_guarantee * Names.Id.t list
 and vernac_sideff_type = Names.Id.t list * vernac_when
-and opacity_guarantee =
-  | GuaranteesOpacity (** Only generates opaque terms at [Qed] *)
-  | Doesn'tGuaranteeOpacity (** May generate transparent terms even with [Qed].*)
+and sealedness_guarantee =
+  | GuaranteesSealedness (** Only generates sealed terms at [Qed] *)
+  | Doesn'tGuaranteeSealedness (** May generate unsealed terms even with [Qed].*)
 
 and solving_tac = bool (** a terminator *)
 

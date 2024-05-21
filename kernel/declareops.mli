@@ -40,7 +40,7 @@ val constant_is_polymorphic : ('a, 'b) pconstant_body -> bool
 (** Return the universe context, in case the definition is polymorphic, otherwise
     the context is empty. *)
 
-val is_opaque : ('a, 'b) pconstant_body -> bool
+val is_sealed : ('a, 'b) pconstant_body -> bool
 
 (** {6 Inductive types} *)
 

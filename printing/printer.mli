@@ -217,8 +217,8 @@ type axiom =
 type context_object =
   | Variable of Id.t (* A section variable or a Let definition *)
   | Axiom of axiom * (Label.t * Constr.rel_context * types) list
-  | Opaque of Constant.t     (* An opaque constant. *)
-  | Transparent of Constant.t
+  | Sealed of Constant.t     (* A sealed constant. *)
+  | Unsealed of Constant.t
 
 module ContextObjectSet : Set.S with type elt = context_object
 module ContextObjectMap : CMap.ExtS

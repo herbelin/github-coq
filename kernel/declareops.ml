@@ -77,13 +77,13 @@ let constant_is_polymorphic cb =
 
 let constant_has_body cb = match cb.const_body with
   | Undef _ | Primitive _ | Symbol _ -> false
-  | Def _ | OpaqueDef _ -> true
+  | Def _ | SealedDef _ -> true
 
 let constant_polymorphic_context cb =
   universes_context cb.const_universes
 
-let is_opaque cb = match cb.const_body with
-  | OpaqueDef _ -> true
+let is_sealed cb = match cb.const_body with
+  | SealedDef _ -> true
   | Undef _ | Def _ | Primitive _ | Symbol _ -> false
 
 (** {7 Constant substitutions } *)
@@ -102,7 +102,7 @@ let subst_const_type subst arity =
 let subst_const_def subst def = match def with
   | Undef _ | Primitive _ | Symbol _ -> def
   | Def c -> Def (subst_mps subst c)
-  | OpaqueDef o -> OpaqueDef (Opaqueproof.subst_opaque subst o)
+  | SealedDef o -> SealedDef (Sealedproof.subst_sealed subst o)
 
 let subst_const_body subst cb =
   (* we're outside sections *)
@@ -142,7 +142,7 @@ let hcons_const_def = function
   | Symbol r -> Symbol r
   | Def l_constr ->
     Def (Constr.hcons l_constr)
-  | OpaqueDef _ as x -> x (* hashconsed when turned indirect *)
+  | SealedDef _ as x -> x (* hashconsed when turned indirect *)
 
 let hcons_universes cbu =
   match cbu with

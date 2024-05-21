@@ -3,21 +3,21 @@ bar : foo -> nat
 bar is not universe polymorphic
 bar is a projection of foo
 Arguments bar id
-bar is transparent
+bar is unsealed
 Expands to: Constant InductiveMainName.bar
 bar' : foo' -> nat
 
 bar' is not universe polymorphic
 bar' is a projection of foo'
 Arguments bar' {id'}
-bar' is transparent
+bar' is unsealed
 Expands to: Constant InductiveMainName.bar'
 bar'' : foo'' -> foo''
 
 bar'' is not universe polymorphic
 bar'' is a projection of foo''
 Arguments bar'' id''
-bar'' is transparent
+bar'' is unsealed
 Expands to: Constant InductiveMainName.bar''
 Record foo''' : Set := Build_foo''' { bar''' : nat } as id.
 

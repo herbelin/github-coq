@@ -124,7 +124,7 @@ let do_definition ?hook ~name ?scope ?clearbody ~poly ?typing_flags ~kind ?using
   let cinfo = Declare.CInfo.make ~name ~impargs ~typ:types () in
   let info = Declare.Info.make ?scope ?clearbody ~kind ?hook ~udecl ~poly ?typing_flags ?user_warns () in
   let _ : Names.GlobRef.t =
-    Declare.declare_definition ~info ~cinfo ~opaque:false ~body ?using evd
+    Declare.declare_definition ~info ~cinfo ~sealed:false ~body ?using evd
   in ()
 
 let do_definition_program ?hook ~pm ~name ~scope ?clearbody ~poly ?typing_flags ~kind ?using ?user_warns udecl bl red_option c ctypopt =

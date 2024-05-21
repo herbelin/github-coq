@@ -154,7 +154,7 @@ let decl_constant name univs c =
   UnsafeMonomorphic.mkConst
     (declare_constant ~name
        ~kind:Decls.(IsProof Lemma)
-       (DefinitionEntry (definition_entry ~opaque:true ~types ~univs c)))
+       (DefinitionEntry (definition_entry ~sealed:true ~types ~univs c)))
 
 let decl_constant na suff univs c =
   let na = Namegen.next_global_ident_away (Nameops.add_suffix na suff) Id.Set.empty in

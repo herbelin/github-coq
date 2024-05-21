@@ -54,8 +54,7 @@ let declare_fun name kind ?univs value =
 
 let defined lemma =
   let (_ : _ list) =
-    Declare.Proof.save_regular ~proof:lemma ~opaque:Vernacexpr.Transparent
-      ~idopt:None
+    Declare.Proof.save_regular ~proof:lemma ~sealed:false ~idopt:None
   in
   ()
 
@@ -1378,15 +1377,14 @@ let build_new_goal_type lemma =
   let res = build_and_l sigma sub_gls_types in
   (sigma, res)
 
-let is_opaque_constant c =
+let is_sealed_constant c =
   let cb = Global.lookup_constant c in
-  let open Vernacexpr in
   match cb.Declarations.const_body with
-  | Declarations.OpaqueDef _ -> Opaque
-  | Declarations.Undef _ -> Opaque
-  | Declarations.Def _ -> Transparent
-  | Declarations.Primitive _ -> Opaque
-  | Declarations.Symbol _ -> Opaque
+  | Declarations.SealedDef _ -> true
+  | Declarations.Undef _ -> true
+  | Declarations.Def _ -> false
+  | Declarations.Primitive _ -> true
+  | Declarations.Symbol _ -> true
 
 let open_new_goal ~lemma build_proof sigma using_lemmas ref_ goal_name
     (gls_type, decompose_and_tac, nb_goal) =
@@ -1404,11 +1402,11 @@ let open_new_goal ~lemma build_proof sigma using_lemmas ref_ goal_name
   if Termops.occur_existential sigma gls_type then
     CErrors.user_err Pp.(str "\"abstract\" cannot handle existentials");
   let hook _ =
-    let opacity =
+    let sealedness =
       let na_ref = qualid_of_ident na in
       let na_global = Smartlocate.global_with_alias na_ref in
       match na_global with
-      | GlobRef.ConstRef c -> is_opaque_constant c
+      | GlobRef.ConstRef c -> is_sealed_constant c
       | _ -> anomaly ~label:"equation_lemma" (Pp.str "not a constant.")
     in
     (* funind does not support univ poly *)
@@ -1458,7 +1456,7 @@ let open_new_goal ~lemma build_proof sigma using_lemmas ref_ goal_name
     in
     let lemma = build_proof env (Evd.from_env env) start_tac end_tac in
     let (_ : _ list) =
-      Declare.Proof.save_regular ~proof:lemma ~opaque:opacity ~idopt:None
+      Declare.Proof.save_regular ~proof:lemma ~sealed:sealedness ~idopt:None
     in
     ()
   in
@@ -1556,9 +1554,9 @@ let start_equation (f : GlobRef.t) (term_f : GlobRef.t)
 let com_eqn uctx nb_arg eq_name functional_ref f_ref terminate_ref
     equation_lemma_type =
   let open CVars in
-  let opacity =
+  let sealedness =
     match terminate_ref with
-    | GlobRef.ConstRef c -> is_opaque_constant c
+    | GlobRef.ConstRef c -> is_sealed_constant c
     | _ -> anomaly ~label:"terminate_lemma" (Pp.str "not a constant.")
   in
   let evd = Evd.from_ctx uctx in
@@ -1608,7 +1606,7 @@ let com_eqn uctx nb_arg eq_name functional_ref f_ref terminate_ref
     Flags.silently
       (fun () ->
         let (_ : _ list) =
-          Declare.Proof.save_regular ~proof:lemma ~opaque:opacity ~idopt:None
+          Declare.Proof.save_regular ~proof:lemma ~sealed:sealedness ~idopt:None
         in
         ())
       ()

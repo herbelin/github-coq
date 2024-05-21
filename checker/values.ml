@@ -213,8 +213,8 @@ let v_expand_info =
 let v_cooking_info =
   Tuple ("cooking_info", [|v_expand_info; v_abstr_info|])
 
-let v_opaque =
-  v_sum "opaque" 0 [|[|List v_subst; List v_cooking_info; v_dp; Int|]|]
+let v_sealed =
+  v_sum "sealed" 0 [|[|List v_subst; List v_cooking_info; v_dp; Int|]|]
 
 (** kernel/declarations *)
 
@@ -242,7 +242,7 @@ let v_primitive =
 
 let v_cst_def =
   v_sum "constant_def" 0
-    [|[|Opt Int|]; [|v_constr|]; [|v_opaque|]; [|v_primitive|]; [|v_bool|]|]
+    [|[|Opt Int|]; [|v_constr|]; [|v_sealed|]; [|v_primitive|]; [|v_bool|]|]
 
 let v_typing_flags =
   v_tuple "typing_flags"
@@ -515,8 +515,8 @@ let v_lib =
 let v_delayed_universes =
   Sum ("delayed_universes", 0, [| [| v_unit |]; [| v_context_set |] |])
 
-let v_opaquetable = Array (Opt (v_pair v_constr v_delayed_universes))
-let v_univopaques =
-  Opt (Tuple ("univopaques",[|v_context_set;v_bool|]))
+let v_sealedtable = Array (Opt (v_pair v_constr v_delayed_universes))
+let v_univsealeds =
+  Opt (Tuple ("univsealeds",[|v_context_set;v_bool|]))
 
 let v_vmlib = v_tuple "vmlibrary" [|v_dp; Array v_vm_to_patch|]

@@ -234,7 +234,7 @@ let add_inversion_lemma ~poly name env sigma t sort dep inv_op =
   let cinfo = Declare.CInfo.make ~name ~typ:None () in
   let info = Declare.Info.make ~poly ~kind:Decls.(IsProof Lemma) () in
   let _ : Names.GlobRef.t =
-    Declare.declare_definition ~cinfo ~info ~opaque:false ~body:invProof sigma
+    Declare.declare_definition ~cinfo ~info ~sealed:false ~body:invProof sigma
   in
   ()
 

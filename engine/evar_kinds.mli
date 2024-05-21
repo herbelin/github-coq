@@ -12,8 +12,8 @@ open Names
 
 (** The kinds of existential variable *)
 
-(** Should the obligation be defined (opaque or transparent (default)) or
-    defined transparent and expanded in the term? *)
+(** Should the obligation be defined (sealed or unsealed (default)) or
+    defined unsealed and expanded in the term? *)
 
 type obligation_definition_status = Define of bool | Expand
 

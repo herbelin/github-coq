@@ -101,7 +101,7 @@ val activate_observer : observer -> unit
 
 val deactivate_observer : observer -> unit
 
-(** Setting opacity *)
+(** Setting sealedness *)
 
 val set_typeclass_transparency
   :  locality:Hints.hint_locality

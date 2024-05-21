@@ -23,7 +23,7 @@ let string_of_vernac_classification = function
   | VtStartProof _ -> "StartProof"
   | VtSideff (_,w) -> "Sideff"^" "^(string_of_vernac_when w)
   | VtQed (VtKeep VtKeepAxiom) -> "Qed(admitted)"
-  | VtQed (VtKeep (VtKeepOpaque | VtKeepDefined)) -> "Qed(keep)"
+  | VtQed (VtKeep (VtKeepSealed | VtKeepDefined)) -> "Qed(keep)"
   | VtQed VtDrop -> "Qed(drop)"
   | VtProofStep {  proof_block_detection } ->
       "ProofStep " ^ Option.default "" proof_block_detection
@@ -31,9 +31,9 @@ let string_of_vernac_classification = function
   | VtMeta -> "Meta "
   | VtProofMode _ -> "Proof Mode"
 
-let vtkeep_of_opaque = function
-  | Opaque -> VtKeepOpaque
-  | Transparent -> VtKeepDefined
+let vtkeep_of_proof_end = function
+  | Qed -> VtKeepSealed
+  | Defined -> VtKeepDefined
 
 let idents_of_name : Names.Name.t -> Names.Id.t list =
   function
@@ -90,8 +90,8 @@ let classify_vernac e =
     (* Qed *)
     | VernacAbort -> VtQed VtDrop
     | VernacEndProof Admitted -> VtQed (VtKeep VtKeepAxiom)
-    | VernacEndProof (Proved (opaque,_)) -> VtQed (VtKeep (vtkeep_of_opaque opaque))
-    | VernacExactProof _ -> VtQed (VtKeep VtKeepOpaque)
+    | VernacEndProof (Proved (proof_end,_)) -> VtQed (VtKeep (vtkeep_of_proof_end proof_end))
+    | VernacExactProof _ -> VtQed (VtKeep VtKeepSealed)
     (* Query *)
     | VernacShow _ | VernacPrint _ | VernacSearch _ | VernacLocate _
     | VernacGlobalCheck _ | VernacCheckMayEval _ -> VtQuery
@@ -107,22 +107,22 @@ let classify_vernac e =
         VtProofStep { proof_block_detection = Some "curly" }
     (* StartProof *)
     | VernacDefinition ((DoDischarge,_),({v=i},_),ProveBody _) ->
-      VtStartProof(Doesn'tGuaranteeOpacity, idents_of_name i)
+      VtStartProof(Doesn'tGuaranteeSealedness, idents_of_name i)
 
     | VernacDefinition (_,({v=i},_),ProveBody _) ->
       let polymorphic = Attributes.(parse_drop_extra polymorphic atts) in
-      let guarantee = if polymorphic then Doesn'tGuaranteeOpacity else GuaranteesOpacity in
+      let guarantee = if polymorphic then Doesn'tGuaranteeSealedness else GuaranteesSealedness in
       VtStartProof(guarantee, idents_of_name i)
     | VernacStartTheoremProof (_,l) ->
       let polymorphic = Attributes.(parse_drop_extra polymorphic atts) in
       let ids = List.map (fun (({v=i}, _), _) -> i) l in
-      let guarantee = if polymorphic then Doesn'tGuaranteeOpacity else GuaranteesOpacity in
+      let guarantee = if polymorphic then Doesn'tGuaranteeSealedness else GuaranteesSealedness in
       VtStartProof (guarantee,ids)
     | VernacFixpoint (discharge,l) ->
       let polymorphic = Attributes.(parse_drop_extra polymorphic atts) in
        let guarantee =
-         if discharge = DoDischarge || polymorphic then Doesn'tGuaranteeOpacity
-         else GuaranteesOpacity
+         if discharge = DoDischarge || polymorphic then Doesn'tGuaranteeSealedness
+         else GuaranteesSealedness
        in
         let ids, open_proof =
           List.fold_left (fun (l,b) {Vernacexpr.fname={CAst.v=id}; body_def} ->
@@ -133,8 +133,8 @@ let classify_vernac e =
     | VernacCoFixpoint (discharge,l) ->
       let polymorphic = Attributes.(parse_drop_extra polymorphic atts) in
        let guarantee =
-         if discharge = DoDischarge || polymorphic then Doesn'tGuaranteeOpacity
-         else GuaranteesOpacity
+         if discharge = DoDischarge || polymorphic then Doesn'tGuaranteeSealedness
+         else GuaranteesSealedness
        in
         let ids, open_proof =
           List.fold_left (fun (l,b) { Vernacexpr.fname={CAst.v=id}; body_def } ->
@@ -197,7 +197,7 @@ let classify_vernac e =
         VtSideff (idents_of_name name.CAst.v, VtLater)
       else
         let polymorphic = Attributes.(parse_drop_extra polymorphic atts) in
-        let guarantee = if polymorphic then Doesn'tGuaranteeOpacity else GuaranteesOpacity in
+        let guarantee = if polymorphic then Doesn'tGuaranteeSealedness else GuaranteesSealedness in
         VtStartProof (guarantee, idents_of_name name.CAst.v)
     (* Stm will install a new classifier to handle these *)
     | VernacBack _ | VernacAbortAll

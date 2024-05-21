@@ -16,45 +16,45 @@ type 'a delayed_universes =
 | PrivateMonomorphic of 'a
 | PrivatePolymorphic of Univ.ContextSet.t
 
-type opaque_proofterm = Constr.t * unit delayed_universes
+type sealed_proofterm = Constr.t * unit delayed_universes
 
-type opaque =
+type sealed =
 | Indirect of substitution list * cooking_info list * DirPath.t * int (* subst, discharge, lib, index *)
 
-type opaquetab = {
-  opaque_len : int;
+type sealedtab = {
+  sealed_len : int;
   (** Size of the above map *)
-  opaque_dir : DirPath.t;
+  sealed_dir : DirPath.t;
 }
-let empty_opaquetab = {
-  opaque_len = 0;
-  opaque_dir = DirPath.dummy;
+let empty_sealedtab = {
+  sealed_len = 0;
+  sealed_dir = DirPath.dummy;
 }
 
 let repr (Indirect (s, ci, dp, i)) = (s, ci, dp, i)
 
 let create dp tab =
-  let id = tab.opaque_len in
-  let opaque_dir =
-    if DirPath.equal dp tab.opaque_dir then tab.opaque_dir
-    else if DirPath.equal tab.opaque_dir DirPath.dummy then dp
+  let id = tab.sealed_len in
+  let sealed_dir =
+    if DirPath.equal dp tab.sealed_dir then tab.sealed_dir
+    else if DirPath.equal tab.sealed_dir DirPath.dummy then dp
     else CErrors.anomaly
-      (Pp.str "Using the same opaque table for multiple dirpaths.") in
-  let ntab = { opaque_dir; opaque_len = id + 1 } in
+      (Pp.str "Using the same sealed table for multiple dirpaths.") in
+  let ntab = { sealed_dir; sealed_len = id + 1 } in
   Indirect ([], [], dp, id), ntab
 
-let subst_opaque sub = function
+let subst_sealed sub = function
 | Indirect (s, ci, dp, i) -> Indirect (sub :: s, ci, dp, i)
 
-let discharge_opaque info = function
+let discharge_sealed info = function
 | Indirect (s, ci, dp, i) ->
   assert (CList.is_empty s);
   Indirect ([], info :: ci, dp, i)
 
 module HandleMap = Int.Map
 
-type opaque_handle = int
+type sealed_handle = int
 
 let repr_handle i = i
 
-let mem_handle i { opaque_len = n; _ } = i < n
+let mem_handle i { sealed_len = n; _ } = i < n

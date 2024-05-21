@@ -109,7 +109,7 @@ punwrap@{K} : forall A : Type@{K}, PWrap@{K} A -> A
 punwrap is universe polymorphic
 punwrap is a primitive projection of PWrap
 Arguments punwrap A%type_scope p
-punwrap is transparent
+punwrap is unsealed
 Expands to: Constant UnivBinders.punwrap
 File "./output/UnivBinders.v", line 102, characters 0-19:
 The command has indeed failed with message:

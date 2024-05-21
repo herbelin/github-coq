@@ -69,7 +69,7 @@ and is_lazy_constant env cb =
   List.is_empty cb.const_hyps &&
   match cb.const_body with
   | Def body -> is_lazy env body
-  | Undef _ | OpaqueDef _ | Primitive _ | Symbol _ -> false
+  | Undef _ | SealedDef _ | Primitive _ | Symbol _ -> false
 
 and get_const_lazy env c =
   let cb = Environ.lookup_constant c env in

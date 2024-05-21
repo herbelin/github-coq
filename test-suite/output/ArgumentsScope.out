@@ -12,19 +12,19 @@ negb'' : bool -> bool
 
 negb'' is not universe polymorphic
 Arguments negb'' b%bool_scope
-negb'' is transparent
+negb'' is unsealed
 Expands to: Constant ArgumentsScope.A.B.negb''
 negb' : bool -> bool
 
 negb' is not universe polymorphic
 Arguments negb' b%bool_scope
-negb' is transparent
+negb' is unsealed
 Expands to: Constant ArgumentsScope.A.negb'
 negb : bool -> bool
 
 negb is not universe polymorphic
 Arguments negb b%bool_scope
-negb is transparent
+negb is unsealed
 Expands to: Constant Coq.Init.Datatypes.negb
 a : bool -> bool
 
@@ -38,19 +38,19 @@ negb : bool -> bool
 
 negb is not universe polymorphic
 Arguments negb b
-negb is transparent
+negb is unsealed
 Expands to: Constant Coq.Init.Datatypes.negb
 negb' : bool -> bool
 
 negb' is not universe polymorphic
 Arguments negb' b
-negb' is transparent
+negb' is unsealed
 Expands to: Constant ArgumentsScope.A.negb'
 negb'' : bool -> bool
 
 negb'' is not universe polymorphic
 Arguments negb'' b
-negb'' is transparent
+negb'' is unsealed
 Expands to: Constant ArgumentsScope.A.B.negb''
 a : bool -> bool
 
@@ -60,25 +60,25 @@ negb : bool -> bool
 
 negb is not universe polymorphic
 Arguments negb b
-negb is transparent
+negb is unsealed
 Expands to: Constant Coq.Init.Datatypes.negb
 negb' : bool -> bool
 
 negb' is not universe polymorphic
 Arguments negb' b
-negb' is transparent
+negb' is unsealed
 Expands to: Constant ArgumentsScope.negb'
 negb'' : bool -> bool
 
 negb'' is not universe polymorphic
 Arguments negb'' b
-negb'' is transparent
+negb'' is unsealed
 Expands to: Constant ArgumentsScope.negb''
 f : bool -> bool
 
 f is not universe polymorphic
 Arguments f x%A_scope%B_scope
-f is transparent
+f is unsealed
 Expands to: Constant ArgumentsScope.f
 f tt
      : bool
@@ -88,7 +88,7 @@ f : bool -> bool
 
 f is not universe polymorphic
 Arguments f x%B_scope%A_scope
-f is transparent
+f is unsealed
 Expands to: Constant ArgumentsScope.f
 f tt
      : bool
@@ -98,30 +98,30 @@ g : bool -> bool
 
 g is not universe polymorphic
 Arguments g x%A_scope%B_scope
-g is transparent
+g is unsealed
 Expands to: Constant ArgumentsScope.g
 g' : nat -> nat
 
 g' is not universe polymorphic
 Arguments g' x%B_scope%A_scope
-g' is transparent
+g' is unsealed
 Expands to: Constant ArgumentsScope.g'
 g'' : unit -> unit
 
 g'' is not universe polymorphic
 Arguments g'' x%B_scope
-g'' is transparent
+g'' is unsealed
 Expands to: Constant ArgumentsScope.g''
 f : A -> B -> A
 
 f is not universe polymorphic
 Arguments f _%X _%Y
-f is transparent
+f is unsealed
 Expands to: Constant ArgumentsScope.SectionTest1.S.f
 f : A -> B -> A
 
 f is not universe polymorphic
-f is transparent
+f is unsealed
 Expands to: Constant ArgumentsScope.SectionTest1.f
 N.f : A -> A
 

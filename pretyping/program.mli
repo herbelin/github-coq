@@ -41,6 +41,6 @@ val mk_coq_not : Environ.env -> Evd.evar_map -> constr -> Evd.evar_map * constr
 (** Polymorphic application of delayed references *)
 val papp : Environ.env -> evar_map -> (unit -> GlobRef.t) -> constr array -> evar_map * constr
 
-val get_proofs_transparency : unit -> bool
+val get_proofs_unsealedness : unit -> bool
 val is_program_cases : unit -> bool
 val is_program_generalized_coercion : unit -> bool

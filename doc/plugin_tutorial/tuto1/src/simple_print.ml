@@ -1,7 +1,7 @@
 (* A more advanced example of how to explore the structure of terms of
   type constr is given in the coq-dpdgraph plugin. *)
 
-let simple_body_access ~opaque_access gref =
+let simple_body_access ~sealed_access gref =
   let open Names.GlobRef in
   match gref with
   | VarRef _ ->
@@ -14,7 +14,7 @@ let simple_body_access ~opaque_access gref =
     let cb = Environ.lookup_constant cst (Global.env()) in
     (* most commands should not use body_of_constant_body and opaque accessors,
        but for printing it's ok *)
-    match Global.body_of_constant_body opaque_access cb with
+    match Global.body_of_constant_body sealed_access cb with
     | Some(e, _, _) -> EConstr.of_constr e
     | None -> failwith "This term has no value"
 

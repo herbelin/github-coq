@@ -1030,8 +1030,8 @@ type axiom =
 type context_object =
   | Variable of Id.t (* A section variable or a Let definition *)
   | Axiom of axiom * (Label.t * Constr.rel_context * types) list
-  | Opaque of Constant.t     (* An opaque constant. *)
-  | Transparent of Constant.t
+  | Sealed of Constant.t     (* A sealed constant. *)
+  | Unsealed of Constant.t
 
 (* Defines a set of [assumption] *)
 module OrderedContextObject =
@@ -1065,10 +1065,10 @@ struct
     | Axiom (k1,_) , Axiom (k2, _) -> compare_axiom k1 k2
     | Axiom _ , _ -> -1
     | _ , Axiom _ -> 1
-    | Opaque k1 , Opaque k2 -> Constant.CanOrd.compare k1 k2
-    | Opaque _ , _ -> -1
-    | _ , Opaque _ -> 1
-    | Transparent k1 , Transparent k2 -> Constant.CanOrd.compare k1 k2
+    | Sealed k1 , Sealed k2 -> Constant.CanOrd.compare k1 k2
+    | Sealed _ , _ -> -1
+    | _ , Sealed _ -> 1
+    | Unsealed k1 , Unsealed k2 -> Constant.CanOrd.compare k1 k2
 end
 
 module ContextObjectSet = Set.Make (OrderedContextObject)
@@ -1138,14 +1138,14 @@ let pr_assumptionset env sigma s =
             str " to prove" ++ fnl() ++ safe_pr_ltype_relctx (ctx,ty))
           l in
         (v, ax :: a, o, tr)
-      | Opaque kn ->
+      | Sealed kn ->
         let opq = safe_pr_constant env kn ++ safe_pr_ltype env sigma typ in
         (v, a, opq :: o, tr)
-      | Transparent kn ->
+      | Unsealed kn ->
         let tran = safe_pr_constant env kn ++ safe_pr_ltype env sigma typ in
         (v, a, o, tran :: tr)
     in
-    let (vars, axioms, opaque, trans) =
+    let (vars, axioms, sealed, unsealed) =
       ContextObjectMap.fold fold s ([], [], [], [])
     in
     let theory =
@@ -1172,10 +1172,10 @@ let pr_assumptionset env sigma s =
       Some section
     in
     let assums = [
-      opt_list (str "Transparent constants:") trans;
+      opt_list (str "Unsealed constants:") unsealed;
       opt_list (str "Section Variables:") vars;
       opt_list (str "Axioms:") axioms;
-      opt_list (str "Opaque constants:") opaque;
+      opt_list (str "Sealed constants:") sealed;
       opt_list (str "Theory:") theory;
     ] in
     prlist_with_sep fnl (fun x -> x) (Option.List.flatten assums)

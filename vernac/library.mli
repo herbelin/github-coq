@@ -35,7 +35,7 @@ val require_library_syntax_from_dirpath
 (** Segments of a library *)
 type seg_sum
 type seg_lib
-type seg_proofs = Opaques.opaque_disk
+type seg_proofs = Sealed.sealed_disk
 type seg_vm = Vmlibrary.compiled_library
 
 (** End the compilation of a library and save it to a ".vo" file, or a
@@ -66,6 +66,6 @@ val loaded_libraries : unit -> DirPath.t list
 (** {6 Native compiler. } *)
 val native_name_from_filename : string -> string
 
-(** {6 Opaque accessors} *)
+(** {6 Sealed accessors} *)
 val indirect_accessor : Global.indirect_accessor
-[@@deprecated "Most commands should not be accessing opaque data."]
+[@@deprecated "Most commands should not be accessing sealed data."]

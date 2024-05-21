@@ -12,7 +12,7 @@
    a call-by-value conversion algorithm and a lazy reduction machine
    with sharing, Nov 1996 *)
 (* Addition of zeta-reduction (let-in contraction) by Hugo Herbelin, Oct 2000 *)
-(* Irreversibility of opacity by Bruno Barras *)
+(* Irreversibility of sealedness by Bruno Barras *)
 (* Cleaning and lightening of the kernel by Bruno Barras, Nov 2001 *)
 (* Equal inductive types by Jacek Chrzaszcz as part of the module
    system, Aug 2002 *)

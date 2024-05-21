@@ -2302,7 +2302,7 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
           apply_args env loc f args
         end
     | CRecord fs ->
-       let st = Evar_kinds.Define (not (Program.get_proofs_transparency ())) in
+       let st = Evar_kinds.Define (not (Program.get_proofs_unsealedness ())) in
        let fields =
          sort_fields globalenv ~complete:true loc fs
                      (fun _idx fieldname constructorname ->
@@ -2396,7 +2396,7 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
     | CHole k ->
         let k = match k with
         | None ->
-           let st = Evar_kinds.Define (not (Program.get_proofs_transparency ())) in
+           let st = Evar_kinds.Define (not (Program.get_proofs_unsealedness ())) in
            GQuestionMark { Evar_kinds.default_question_mark with Evar_kinds.qm_obligation=st; }
         | Some k -> k
         in

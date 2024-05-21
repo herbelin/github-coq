@@ -33,8 +33,8 @@ val infer_constant :
   sec_univs:UVars.Instance.t option -> env -> constant_entry ->
     ('a, unit) pconstant_body
 
-val infer_opaque :
-  sec_univs:UVars.Instance.t option -> env -> 'a opaque_entry ->
+val infer_sealed :
+  sec_univs:UVars.Instance.t option -> env -> 'a sealed_entry ->
     (unit, unit) pconstant_body * typing_context
 
-val check_delayed : 'a effect_handler -> typing_context -> 'a proof_output -> (Constr.t * Univ.ContextSet.t Opaqueproof.delayed_universes)
+val check_delayed : 'a effect_handler -> typing_context -> 'a proof_output -> (Constr.t * Univ.ContextSet.t Sealedproof.delayed_universes)

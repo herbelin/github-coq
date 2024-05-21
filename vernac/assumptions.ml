@@ -200,7 +200,7 @@ let get_constant_body access kn =
   match cb.const_body with
   | Undef _ | Primitive _ | Symbol _ -> None
   | Def c -> Some c
-  | OpaqueDef o ->
+  | SealedDef o ->
     match Global.force_proof access o with
     | c, _ -> Some c
     | exception e when CErrors.noncritical e -> None (* missing delayed body, e.g. in vok mode *)
@@ -339,7 +339,7 @@ let uses_uip mib =
       && List.length (fst mip.mind_nf_lc.(0)) = List.length mib.mind_params_ctxt)
     mib.mind_packets
 
-let assumptions ?(add_opaque=false) ?(add_transparent=false) access st gr t =
+let assumptions ?(add_sealed=false) ?(add_unsealed=false) access st gr t =
   let open Printer in
   (* Only keep the transitive dependencies *)
   let (_, graph, ax2ty) = traverse access (label_of gr) t in
@@ -369,12 +369,12 @@ let assumptions ?(add_opaque=false) ?(add_transparent=false) access st gr t =
       let t = type_of_constant cb in
       let l = try GlobRef.Map_env.find obj ax2ty with Not_found -> [] in
       ContextObjectMap.add (Axiom (Constant kn,l)) t accu
-    else if add_opaque && (Declareops.is_opaque cb || not (Structures.PrimitiveProjections.is_transparent_constant st kn)) then
+    else if add_sealed && (Declareops.is_sealed cb || not (Structures.PrimitiveProjections.is_transparent_constant st kn)) then
       let t = type_of_constant cb in
-      ContextObjectMap.add (Opaque kn) t accu
-    else if add_transparent then
+      ContextObjectMap.add (Sealed kn) t accu
+    else if add_unsealed then
       let t = type_of_constant cb in
-      ContextObjectMap.add (Transparent kn) t accu
+      ContextObjectMap.add (Unsealed kn) t accu
     else
       accu
   | IndRef (m,_) | ConstructRef ((m,_),_) ->

@@ -123,8 +123,8 @@ type aast = {
 }
 let pr_ast { expr; indentation } = Pp.(int indentation ++ str " " ++ Ppvernac.pr_vernac expr)
 
-(* Commands piercing opaque (probably should be using the vernactypes system instead) *)
-let may_pierce_opaque = function
+(* Commands piercing sealed (probably should be using the vernactypes system instead) *)
+let may_pierce_sealed = function
   | VernacSynPure (VernacPrint _) -> true
   | VernacSynterp (VernacExtend ({ ext_plugin = "coq-core.plugins.extraction" }, _)) -> true
   | _ -> false
@@ -156,7 +156,7 @@ type cmd_t = {
   cblock : proof_block_name option;
   cqueue : cqueue;
   cancel_switch : AsyncTaskQueue.cancel_switch; }
-type fork_t = aast * Vcs_.Branch.t * opacity_guarantee * Names.Id.t list
+type fork_t = aast * Vcs_.Branch.t * sealedness_guarantee * Names.Id.t list
 type qed_t = {
   qast : aast;
   keep : vernac_qed_type;
@@ -1483,11 +1483,11 @@ end = struct (* {{{ *)
             PG_compat.close_future_proof ~feedback_id:stop (Future.from_val proof) in
 
           let st = Vernacstate.freeze_full_state () in
-          let opaque = Opaque in
+          let proof_end_flag = Vernacexpr.Qed in
           try
             let _pstate =
               stm_qed_delay_proof ~st ~id:stop
-                ~proof:pobject ~loc ~control:[] (Proved (opaque,None)) in
+                ~proof:pobject ~loc ~control:[] (Proved (proof_end_flag,None)) in
             ()
           with exn ->
             (* If [stm_qed_delay_proof] fails above we need to use the
@@ -1746,7 +1746,7 @@ type reason =
 | Aborted
 | Alias
 | AlreadyEvaluated
-| Doesn'tGuaranteeOpacity
+| Doesn'tGuaranteeSealedness
 | Immediate
 | MutualProofs
 | NestedProof
@@ -1769,7 +1769,7 @@ let collect_proof keep cur hd brkind id =
    | id :: _ -> Names.Id.to_string id in
  let loc = (snd cur).expr.CAst.loc in
  let is_defined_expr = function
-   | VernacSynPure (VernacEndProof (Proved (Transparent,_))) -> true
+   | VernacSynPure (VernacEndProof (Proved (Defined,_))) -> true
    | _ -> false in
  let is_defined = function
    | _, { expr = e } -> is_defined_expr e.CAst.v.expr
@@ -1807,7 +1807,7 @@ let collect_proof keep cur hd brkind id =
     | VernacInclude _
     | VernacRequire _
     | VernacImport _) -> true
-   | ast -> may_pierce_opaque ast in
+   | ast -> may_pierce_sealed ast in
  let parent = function Some (p, _) -> p | None -> assert false in
  let is_empty = function ASync(_,[],_,_) | MaybeASync(_,[],_,_) -> true | _ -> false in
  let rec collect last accn id =
@@ -1822,13 +1822,13 @@ let collect_proof keep cur hd brkind id =
     | SAlias _ -> Sync (no_name,Alias)
     | SFork((_,_,_,_::_::_), _) ->
         Sync (no_name,MutualProofs)
-    | SFork((_,_,Doesn'tGuaranteeOpacity,_), _) ->
-        Sync (no_name,Doesn'tGuaranteeOpacity)
-    | SFork((_,hd',GuaranteesOpacity,ids), _) when has_proof_using last ->
+    | SFork((_,_,Doesn'tGuaranteeSealedness,_), _) ->
+        Sync (no_name,Doesn'tGuaranteeSealedness)
+    | SFork((_,hd',GuaranteesSealedness,ids), _) when has_proof_using last ->
         assert (VCS.Branch.equal hd hd' || VCS.Branch.equal hd VCS.edit_branch);
         let name = name ids in
         ASync (parent last,accn,name,delegate name)
-    | SFork((_, hd', GuaranteesOpacity, ids), _) when
+    | SFork((_, hd', GuaranteesSealedness, ids), _) when
        has_proof_no_using last && not (State.is_cached_and_valid (parent last)) &&
        VCS.is_vos_doc () ->
         assert (VCS.Branch.equal hd hd'||VCS.Branch.equal hd VCS.edit_branch);
@@ -1840,7 +1840,7 @@ let collect_proof keep cur hd brkind id =
         with Not_found ->
           let name = name ids in
           MaybeASync (parent last, accn, name, delegate name))
-    | SFork((_, hd', GuaranteesOpacity, ids), _) ->
+    | SFork((_, hd', GuaranteesSealedness, ids), _) ->
         assert (VCS.Branch.equal hd hd' || VCS.Branch.equal hd VCS.edit_branch);
         let name = name ids in
         MaybeASync (parent last, accn, name, delegate name)
@@ -1874,13 +1874,13 @@ let collect_proof keep cur hd brkind id =
        else make_sync AlreadyEvaluated rc
 
 let string_of_reason = function
-  | Transparent -> "non opaque"
+  | Transparent -> "non sealed"
   | AlreadyEvaluated -> "proof already evaluated"
   | Policy -> "policy"
   | NestedProof -> "contains nested proof"
   | Immediate -> "proof term given explicitly"
   | Aborted -> "aborted proof"
-  | Doesn'tGuaranteeOpacity -> "not a simple opaque lemma"
+  | Doesn'tGuaranteeSealedness -> "not a simple sealed lemma"
   | MutualProofs -> "block of mutually recursive proofs"
   | Alias -> "contains Undo-like command"
   | Print -> "contains Print-like command"
@@ -2087,7 +2087,7 @@ let known_state ~doc ?(redefine_qed=false) ~cache id =
                     in
                     qed.fproof <- Some (Some fp, cancel);
                     let () = match keep' with
-                      | VtKeepAxiom | VtKeepOpaque -> ()
+                      | VtKeepAxiom | VtKeepSealed -> ()
                       | VtKeepDefined ->
                         CErrors.anomaly (Pp.str "Cannot delegate transparent proofs, this is a bug in the STM.")
                     in
@@ -2125,12 +2125,12 @@ let known_state ~doc ?(redefine_qed=false) ~cache id =
                   | VtDrop -> None
                   | VtKeep VtKeepAxiom ->
                       qed.fproof <- Some (None, ref false); None
-                  | VtKeep opaque ->
-                    let opaque = match opaque with
-                      | VtKeepOpaque -> Opaque | VtKeepDefined -> Transparent
+                  | VtKeep sealed ->
+                    let sealed = match sealed with
+                      | VtKeepSealed -> true | VtKeepDefined -> false
                       | VtKeepAxiom -> assert false
                     in
-                    try Some (PG_compat.close_proof ~opaque ~keep_body_ucst_separate:false)
+                    try Some (PG_compat.close_proof ~sealed ~keep_body_ucst_separate:false)
                     with exn ->
                       let iexn = Exninfo.capture exn in
                       Exninfo.iraise (State.exn_on id ~valid:eop iexn)
@@ -2309,7 +2309,7 @@ let rec check_no_err_states ~doc visited id =
 let join ~doc =
   let () = wait ~doc in
   stm_prerr_endline (fun () -> "Joining the environment");
-  let () = Opaques.Summary.join () in
+  let () = Sealed.Summary.join () in
   stm_prerr_endline (fun () -> "Joining Admitted proofs");
   join_admitted_proofs (VCS.get_branch_pos VCS.Branch.master);
   stm_prerr_endline (fun () -> "Checking no error states");
@@ -2430,7 +2430,7 @@ let process_transaction ~doc ?(newtip=Stateid.fresh ()) x c =
           let queue =
             if VCS.is_vos_doc () &&
                VCS.((get_branch head).kind = Master) &&
-               may_pierce_opaque x.expr.CAst.v.expr
+               may_pierce_sealed x.expr.CAst.v.expr
             then SkipQueue
             else MainQueue in
           VCS.commit id (mkTransCmd x [] false queue);

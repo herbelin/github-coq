@@ -52,7 +52,7 @@ Arguments myplus {Z}%type_scope !t (!n m)%nat_scope
   (where some original arguments have been renamed)
 The reduction tactics unfold myplus when the 2nd and
   3rd arguments evaluate to a constructor
-myplus is transparent
+myplus is unsealed
 Expands to: Constant Arguments_renaming.Test1.myplus
 @myplus
      : forall Z : Type, Z -> nat -> nat -> nat
@@ -87,7 +87,7 @@ Arguments myplus {Z}%type_scope !t (!n m)%nat_scope
   (where some original arguments have been renamed)
 The reduction tactics unfold myplus when the 2nd and
   3rd arguments evaluate to a constructor
-myplus is transparent
+myplus is unsealed
 Expands to: Constant Arguments_renaming.myplus
 @myplus
      : forall Z : Type, Z -> nat -> nat -> nat

@@ -18,7 +18,7 @@ DECLARE PLUGIN "coq-core.plugins.derive"
 
 {
 
-let classify_derive_command _ = Vernacextend.(VtStartProof (Doesn'tGuaranteeOpacity,[]))
+let classify_derive_command _ = Vernacextend.(VtStartProof (Doesn'tGuaranteeSealedness,[]))
 
 }
 

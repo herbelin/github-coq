@@ -723,8 +723,9 @@ let vernac_start_proof ~atts kind l =
 let vernac_end_proof ~lemma ~pm = let open Vernacexpr in function
   | Admitted ->
     Declare.Proof.save_admitted ~pm ~proof:lemma
-  | Proved (opaque,idopt) ->
-    let pm, _ = Declare.Proof.save ~pm ~proof:lemma ~opaque ~idopt
+  | Proved (proof_end,idopt) ->
+    let sealed = match proof_end with Defined -> false | Qed -> true in
+    let pm, _ = Declare.Proof.save ~pm ~proof:lemma ~sealed ~idopt
     in pm
 
 let vernac_abort ~lemma:_ ~pm = pm
@@ -733,7 +734,7 @@ let vernac_exact_proof ~lemma ~pm c =
   (* spiwack: for simplicity I do not enforce that "Proof proof_term" is
      called only at the beginning of a proof. *)
   let lemma, status = Declare.Proof.by (Tactics.exact_proof c) lemma in
-  let pm, _ = Declare.Proof.save ~pm ~proof:lemma ~opaque:Opaque ~idopt:None in
+  let pm, _ = Declare.Proof.save ~pm ~proof:lemma ~sealed:true ~idopt:None in
   if not status then Feedback.feedback Feedback.AddedAxiom;
   pm
 
@@ -1839,7 +1840,7 @@ let vernac_set_strategy ~local l =
   let l = List.map (fun (lev,ql) -> (lev,List.map glob_ref ql)) l in
   Redexpr.set_strategy local l
 
-let vernac_set_opacity ~on_proj_constant ~local (v,l) =
+let vernac_set_sealedness ~on_proj_constant ~local (v,l) =
   let local = Option.default true local in
   let glob_ref r =
     match smart_global r with
@@ -1847,7 +1848,7 @@ let vernac_set_opacity ~on_proj_constant ~local (v,l) =
           begin
             match Structures.PrimitiveProjections.find_opt sp with
             | None when on_proj_constant -> user_err Pp.(str
-                "Only compatibility constant opacity can be set this way.")
+                "Only compatibility constant sealedness can be set this way.")
             | None -> Evaluable.EvalConstRef sp
             | Some _ when on_proj_constant -> Evaluable.EvalConstRef sp
             | Some p -> Evaluable.EvalProjectionRef p
@@ -1993,13 +1994,13 @@ let vernac_print =
       let sigma, env = get_current_or_global_context ~pstate in
       f env sigma)
   in
-  let with_proof_env_and_opaques f =
+  let with_proof_env_and_sealeds f =
     let open Vernactypes in
-    let f {proof; opaque_access} =
+    let f {proof; sealed_access} =
       let sigma, env = get_current_or_global_context ~pstate:proof in
-      no_state, f ~opaque_access env sigma
+      no_state, f ~sealed_access env sigma
     in
-    typed_vernac_gen { ignore_state with proof = ReadOpt; opaque_access = Access } f
+    typed_vernac_gen { ignore_state with proof = ReadOpt; sealed_access = Access } f
   in
   function
   | PrintTypingFlags -> with_proof_env @@ fun env _sigma -> pr_typing_flags (Environ.typing_flags env)
@@ -2020,8 +2021,8 @@ let vernac_print =
   | PrintMLLoadPath -> no_state Mltop.print_ml_path
   | PrintMLModules -> no_state Mltop.print_ml_modules
   | PrintDebugGC -> no_state Mltop.print_gc
-  | PrintName (qid,udecl) -> with_proof_env_and_opaques @@ fun ~opaque_access env sigma ->
-    Prettyp.print_name opaque_access env sigma qid udecl
+  | PrintName (qid,udecl) -> with_proof_env_and_sealeds @@ fun ~sealed_access env sigma ->
+    Prettyp.print_name sealed_access env sigma qid udecl
   | PrintGraph -> no_state Prettyp.print_graph
   | PrintClasses -> no_state Prettyp.print_classes
   | PrintTypeclasses -> no_state Prettyp.print_typeclasses
@@ -2060,13 +2061,13 @@ let vernac_print =
     print_about_hyp_globs ref_or_by_not udecl glnumopt
   | PrintImplicit qid -> with_proof_env @@ fun env _sigma ->
     Prettyp.print_impargs env (smart_global qid)
-  | PrintAssumptions (o,t,r) -> with_proof_env_and_opaques @@ fun ~opaque_access env sigma ->
+  | PrintAssumptions (o,t,r) -> with_proof_env_and_sealeds @@ fun ~sealed_access env sigma ->
     (* Prints all the axioms and section variables used by a term *)
     let gr = smart_global r in
     let cstr, _ = UnivGen.fresh_global_instance env gr in
     let st = Conv_oracle.get_transp_state (Environ.oracle env) in
     let nassums =
-      Assumptions.assumptions opaque_access st ~add_opaque:o ~add_transparent:t gr cstr in
+      Assumptions.assumptions sealed_access st ~add_sealed:o ~add_unsealed:t gr cstr in
     Printer.pr_assumptionset env sigma nassums
   | PrintStrategy r -> no_state @@ fun () -> print_strategy r
   | PrintRegistered -> no_state print_registered
@@ -2538,7 +2539,7 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
 
   | VernacSetOpacity (qidl, on_proj_constant) ->
     vtdefault(fun () ->
-        with_locality ~atts (vernac_set_opacity ~on_proj_constant) qidl)
+        with_locality ~atts (vernac_set_sealedness ~on_proj_constant) qidl)
 
   | VernacSetStrategy l ->
     vtdefault(fun () -> with_locality ~atts vernac_set_strategy l)

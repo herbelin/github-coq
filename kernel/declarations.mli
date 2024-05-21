@@ -44,13 +44,13 @@ type ('a, 'b) declaration_arity =
 type inline = int option
 
 (** A constant can have no body (axiom/parameter), or a
-    transparent body, or an opaque one *)
+    transparent body, or an sealed one *)
 
 (* Global declarations (i.e. constants) can be either: *)
-type ('a, 'opaque, 'rules) constant_def =
+type ('a, 'sealed, 'rules) constant_def =
   | Undef of inline                       (** a global assumption *)
   | Def of 'a                             (** or a transparent global definition *)
-  | OpaqueDef of 'opaque                  (** or an opaque global definition *)
+  | SealedDef of 'sealed                  (** or an sealed global definition *)
   | Primitive of CPrimitives.t (** or a primitive operation *)
   | Symbol of 'rules                      (** or a symbol *)
 
@@ -103,11 +103,11 @@ type typing_flags = {
 (** {6 Representation of definitions/assumptions in the kernel } *)
 
 (* some contraints are in constant_constraints, some other may be in
- * the OpaqueDef *)
-type ('opaque, 'bytecode) pconstant_body = {
+ * the SealedDef *)
+type ('sealed, 'bytecode) pconstant_body = {
     const_hyps : Constr.named_context; (** younger hyp at top *)
     const_univ_hyps : UVars.Instance.t;
-    const_body : (Constr.t, 'opaque, bool) constant_def;
+    const_body : (Constr.t, 'sealed, bool) constant_def;
                     (** [bool] is for [unfold_fix] in symbols *)
     const_type : types;
     const_relevance : Sorts.relevance;
@@ -119,7 +119,7 @@ type ('opaque, 'bytecode) pconstant_body = {
                                            type-checking. *)
 }
 
-type constant_body = (Opaqueproof.opaque, Vmlibrary.indirect_code option) pconstant_body
+type constant_body = (Sealedproof.sealed, Vmlibrary.indirect_code option) pconstant_body
 
 (** {6 Representation of mutual inductive types in the kernel } *)
 

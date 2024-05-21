@@ -458,9 +458,9 @@ let visit_vo f =
   let known_segments = [
     "summary", Values.v_libsum;
     "library", Values.v_lib;
-    "universes", Values.v_univopaques;
+    "universes", Values.v_univsealeds;
     "tasks", (Opt Values.v_stm_seg);
-    "opaques", Values.v_opaquetable;
+    "sealeds", Values.v_sealedtable;
   ] in
   let repr =
     if Sys.word_size = 64 then (module ReprMem : S) else (module ReprObj : S)

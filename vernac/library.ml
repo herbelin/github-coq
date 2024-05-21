@@ -51,7 +51,7 @@ let in_delayed f ch ~segment =
   let digest = seg.ObjFile.hash in
   { del_file = f; del_digest = digest; del_off = seg.ObjFile.pos; }, digest
 
-(** Fetching a table of opaque terms at position [pos] in file [f],
+(** Fetching a table of sealed terms at position [pos] in file [f],
     expecting to find first a copy of [digest]. *)
 
 let fetch_delayed del =
@@ -124,7 +124,7 @@ let libraries_loaded_list = Summary.ref [] ~stage:Summary.Stage.Synterp ~name:"L
 
 let loaded_native_libraries = Summary.ref DPset.empty ~stage:Summary.Stage.Interp ~name:"NATIVE-LIBRARY-LOAD"
 
-(* Opaque proof tables *)
+(* Sealed proof tables *)
 
 (* various requests to the tables *)
 
@@ -173,17 +173,17 @@ let register_native_library libname =
 
   let loaded_libraries () = !libraries_loaded_list
 
-(** Delayed / available tables of opaque terms *)
+(** Delayed / available tables of sealed terms *)
 
 type table_status =
-  | ToFetch of Opaques.opaque_disk delayed
-  | Fetched of Opaques.opaque_disk
+  | ToFetch of Sealed.sealed_disk delayed
+  | Fetched of Sealed.sealed_disk
 
-let opaque_tables =
+let sealed_tables =
   ref (DPmap.empty : table_status DPmap.t)
 
-let add_opaque_table dp st =
-  opaque_tables := DPmap.add dp st !opaque_tables
+let add_sealed_table dp st =
+  sealed_tables := DPmap.add dp st !sealed_tables
 
 let access_table what tables dp i =
   let t = match DPmap.find dp !tables with
@@ -202,26 +202,26 @@ let access_table what tables dp i =
       tables := DPmap.add dp (Fetched t) !tables;
       t
   in
-  Opaques.get_opaque_disk i t
+  Sealed.get_sealed_disk i t
 
-let access_opaque_table o =
-  let (sub, ci, dp, i) = Opaqueproof.repr o in
+let access_sealed_table o =
+  let (sub, ci, dp, i) = Sealedproof.repr o in
   let ans =
     if DirPath.equal dp (Global.current_dirpath ()) then
-      Opaques.get_current_opaque i
+      Sealed.get_current_sealed i
     else
-      let what = "opaque proofs" in
-      access_table what opaque_tables dp i
+      let what = "sealed proofs" in
+      access_table what sealed_tables dp i
   in
   match ans with
   | None -> None
   | Some (c, ctx) ->
-    let (c, ctx) = Discharge.cook_opaque_proofterm ci (c, ctx) in
+    let (c, ctx) = Discharge.cook_sealed_proofterm ci (c, ctx) in
     let c = Mod_subst.subst_mps_list sub c in
     Some (c, ctx)
 
 let indirect_accessor = {
-  Global.access_proof = access_opaque_table;
+  Global.access_proof = access_sealed_table;
 }
 
 (************************************************************************)
@@ -229,7 +229,7 @@ let indirect_accessor = {
 
 type seg_sum = summary_disk
 type seg_lib = library_disk
-type seg_proofs = Opaques.opaque_disk
+type seg_proofs = Sealed.sealed_disk
 type seg_vm = Vmlibrary.compiled_library
 
 let mk_library sd md digests vm =
@@ -249,13 +249,13 @@ let mk_summary m = {
 }
 
 let mk_intern_library sum lib digest_lib proofs =
-  add_opaque_table sum.md_name (ToFetch proofs);
+  add_sealed_table sum.md_name (ToFetch proofs);
   let open Safe_typing in
   mk_library sum lib (Dvo_or_vi digest_lib)
 
 let summary_seg : seg_sum ObjFile.id = ObjFile.make_id "summary"
 let library_seg : seg_lib ObjFile.id = ObjFile.make_id "library"
-let opaques_seg : seg_proofs ObjFile.id = ObjFile.make_id "opaques"
+let sealeds_seg : seg_proofs ObjFile.id = ObjFile.make_id "sealeds"
 let vm_seg : seg_vm ObjFile.id = Vmlibrary.vm_segment
 
 let intern_from_file ?loc lib_resolver dir =
@@ -264,7 +264,7 @@ let intern_from_file ?loc lib_resolver dir =
   let ch = raw_intern_library f ?loc in
   let lsd, digest_lsd = ObjFile.marshal_in_segment ch ~segment:summary_seg in
   let lmd, digest_lmd = ObjFile.marshal_in_segment ch ~segment:library_seg in
-  let del_opaque, _ = in_delayed f ch ~segment:opaques_seg in
+  let del_sealed, _ = in_delayed f ch ~segment:sealeds_seg in
   let vmlib = Vmlibrary.load dir ~file:f ch in
   ObjFile.close_in ch;
   System.check_caml_version ~caml:lsd.md_ocaml ~file:f;
@@ -277,7 +277,7 @@ let intern_from_file ?loc lib_resolver dir =
        spc() ++ DirPath.print dir ++ str ".");
   Feedback.feedback (Feedback.FileLoaded(DirPath.to_string dir, f));
   Library_info.warn_library_info ~transitive:true lsd.md_name lsd.md_info;
-  lsd, lmd, digest_lmd, del_opaque, vmlib
+  lsd, lmd, digest_lmd, del_sealed, vmlib
 
 let rec intern_library ~intern (needed, contents as acc) dir =
   (* Look if in the current logical environment *)
@@ -286,8 +286,8 @@ let rec intern_library ~intern (needed, contents as acc) dir =
   (* Look if already listed and consequently its dependencies too *)
   try mk_summary (DPmap.find dir contents), acc
   with Not_found ->
-  let lsd, lmd, digest_lmd, del_opaque, vmlib = intern dir in
-  let m = mk_intern_library lsd lmd digest_lmd del_opaque vmlib in
+  let lsd, lmd, digest_lmd, del_sealed, vmlib = intern dir in
+  let m = mk_intern_library lsd lmd digest_lmd del_sealed vmlib in
   mk_summary m, intern_library_deps ~intern acc dir m
 
 and intern_library_deps ~intern libs dir m =
@@ -442,12 +442,12 @@ type 'doc todo_proofs =
  | ProofsTodoSomeEmpty of Future.UUIDSet.t (* for .vos *)
 
 (* We now use two different digests in a .vo file. The first one
-   only covers half of the file, without the opaque table. It is
+   only covers half of the file, without the sealed table. It is
    used for identifying this version of this library : this digest
    is the one leading to "inconsistent assumptions" messages.
    The other digest comes at the very end, and covers everything
    before it. This one is used for integrity check of the whole
-   file when loading the opaque table. *)
+   file when loading the sealed table. *)
 
 (* Security weakness: file might have been changed on disk between
    writing the content and computing the checksum... *)
@@ -457,7 +457,7 @@ let save_library_base f sum lib proofs vmlib =
   try
     ObjFile.marshal_out_segment ch ~segment:summary_seg sum;
     ObjFile.marshal_out_segment ch ~segment:library_seg lib;
-    ObjFile.marshal_out_segment ch ~segment:opaques_seg proofs;
+    ObjFile.marshal_out_segment ch ~segment:sealeds_seg proofs;
     ObjFile.marshal_out_segment ch ~segment:vm_seg vmlib;
     ObjFile.close_out ch
   with reraise ->
@@ -497,15 +497,15 @@ let save_library_to todo_proofs ~output_native_objects dir f =
     | ProofsTodoNone -> Future.UUIDSet.empty
     | ProofsTodoSomeEmpty except -> except
     in
-  (* Ensure that the call below is performed with all opaques joined *)
-  let () = Opaques.Summary.join ~except () in
-  let opaque_table, f2t_map = Opaques.dump ~except () in
+  (* Ensure that the call below is performed with all sealeds joined *)
+  let () = Sealed.Summary.join ~except () in
+  let sealed_table, f2t_map = Sealed.dump ~except () in
   let () = assert (not (Future.UUIDSet.is_empty except) ||
     Safe_typing.is_joined_environment (Global.safe_env ()))
   in
   let sd, md, vmlib, ast = save_library_struct ~output_native_objects dir in
   (* Writing vo payload *)
-  save_library_base f sd md opaque_table vmlib;
+  save_library_base f sd md sealed_table vmlib;
   (* Writing native code files *)
   if output_native_objects then
     let fn = Filename.dirname f ^"/"^ Nativecode.mod_uid_of_dirpath dir in

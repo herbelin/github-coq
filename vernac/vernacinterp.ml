@@ -117,10 +117,10 @@ let rec interp_expr ?loc ~atts ~st c =
     let fv = Vernacentries.translate_vernac ?loc ~atts v in
     let stack = st.Vernacstate.interp.lemmas in
     let program = st.Vernacstate.interp.program in
-    let {Vernactypes.prog; proof; opaque_access=(); }, () = Vernactypes.run fv {
+    let {Vernactypes.prog; proof; sealed_access=(); }, () = Vernactypes.run fv {
         prog=program;
         proof=stack;
-        opaque_access=();
+        sealed_access=();
       }
     in
     proof, prog

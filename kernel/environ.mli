@@ -214,15 +214,15 @@ val polymorphic_pconstant : pconstant -> env -> bool
 val type_in_type_constant : Constant.t -> env -> bool
 
 (** {6 ... } *)
-(** [constant_value env c] raises [NotEvaluableConst Opaque] if
-   [c] is opaque, [NotEvaluableConst NoBody] if it has no
+(** [constant_value env c] raises [NotEvaluableConst Sealed] if
+   [c] is sealed, [NotEvaluableConst NoBody] if it has no
    body, [NotEvaluableConst IsProj] if [c] is a projection,
    [NotEvaluableConst (IsPrimitive p)] if [c] is primitive [p]
    and an anomaly if it does not exist in [env] *)
 
 type const_evaluation_result =
   | NoBody
-  | Opaque
+  | Sealed
   | IsPrimitive of Instance.t * CPrimitives.t
   | HasRules of Instance.t * bool * rewrite_rule list
 exception NotEvaluableConst of const_evaluation_result

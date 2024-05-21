@@ -233,12 +233,12 @@ and typeclass_context = typeclass_constraint list
 type proof_expr =
   ident_decl * (local_binder_expr list * constr_expr)
 
-type opacity_flag = Opaque | Transparent
+type proof_end_flag = Qed | Defined
 
 type proof_end =
   | Admitted
   (*                         name in `Save ident` when closing goal *)
-  | Proved of opacity_flag * lident option
+  | Proved of proof_end_flag * lident option
 
 type scheme_type =
   | SchemeInduction

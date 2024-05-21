@@ -109,7 +109,7 @@ let push_rels_assum assums =
 
 let get_body lconstr = EConstr.of_constr lconstr
 
-let get_opaque access env c =
+let get_sealed access env c =
   EConstr.of_constr
     (fst (Global.force_proof access c))
 
@@ -389,7 +389,7 @@ let rec extract_type env sg db j c args =
            | (Info, Default) ->
                (* Not an ML type, for example [(c:forall X, X->X) Type nat] *)
                (match (lookup_constant kn env).const_body with
-                 | Undef _  | OpaqueDef _ | Primitive _ | Symbol _ -> Tunknown (* Brutal approx ... *)
+                 | Undef _  | SealedDef _ | Primitive _ | Symbol _ -> Tunknown (* Brutal approx ... *)
                   | Def lbody ->
                       (* We try to reduce. *)
                       let newc = applistc (get_body lbody) args in
@@ -630,7 +630,7 @@ and mlt_env env r = let open GlobRef in match r with
   | ConstRef kn ->
      let cb = Environ.lookup_constant kn env in
      match cb.const_body with
-     | Undef _ | OpaqueDef _ | Primitive _ | Symbol _ -> None
+     | Undef _ | SealedDef _ | Primitive _ | Symbol _ -> None
      | Def l_body ->
         match lookup_typedef kn cb with
         | Some _ as o -> o
@@ -1148,9 +1148,9 @@ let extract_constant access env kn cb =
               | Some p ->
                 let body = fake_match_projection env p in
                 mk_typ (EConstr.of_constr body))
-          | OpaqueDef c ->
-            add_opaque r;
-            if access_opaque () then mk_typ (get_opaque access env c)
+          | SealedDef c ->
+            add_sealed r;
+            if access_sealed () then mk_typ (get_sealed access env c)
             else mk_typ_ax ())
     | (Info,Default) ->
         (match cb.const_body with
@@ -1162,9 +1162,9 @@ let extract_constant access env kn cb =
               | Some p ->
                 let body = fake_match_projection env p in
                 mk_def (EConstr.of_constr body))
-          | OpaqueDef c ->
-            add_opaque r;
-            if access_opaque () then mk_def (get_opaque access env c)
+          | SealedDef c ->
+            add_sealed r;
+            if access_sealed () then mk_def (get_sealed access env c)
             else mk_ax ())
   with SingletonInductiveBecomesProp id ->
     error_singleton_become_prop id (Some (GlobRef.ConstRef kn))
@@ -1182,7 +1182,7 @@ let extract_constant_spec env kn cb =
     | (Info, TypeScheme) ->
         let s,vl = type_sign_vl env sg typ in
         (match cb.const_body with
-          | Undef _ | OpaqueDef _ | Primitive _ | Symbol _ -> Stype (r, vl, None)
+          | Undef _ | SealedDef _ | Primitive _ | Symbol _ -> Stype (r, vl, None)
           | Def body ->
               let db = db_from_sign s in
               let body = get_body body in

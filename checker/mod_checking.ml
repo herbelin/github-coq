@@ -8,7 +8,7 @@ open Environ
 
 (** {6 Checking constants } *)
 
-let indirect_accessor : (Opaqueproof.opaque -> Opaqueproof.opaque_proofterm) ref =
+let indirect_accessor : (Sealedproof.sealed -> Sealedproof.sealed_proofterm) ref =
   ref (fun _ -> assert false)
 
 let set_indirect_accessor f = indirect_accessor := f
@@ -55,11 +55,11 @@ let check_constant_declaration env opac kn cb opacify =
   let body, env = match cb.const_body with
     | Undef _ | Primitive _ | Symbol _ -> None, env
     | Def c -> Some c, env
-    | OpaqueDef o ->
+    | SealedDef o ->
       let c, u = !indirect_accessor o in
       let env = match u, cb.const_universes with
-        | Opaqueproof.PrivateMonomorphic (), Monomorphic -> env
-        | Opaqueproof.PrivatePolymorphic local, Polymorphic _ ->
+        | Sealedproof.PrivateMonomorphic (), Monomorphic -> env
+        | Sealedproof.PrivatePolymorphic local, Polymorphic _ ->
           push_subgraph local env
         | _ -> assert false
       in

@@ -340,7 +340,7 @@ let declare_instance_constant iinfo global impargs ?hook name udecl poly sigma t
   let kind = Decls.(IsDefinition Instance) in
   let cinfo = Declare.CInfo.make ~name ~impargs ~typ:(Some termtype) () in
   let info = Declare.Info.make ~kind ~poly ~udecl () in
-  let kn = Declare.declare_definition ~cinfo ~info ~opaque:false ~body:term sigma in
+  let kn = Declare.declare_definition ~cinfo ~info ~sealed:false ~body:term sigma in
   instance_hook iinfo global ?hook kn
 
 let do_declare_instance sigma ~locality ~poly k u ctx ctx' pri udecl impargs subst name =

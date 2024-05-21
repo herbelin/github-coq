@@ -151,7 +151,7 @@ type t = {
   system  : System.Interp.t;              (* summary + libstack *)
   lemmas  : LemmaStack.t option;   (* proofs of lemmas currently opened *)
   program : Declare.OblState.t NeList.t;    (* obligations table *)
-  opaques : Opaques.Summary.t;     (* opaque proof terms *)
+  sealeds : Sealed.Summary.t;     (* sealed proof terms *)
 }
 
 let invalidate_cache () =
@@ -173,17 +173,17 @@ let freeze_interp_state () =
   { system = update_cache s_cache (System.Interp.freeze ());
     lemmas = !s_lemmas;
     program = !s_program;
-    opaques = Opaques.Summary.freeze ();
+    sealeds = Sealed.Summary.freeze ();
   }
 
 let make_shallow s =
   { s with system = System.Interp.Stm.make_shallow s.system }
 
-let unfreeze_interp_state { system; lemmas; program; opaques } =
+let unfreeze_interp_state { system; lemmas; program; sealeds } =
   do_if_not_cached s_cache System.Interp.unfreeze system;
   s_lemmas := lemmas;
   s_program := program;
-  Opaques.Summary.unfreeze opaques
+  Sealed.Summary.unfreeze sealeds
 
 end
 
@@ -262,9 +262,9 @@ module Declare_ = struct
         cc (fun pt -> Declare.Proof.close_future_proof ~feedback_id pt pf))
       ()
 
-  let close_proof ~opaque ~keep_body_ucst_separate =
+  let close_proof ~sealed ~keep_body_ucst_separate =
     NewProfile.profile "close_proof" (fun () ->
-        cc (fun pt -> Declare.Proof.close_proof ~opaque ~keep_body_ucst_separate pt))
+        cc (fun pt -> Declare.Proof.close_proof ~sealed ~keep_body_ucst_separate pt))
       ()
 
   let discard_all () = s_lemmas := None

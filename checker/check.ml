@@ -49,13 +49,13 @@ let pr_path sp =
 
 type compilation_unit_name = DirPath.t
 
-type seg_proofs = Opaqueproof.opaque_proofterm option array
+type seg_proofs = Sealedproof.sealed_proofterm option array
 
 type library_t = {
   library_name : compilation_unit_name;
   library_filename : CUnix.physical_path;
   library_compiled : Safe_typing.compiled_library;
-  library_opaques : seg_proofs;
+  library_sealeds : seg_proofs;
   library_deps : (compilation_unit_name * Safe_typing.vodigest) array;
   library_digest : Safe_typing.vodigest;
   library_vm : Vmlibrary.on_disk;
@@ -88,26 +88,26 @@ let library_full_filename dir = (find_library dir).library_filename
 let register_loaded_library m =
   libraries_table := LibraryMap.add m.library_name m !libraries_table
 
-(* Map from library names to table of opaque terms *)
-let opaque_tables = ref LibraryMap.empty
+(* Map from library names to table of sealed terms *)
+let sealed_tables = ref LibraryMap.empty
 
-let access_opaque_table dp i =
+let access_sealed_table dp i =
   let t =
-    try LibraryMap.find dp !opaque_tables
+    try LibraryMap.find dp !sealed_tables
     with Not_found -> assert false
   in
-  let i = Opaqueproof.repr_handle i in
+  let i = Sealedproof.repr_handle i in
   let () = assert (0 <= i && i < Array.length t) in
   t.(i)
 
 let indirect_accessor o =
-  let (sub, ci, dp, i) = Opaqueproof.repr o in
-  let c = access_opaque_table dp i in
+  let (sub, ci, dp, i) = Sealedproof.repr o in
+  let c = access_sealed_table dp i in
   let c = match c with
-  | None ->  CErrors.user_err Pp.(str "Cannot access opaque delayed proof.")
+  | None ->  CErrors.user_err Pp.(str "Cannot access sealed delayed proof.")
   | Some c -> c
   in
-  let (c, prv) = Discharge.cook_opaque_proofterm ci c in
+  let (c, prv) = Discharge.cook_sealed_proofterm ci c in
   let c = Mod_subst.subst_mps_list sub c in
   (c, prv)
 
@@ -287,7 +287,7 @@ let mk_library sd md f table digest vm = {
   library_name = sd.md_name;
   library_filename = f;
   library_compiled = md.md_compiled;
-  library_opaques = table;
+  library_sealeds = table;
   library_deps = sd.md_deps;
   library_digest = digest;
   library_vm = vm;
@@ -323,7 +323,7 @@ let marshal_in_segment (type a) ~validate ~value ~(segment : a ObjFile.segment) 
 
 let summary_seg : summary_disk ObjFile.id = ObjFile.make_id "summary"
 let library_seg : library_disk ObjFile.id = ObjFile.make_id "library"
-let opaques_seg : seg_proofs ObjFile.id = ObjFile.make_id "opaques"
+let sealeds_seg : seg_proofs ObjFile.id = ObjFile.make_id "sealeds"
 let vm_seg = Vmlibrary.vm_segment
 
 let intern_from_file ~intern_mode ~enable_VM (dir, f) =
@@ -335,7 +335,7 @@ let intern_from_file ~intern_mode ~enable_VM (dir, f) =
       let ch = System.with_magic_number_check raw_intern_library f in
       let seg_sd = ObjFile.get_segment ch ~segment:summary_seg in
       let seg_md = ObjFile.get_segment ch ~segment:library_seg in
-      let seg_opaque = ObjFile.get_segment ch ~segment:opaques_seg in
+      let seg_sealed = ObjFile.get_segment ch ~segment:sealeds_seg in
       let seg_vmlib = ObjFile.get_segment ch ~segment:vm_seg in
       let () = ObjFile.close_in ch in
       (* Actually read the data *)
@@ -343,7 +343,7 @@ let intern_from_file ~intern_mode ~enable_VM (dir, f) =
 
       let sd = marshal_in_segment ~validate ~value:Values.v_libsum ~segment:seg_sd f ch in
       let md = marshal_in_segment ~validate ~value:Values.v_lib ~segment:seg_md f ch in
-      let table = marshal_in_segment ~validate ~value:Values.v_opaquetable ~segment:seg_opaque f ch in
+      let table = marshal_in_segment ~validate ~value:Values.v_sealedtable ~segment:seg_sealed f ch in
       let vmlib = if enable_VM
         then marshal_in_segment ~validate ~value:Values.v_vmlib ~segment:seg_vmlib f ch
         else Vmlibrary.(export (set_path dir empty))
@@ -362,7 +362,7 @@ let intern_from_file ~intern_mode ~enable_VM (dir, f) =
       sd,md,table,vmlib,digest
     with e -> Flags.if_verbose chk_pp (str" failed!]" ++ fnl ()); raise e in
   depgraph := LibraryMap.add sd.md_name sd.md_deps !depgraph;
-  opaque_tables := LibraryMap.add sd.md_name table !opaque_tables;
+  sealed_tables := LibraryMap.add sd.md_name table !sealed_tables;
   mk_library sd md f table digest (Vmlibrary.inject vmlib)
 
 (* Read a compiled library and all dependencies, in reverse order.

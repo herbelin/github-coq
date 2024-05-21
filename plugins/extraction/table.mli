@@ -21,7 +21,7 @@ val safe_basename_of_global : GlobRef.t -> Id.t
 (*s Warning and Error messages. *)
 
 val warning_axioms : unit -> unit
-val warning_opaques : bool -> unit
+val warning_sealeds : bool -> unit
 val warning_ambiguous_name : ?loc:Loc.t -> qualid * ModPath.t * GlobRef.t -> unit
 val warning_id : string -> unit
 val error_axiom_scheme : ?loc:Loc.t -> GlobRef.t -> int -> 'a
@@ -102,8 +102,8 @@ val add_log_axiom : GlobRef.t -> unit
 val add_symbol : GlobRef.t -> unit
 val add_symbol_rule : GlobRef.t -> Label.t -> unit
 
-val add_opaque : GlobRef.t -> unit
-val remove_opaque : GlobRef.t -> unit
+val add_sealed : GlobRef.t -> unit
+val remove_sealed : GlobRef.t -> unit
 
 val reset_tables : unit -> unit
 
@@ -113,7 +113,7 @@ val output_directory : unit -> string
 
 (*s AccessOpaque parameter *)
 
-val access_opaque : unit -> bool
+val access_sealed : unit -> bool
 
 (*s AutoInline parameter *)
 

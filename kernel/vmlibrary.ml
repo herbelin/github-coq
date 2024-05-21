@@ -45,7 +45,7 @@ let make ~file ch ~segment =
   let del = in_delayed file ch ~segment in
   ref (ToFetch del)
 
-(** Fetching a table of opaque terms at position [pos] in file [f],
+(** Fetching a table of sealed terms at position [pos] in file [f],
     expecting to find first a copy of [digest]. *)
 
 let fetch_delayed del =

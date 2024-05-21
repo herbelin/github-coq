@@ -272,7 +272,7 @@ let print_body is_impl extent env mp (l,body) =
        let ctx = Declareops.constant_polymorphic_context cb in
       (match cb.const_body with
         | Def _ -> def "Definition" ++ spc ()
-        | OpaqueDef _ when is_impl -> def "Theorem" ++ spc ()
+        | SealedDef _ when is_impl -> def "Theorem" ++ spc ()
         | _ -> def "Parameter" ++ spc ()) ++ name ++
       (match extent with
          | OnlyNames -> mt ()

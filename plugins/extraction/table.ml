@@ -228,10 +228,10 @@ let add_log_axiom r = log_axioms := Refset'.add r !log_axioms
 let add_symbol r = symbols := Refmap'.update r (function Some l -> Some l | _ -> Some []) !symbols
 let add_symbol_rule r l = symbols := Refmap'.update r (function Some lst -> Some (l :: lst) | _ -> Some [l]) !symbols
 
-let opaques = ref Refset'.empty
-let init_opaques () = opaques := Refset'.empty
-let add_opaque r = opaques := Refset'.add r !opaques
-let remove_opaque r = opaques := Refset'.remove r !opaques
+let sealeds = ref Refset'.empty
+let init_sealeds () = sealeds := Refset'.empty
+let add_sealed r = sealeds := Refset'.add r !sealeds
+let remove_sealed r = sealeds := Refset'.remove r !sealeds
 
 (*s Extraction modes: modular or monolithic, library or minimal ?
 
@@ -351,26 +351,26 @@ let warning_axioms () =
   if not (List.is_empty symbols) then
     warn_extraction_symbols symbols
 
-let warn_extraction_opaque_accessed =
-  CWarnings.create ~name:"extraction-opaque-accessed" ~category:CWarnings.CoreCategories.extraction
-    (fun lst -> strbrk "The extraction is currently set to bypass opacity, " ++
-                  strbrk "the following opaque constant bodies have been accessed :" ++
+let warn_extraction_sealed_accessed =
+  CWarnings.create ~name:"extraction-sealed-accessed" ~category:CWarnings.CoreCategories.extraction
+    (fun lst -> strbrk "The extraction is currently set to bypass sealedness, " ++
+                  strbrk "the following sealed constant bodies have been accessed :" ++
                   lst ++ str "." ++ fnl ())
 
-let warn_extraction_opaque_as_axiom =
-  CWarnings.create ~name:"extraction-opaque-as-axiom" ~category:CWarnings.CoreCategories.extraction
-    (fun lst -> strbrk "The extraction now honors the opacity constraints by default, " ++
-         strbrk "the following opaque constants have been extracted as axioms :" ++
+let warn_extraction_sealed_as_axiom =
+  CWarnings.create ~name:"extraction-sealed-as-axiom" ~category:CWarnings.CoreCategories.extraction
+    (fun lst -> strbrk "The extraction now honors the sealedness constraints by default, " ++
+         strbrk "the following sealed constants have been extracted as axioms :" ++
          lst ++ str "." ++ fnl () ++
          strbrk "If necessary, use \"Set Extraction AccessOpaque\" to change this."
          ++ fnl ())
 
-let warning_opaques accessed =
-  let opaques = Refset'.elements !opaques in
-  if not (List.is_empty opaques) then
-    let lst = hov 1 (spc () ++ prlist_with_sep spc safe_pr_global opaques) in
-    if accessed then warn_extraction_opaque_accessed lst
-    else warn_extraction_opaque_as_axiom lst
+let warning_sealeds accessed =
+  let sealeds = Refset'.elements !sealeds in
+  if not (List.is_empty sealeds) then
+    let lst = hov 1 (spc () ++ prlist_with_sep spc safe_pr_global sealeds) in
+    if accessed then warn_extraction_sealed_accessed lst
+    else warn_extraction_sealed_as_axiom lst
 
 let warning_ambiguous_name =
   CWarnings.create ~name:"extraction-ambiguous-name" ~category:CWarnings.CoreCategories.extraction
@@ -547,7 +547,7 @@ let output_directory () =
 
 (*s Extraction AccessOpaque *)
 
-let access_opaque = my_bool_option "AccessOpaque" true
+let access_sealed = my_bool_option "AccessOpaque" true
 
 (*s Extraction AutoInline *)
 
@@ -1023,4 +1023,4 @@ let extract_inductive r s l optstr =
 let reset_tables () =
   init_typedefs (); init_cst_types (); init_inductives ();
   init_inductive_kinds (); init_recursors ();
-  init_projs (); init_axioms (); init_opaques (); reset_modfile ()
+  init_projs (); init_axioms (); init_sealeds (); reset_modfile ()

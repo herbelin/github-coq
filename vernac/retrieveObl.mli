@@ -18,8 +18,8 @@ type obligation_info =
   * Int.Set.t
   * unit Proofview.tactic option )
   array
-(** ident, type, location of the original evar, (opaque or
-   transparent, expand or define), dependencies as indexes into the
+(** ident, type, location of the original evar, (sealed or
+   unsealed, expand or define), dependencies as indexes into the
    array, tactic to solve it *)
 
 val retrieve_obligations :

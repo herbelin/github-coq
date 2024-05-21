@@ -91,10 +91,10 @@ let inh_pattern_coerce_to ?loc env pat ind1 ind2 =
 
 open Program
 
-let make_existential ?loc ?(opaque = not (get_proofs_transparency ())) na env sigma c =
+let make_existential ?loc ?(sealed = not (get_proofs_unsealedness ())) na env sigma c =
   let src = Loc.tag ?loc (Evar_kinds.QuestionMark {
       Evar_kinds.default_question_mark with
-      Evar_kinds.qm_obligation=Evar_kinds.Define opaque;
+      Evar_kinds.qm_obligation=Evar_kinds.Define sealed;
       Evar_kinds.qm_name=na;
   }) in
   let sigma, v = Evarutil.new_evar env sigma ~src c in
