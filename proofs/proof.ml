@@ -271,7 +271,11 @@ let unfocused = is_last_focus end_of_stack_kind
 
 let unfocus_all p = unfocus end_of_stack_kind p ()
 
+let shelve_initial sigma =
+  Evd.shelve sigma (Evar.Set.elements (Evar.Map.domain (Evd.undefined_map sigma)))
+
 let start ~name ~poly ?typing_flags sigma goals =
+  let sigma = shelve_initial sigma in
   let entry, proofview = Proofview.init sigma goals in
   let pr =
     { proofview
@@ -284,6 +288,11 @@ let start ~name ~poly ?typing_flags sigma goals =
   _focus end_of_stack () 1 (List.length goals) pr
 
 let dependent_start ~name ~poly ?typing_flags goals =
+  let goals =
+    Proofview.(match goals with
+    | TNil sigma -> TNil (shelve_initial sigma)
+    | TCons (env, sigma, t, f) -> TCons (env, shelve_initial sigma, t, f))
+  in
   let entry, proofview = Proofview.dependent_init goals in
   let pr =
     { proofview
