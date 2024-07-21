@@ -1675,7 +1675,7 @@ let unfold_constant_hiding_global_fix env sigma whd_opt test_constructor (t, sta
 (* reduction to head-normal-form allowing delta/zeta only in argument
    of case/fix (heuristic used by evar_conv) *)
 
-let whd_betaiota_deltazeta_for_iota_state ts ?(expand=true) env sigma s =
+let whd_betaiota_deltazeta_for_iota_state ts ?(expand=false) env sigma s =
   let env' = Environ.set_typing_flags { (Environ.typing_flags env) with Declarations.share_reduction = false } env in
   let whd_opt c =
     let all' = RedFlags.red_add_transparent RedFlags.all ts in
