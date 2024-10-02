@@ -474,7 +474,8 @@ constructions.
    to :n:`fun {* @binder } => @term`.
 
    This command accepts the :attr:`program`,
-   :attr:`bypass_check(universes)`, and :attr:`bypass_check(guard)` attributes.
+   :attr:`bypass_check(universes)`, :attr:`bypass_check(guard)` and :attr:`sealed`
+   attributes.
 
    To be accepted, a :cmd:`Fixpoint` definition has to satisfy syntactical
    constraints on a special argument called the decreasing argument. They
