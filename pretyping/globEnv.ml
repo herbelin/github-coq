@@ -42,7 +42,7 @@ let make ~hypnaming env sigma lvar =
   let get_extra env sigma =
     let avoid = Environ.ids_of_named_context_val (Environ.named_context_val env) in
     Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context ~hypnaming sigma d acc)
-      (rel_context env) ~init:(empty_csubst, avoid, named_context_val env) in
+      (rel_context env) ~init:(empty_csubst, avoid, (named_context_val env, named_context_val env)) in
   {
     static_env = env;
     renamed_env = env;
@@ -98,11 +98,11 @@ let push_rec_types ~hypnaming sigma (lna,typarray) env =
   Array.map get_annot ctx, env
 
 let new_evar env sigma ?src ?(naming = Namegen.IntroAnonymous) typ =
-  let (subst, _, sign) as ext = Lazy.force env.extra in
+  let (subst, _, (sign, sign_for_printing)) as ext = Lazy.force env.extra in
   let instance = Evarutil.default_ext_instance ext in
   let typ' = csubst_subst sigma subst typ in
   let name = Evarutil.next_evar_name sigma naming in
-  let (sigma, evk) = new_pure_evar sign sigma typ' ?src ?name in
+  let (sigma, evk) = new_pure_evar sign ~sign_for_printing sigma typ' ?src ?name in
   (sigma, mkEvar (evk, instance))
 
 let new_type_evar env sigma ~src =

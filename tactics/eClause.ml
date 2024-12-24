@@ -77,15 +77,15 @@ let make_evar_clause env sigma ?len t =
     | Cast (t, _, _) -> clrec (sigma, holes) inst n t
     | Prod (na, t1, t2) ->
       (* Share the evar instances as we are living in the same context *)
-      let inst, ctx, args, subst = match inst with
+      let inst, ctx, sign_for_printing, args, subst = match inst with
       | None ->
         (* Dummy type *)
         let hypnaming = RenameExistingBut (VarSet.variables (Global.env ())) in
-        let ctx, _, args, subst = push_rel_context_to_named_context ~hypnaming env sigma mkProp in
-        Some (ctx, args, subst), ctx, args, subst
-      | Some (ctx, args, subst) -> inst, ctx, args, subst
+        let (ctx, sign_for_printing), _, args, subst = push_rel_context_to_named_context ~hypnaming env sigma mkProp in
+        Some (ctx, args, subst), ctx, sign_for_printing, args, subst
+      | Some (ctx, args, subst) -> inst, ctx, ctx, args, subst
       in
-      let (sigma, evk) = new_pure_evar ~typeclass_candidate:false ctx sigma (csubst_subst sigma subst t1) in
+      let (sigma, evk) = new_pure_evar ~typeclass_candidate:false ctx ~sign_for_printing sigma (csubst_subst sigma subst t1) in
       let ev = mkEvar (evk, args) in
       let dep = not (noccurn sigma 1 t2) in
       let hole = {

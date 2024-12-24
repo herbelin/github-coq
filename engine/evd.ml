@@ -218,6 +218,7 @@ type (_, 'a) when_undefined =
 type 'a evar_info = {
   evar_concl : ('a, constr) when_undefined;
   evar_hyps : named_context_val;
+  evar_hyps_for_printing : named_context_val; (* to print evar instances *)
   evar_body : 'a evar_body;
   evar_filter : Filter.t;
   evar_abstract_arguments : ('a, Abstraction.t) when_undefined;
@@ -240,8 +241,13 @@ let evar_body evi = evi.evar_body
 
 let evar_context evi = named_context_of_val evi.evar_hyps
 
+let evar_context_for_printing evi = named_context_of_val evi.evar_hyps_for_printing
+
 let evar_filtered_context evi =
   Filter.filter_list (evar_filter evi) (evar_context evi)
+
+let evar_filtered_context_for_printing evi =
+  Filter.filter_list (evar_filter evi) (evar_context_for_printing evi)
 
 let evar_candidates evi = match evi.evar_candidates with
 | Undefined c -> c
@@ -252,6 +258,8 @@ let evar_abstract_arguments evi = match evi.evar_abstract_arguments with
 let evar_relevance evi = evi.evar_relevance
 
 let evar_hyps evi = evi.evar_hyps
+
+let evar_hyps_for_printing evi = evi.evar_hyps_for_printing
 
 let evar_filtered_hyps evi = match Filter.repr (evar_filter evi) with
 | None -> evar_hyps evi
@@ -1386,9 +1394,10 @@ let pr_shelf evd =
 
 let new_pure_evar ?(src=default_source) ?(filter = Filter.identity) ?(relevance = Sorts.Relevant)
   ?(abstract_arguments = Abstraction.identity) ?candidates
-  ?name ?typeclass_candidate sign evd typ =
+  ?name ?typeclass_candidate sign ?(sign_for_printing=sign) evd typ =
   let evi = {
     evar_hyps = sign;
+    evar_hyps_for_printing = sign_for_printing;
     evar_concl = Undefined typ;
     evar_body = Evar_empty;
     evar_filter = filter;

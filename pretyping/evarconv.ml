@@ -1553,6 +1553,7 @@ let second_order_matching flags env_rhs evd (evk,args) (test,argoccs) rhs =
   let env_evar_unf = evar_env env_rhs evi in
   let env_evar = evar_filtered_env env_rhs evi in
   let sign = named_context_val env_evar in
+  let sign_for_printing = evar_hyps_for_printing evi in
   let ctxt = evar_filtered_context evi in
   debug_ho_unification (fun () ->
      Pp.(str"rhs env: " ++ Termops.Internal.print_env env_rhs evd ++ fnl () ++
@@ -1620,7 +1621,7 @@ let second_order_matching flags env_rhs evd (evk,args) (test,argoccs) rhs =
               refresh_universes ~status:Evd.univ_flexible (Some true)
                 env_evar_unf evd evty
             else evd, evty in
-          let (evd, evk) = new_pure_evar sign evd evty ~filter in
+          let (evd, evk) = new_pure_evar sign ~sign_for_printing evd evty ~filter in
           let EvarInfo evi = Evd.find evd evk in
           let instance = Evd.evar_identity_subst evi in
           let fixed = Evar.Set.add evk fixed in
