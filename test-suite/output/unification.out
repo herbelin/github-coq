@@ -4,7 +4,7 @@ In environment
 x : T
 T : Type
 a : T
-Unable to unify "T" with "?X@{x0:=x; x:=C a}" (cannot instantiate 
+Unable to unify "T" with "?X@{x:=C a}" (cannot instantiate 
 "?X" because "T" is not in its scope: available arguments are 
 "x" "C a").
 File "./output/unification.v", line 12, characters 12-14:

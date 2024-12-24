@@ -1,0 +1,26 @@
+File "./output/evar_instance.v", line 1, characters 52-59:
+The command has indeed failed with message:
+In environment
+f : nat -> nat -> nat
+p : nat
+p0 : nat
+The term "eq_refl" has type "f ?n 0 = f ?n 0"
+while it is expected to have type "f ?n 0 = f ?n 1" (cannot unify 
+"0" and "1").
+goal 1 is:
+  
+  f : nat -> nat
+  p0, p : nat
+  ============================
+  nat
+goal 2 is:
+  
+  g := fun (f : nat -> nat) (p p0 : nat) => eq_refl : f ?n = f ?n
+    : forall (f : nat -> nat) (p p0 : nat), f ?n = f ?n
+  ============================
+  True
+Existential 1 = ?n : [f : nat -> nat  p0 : nat  p : nat |- nat]
+Existential 2 =
+?Goal :
+  [g := fun (f : nat -> nat) (p p0 : nat) => eq_refl : f ?n = f ?n
+     : forall (f : nat -> nat) (p p0 : nat), f ?n = f ?n |- True]

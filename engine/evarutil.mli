@@ -55,7 +55,9 @@ val new_pure_evar :
   ?abstract_arguments:Abstraction.t -> ?candidates:constr list ->
   ?name:Id.t ->
   ?typeclass_candidate:bool ->
-  named_context_val -> evar_map -> types -> evar_map * Evar.t
+  named_context_val ->
+  ?sign_for_printing:named_context_val ->
+  evar_map -> types -> evar_map * Evar.t
 
 (** Create a new Type existential variable, as we keep track of
     them during type-checking and unification. *)
@@ -236,7 +238,7 @@ val empty_csubst : csubst
 val csubst_subst : Evd.evar_map -> csubst -> constr -> constr
 
 type ext_named_context =
-  csubst * Id.Set.t * named_context_val
+  csubst * Id.Set.t * (named_context_val * named_context_val)
 
 val default_ext_instance : ext_named_context -> constr SList.t
 
@@ -245,7 +247,7 @@ val push_rel_decl_to_named_context : hypnaming:naming_mode ->
 
 val push_rel_context_to_named_context : hypnaming:naming_mode ->
   Environ.env -> evar_map -> types ->
-  named_context_val * types * constr SList.t * csubst
+  (named_context_val * named_context_val) * types * constr SList.t * csubst
 
 val generalize_evar_over_rels : evar_map -> existential -> types * constr list
 
