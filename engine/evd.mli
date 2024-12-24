@@ -118,6 +118,9 @@ val evar_context : 'a evar_info -> (econstr, etypes, erelevance) Context.Named.p
 val evar_hyps : 'a evar_info -> named_context_val
 (** Context of the evar. *)
 
+val evar_hyps_for_printing : 'a evar_info -> named_context_val
+(** Context of the evar with the names used for printing evar instances. *)
+
 val evar_body : 'a evar_info -> 'a evar_body
 (** Optional content of the evar. *)
 
@@ -142,6 +145,7 @@ val evar_relevance : 'a evar_info -> erelevance
 (** {6 Derived projections} *)
 
 val evar_filtered_context : 'a evar_info -> (econstr, etypes, erelevance) Context.Named.pt
+val evar_filtered_context_for_naming_instance : 'a evar_info -> (econstr, etypes, erelevance) Context.Named.pt
 val evar_filtered_hyps : 'a evar_info -> named_context_val
 val evar_env : env -> 'a evar_info -> env
 val evar_filtered_env : env -> 'a evar_info -> env
@@ -194,7 +198,8 @@ val new_pure_evar :
   ?name:Id.t ->
   ?typeclass_candidate:bool ->
   ?rrpat:bool ->
-  named_context_val -> evar_map -> etypes -> evar_map * Evar.t
+  named_context_val ->
+  ?sign_for_naming_instance:named_context_val -> evar_map -> etypes -> evar_map * Evar.t
 (** Low-level interface to create an evar.
   @param src User-facing source for the evar
   @param filter See {!Evd.Filter}, must be the same length as [named_context_val]

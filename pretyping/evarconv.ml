@@ -1674,6 +1674,7 @@ let second_order_matching flags env_rhs evd (evk,args) (test,argoccs) rhs =
   let env_evar_unf = evar_env env_rhs evi in
   let env_evar = evar_filtered_env env_rhs evi in
   let sign = named_context_val env_evar in
+  let sign_for_naming_instance = evar_hyps_for_printing evi in
   let ctxt = evar_filtered_context evi in
   debug_ho_unification (fun () ->
      Pp.(str"rhs env: " ++ Termops.Internal.print_env env_rhs evd ++ fnl () ++
@@ -1743,7 +1744,7 @@ let second_order_matching flags env_rhs evd (evk,args) (test,argoccs) rhs =
             else evd, evty in
           (* XXX incorrect relevance *)
           let typeclass_candidate = Typeclasses.is_maybe_class_type evd evty in
-          let (evd, evk) = new_pure_evar ~typeclass_candidate sign evd ~relevance:ERelevance.relevant evty ~filter in
+          let (evd, evk) = new_pure_evar ~typeclass_candidate sign ~sign_for_naming_instance evd ~relevance:ERelevance.relevant evty ~filter in
           let EvarInfo evi = Evd.find evd evk in
           let instance = Evd.evar_identity_subst evi in
           let fixed = Evar.Set.add evk fixed in

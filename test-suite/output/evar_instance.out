@@ -1,0 +1,60 @@
+File "./output/evar_instance.v", line 1, characters 52-59:
+The command has indeed failed with message:
+In environment
+f : nat -> nat -> nat
+p : nat
+p0 : nat
+The term "eq_refl" has type "f ?n 0 = f ?n 0"
+while it is expected to have type "f ?n 0 = f ?n 1" (cannot unify 
+"0" and "1").
+goal 1 is:
+  
+  f : nat -> nat
+  p0, p : nat
+  ============================
+  nat
+goal 2 is:
+  
+  g := fun (f : nat -> nat) (p p0 : nat) => eq_refl : f ?n = f ?n
+    : forall (f : nat -> nat) (p p0 : nat), f ?n = f ?n
+  ============================
+  True
+Existential 1 = ?n : [f : nat -> nat  p0 : nat  p : nat |- nat]
+Existential 2 =
+?Goal :
+  [g := fun (f : nat -> nat) (p p0 : nat) => eq_refl : f ?n = f ?n
+     : forall (f : nat -> nat) (p p0 : nat), f ?n = f ?n
+  |- True]
+File "./output/evar_instance.v", line 98, characters 58-64:
+The command has indeed failed with message:
+In environment
+n : nat
+p : nat
+Hp : p <= n
+frame'' : forall p : nat, p.+1 <= n.+1 -> Type
+painting'' : forall (p : nat) (Hp : p.+1 <= n.+1), frame'' p Hp -> Type
+restrFrames' : RestrFrameType'
+frame' :=
+  fun (p : nat) (Hp : p.+1 <= n.+1) =>
+  Frame' (take_head n.+1 p (leI_down Hp)) :
+  forall p : nat, p.+1 <= n.+1 -> Type
+restrFrame' :=
+  fun (p : nat) (Hp : p.+1 <= n.+1) => take_restrFrame' n.+1 p Hp :
+  forall (p : nat) (Hp : p.+1 <= n.+1), frame' p Hp -> frame'' p Hp
+E : frame' n (leI_refl n.+1) -> Type
+aux :
+  forall p0 : nat,
+  p0 <= ?n0 -> ?T@{y0:=p0} ?n@{y0:=p0} (leI_refl ?n@{y0:=p0}.+1) -> Type
+p0 : nat
+Hp0 : p0 <= ?n0
+p1 : nat
+Hp1 : p1.+1 <= ?n0
+d : ?T@{y0:=p1} ?n@{y0:=p1} (leI_refl ?n@{y0:=p1}.+1)
+l : painting'' p1 ?Hp (restrFrame' p1 ?Hp d)
+The term "(d; l)" has type
+ "{x : ?T@{y0:=p1} ?n@{y0:=p1} (leI_refl ?n@{y0:=p1}.+1) & ?P x}"
+while it is expected to have type
+ "?T@{y0:=p1.+1} ?n@{y0:=p1.+1} (leI_refl ?n@{y0:=p1.+1}.+1)"
+(cannot define "?T" with term
+"{x : ?T@{y0:=p1} ?n@{y0:=p1} (leI_refl ?n@{y0:=p1}.+1) & ?P x}" that would
+depend on itself).

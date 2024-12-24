@@ -966,9 +966,10 @@ and detype_r d flags avoid env sigma t =
           let info = Evd.find_undefined sigma evk in
           let cl = Evd.expand_existential sigma (evk, cl) in
           let ctx = Evd.evar_filtered_context info in
+          let ctx_for_naming_instance = Evd.evar_filtered_context_for_naming_instance info in
           let get_instance f =
-            let fold d c acc = if f d c then acc else (get_id d, c) :: acc in
-            List.fold_right2 fold ctx cl []
+            let fold d d' c acc = if f d' c then acc else (get_id d, c) :: acc in
+            List.fold_right3 fold ctx ctx_for_naming_instance cl []
           in
           let l = get_instance bound_to_itself_or_letin in
           (* If the instance is {x:=y; y:=y; z:=z} we print {x:=y; y:=y}

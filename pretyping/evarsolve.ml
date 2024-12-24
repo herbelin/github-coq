@@ -818,9 +818,9 @@ let make_projectable_subst aliases sigma sign args =
  * declares x1:T1..xq:Tq |- ?e : s such that ?e[u1..uq] = t holds.
  *)
 
-let define_evar_from_virtual_equation define_fun env evd src t_in_env ty_t_in_sign sign filter inst_in_env =
+let define_evar_from_virtual_equation define_fun env evd src t_in_env ty_t_in_sign sign sign' filter inst_in_env =
   assert (EConstr.isSort evd ty_t_in_sign);
-  let (evd, evk) = new_pure_evar sign evd ~relevance:ERelevance.relevant ty_t_in_sign ~filter ~src in
+  let (evd, evk) = new_pure_evar sign ~sign_for_naming_instance:sign' evd ~relevance:ERelevance.relevant ty_t_in_sign ~filter ~src in
   let t_in_env = whd_evar evd t_in_env in
   let evd = define_fun env evd None (evk, inst_in_env) t_in_env in
   let EvarInfo evi = Evd.find evd evk in
@@ -855,13 +855,14 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
   let evi1 = Evd.find_undefined evd evk1 in
   let env1,rel_sign = env_rel_context_chop k env in
   let sign1 = evar_hyps evi1 in
+  let sign1' = evar_hyps_for_printing evi1 in
   let filter1 = evar_filter evi1 in
   let src = subterm_source evk1 (Evd.evar_source evi1) in
   let avoid = Environ.ids_of_named_context_val sign1 in
   let inst_in_sign = evar_identity_subst evi1 in
   let open Context.Rel.Declaration in
-  let (sign2,filter2,inst2_in_env,inst2_in_sign,_,evd,_) =
-    List.fold_right (fun d (sign,filter,inst_in_env,inst_in_sign,env,evd,avoid) ->
+  let (sign2,sign2',filter2,inst2_in_env,inst2_in_sign,_,evd,_) =
+    List.fold_right (fun d (sign,sign',filter,inst_in_env,inst_in_sign,env,evd,avoid) ->
       let LocalAssum (na,t_in_env) | LocalDef (na,_,t_in_env) = d in
       let id = map_annot (fun na -> next_name_away na avoid) na in
       let evd,t_in_sign =
@@ -869,30 +870,30 @@ let materialize_evar define_fun env evd k (evk1,args1) ty_in_env =
         let evd,ty_t_in_sign = refresh_universes
          ~status:univ_flexible (Some false) env evd (mkSort s) in
         define_evar_from_virtual_equation define_fun env evd src t_in_env
-          ty_t_in_sign sign filter inst_in_env in
+          ty_t_in_sign sign sign' filter inst_in_env in
       let evd,d' = match d with
       | LocalAssum _ -> evd, Context.Named.Declaration.LocalAssum (id,t_in_sign)
       | LocalDef (_,b,_) ->
           let evd,b = define_evar_from_virtual_equation define_fun env evd src b
-            t_in_sign sign filter inst_in_env in
+            t_in_sign sign sign' filter inst_in_env in
           evd, Context.Named.Declaration.LocalDef (id,b,t_in_sign) in
-      (push_named_context_val d' sign, Filter.extend 1 filter,
+      (push_named_context_val d' sign, push_named_context_val d' sign', Filter.extend 1 filter,
        SList.cons (mkRel 1) (SList.Skip.map (lift 1) inst_in_env),
        SList.cons (mkRel 1) (SList.Skip.map (lift 1) inst_in_sign),
        push_rel d env,evd,Id.Set.add id.binder_name avoid))
       rel_sign
-      (sign1,filter1,args1,inst_in_sign,env1,evd,avoid)
+      (sign1,sign1',filter1,args1,inst_in_sign,env1,evd,avoid)
   in
   let s = Retyping.get_sort_of env evd ty_in_env in
   let evd,ev2ty_in_sign =
     let evd,ty_t_in_sign = refresh_universes
      ~status:univ_flexible (Some false) env evd (mkSort s) in
     define_evar_from_virtual_equation define_fun env evd src ty_in_env
-      ty_t_in_sign sign2 filter2 inst2_in_env in
+      ty_t_in_sign sign2 sign2' filter2 inst2_in_env in
   let (evd, ev2_in_sign) =
   let typeclass_candidate = Typeclasses.is_maybe_class_type evd ev2ty_in_sign in
     (* XXX is this relevance correct? I don't really understand this code *)
-    new_pure_evar sign2 ~typeclass_candidate evd ~relevance:(ESorts.relevance_of_sort s) ev2ty_in_sign ~filter:filter2 ~src in
+    new_pure_evar sign2 ~sign_for_naming_instance:sign2' ~typeclass_candidate evd ~relevance:(ESorts.relevance_of_sort s) ev2ty_in_sign ~filter:filter2 ~src in
   let ev2_in_env = (ev2_in_sign, inst2_in_env) in
   (evd, mkEvar (ev2_in_sign, inst2_in_sign), ev2_in_env)
 

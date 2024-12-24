@@ -249,7 +249,7 @@ let csubst_subst sigma { csubst_len = k; csubst_var = v; csubst_rel = s } c =
   EConstr.of_constr c
 
 type ext_named_context =
-  csubst * Id.Set.t * named_context_val
+  csubst * Id.Set.t * (named_context_val * named_context_val)
 
 let push_var id { csubst_len = n; csubst_var = v; csubst_rel = s; csubst_rev = r } =
   let s = Int.Map.add n (Constr.mkVar id) s in
@@ -290,7 +290,7 @@ type naming_mode = VarSet.t
 
 let push_rel_decl_to_named_context
   ~hypnaming
-  sigma decl ((subst, avoid, nc) : ext_named_context) =
+  sigma decl ((subst, avoid, (nc, nc_for_naming_instance)) : ext_named_context) =
   let open EConstr in
   let open Vars in
   let map_decl f d =
@@ -318,6 +318,9 @@ let push_rel_decl_to_named_context
         here *)
     next_ident_away (id_of_name_using_hdchar empty_env sigma (RelDecl.get_type decl) na) avoid
   in
+  let nc_for_naming_instance =
+    let d = decl |> NamedDecl.of_rel_decl (fun _ -> id) |> map_decl (csubst_subst sigma subst) in
+    push_named_context_val d nc_for_naming_instance in
   match extract_if_neq id na with
   | Some id0 ->
     if hypnaming id0 then
@@ -326,7 +329,7 @@ let push_rel_decl_to_named_context
           the new binder has name [id]. Which amounts to the same
           behaviour than when [id=id0]. *)
       let d = decl |> NamedDecl.of_rel_decl (fun _ -> id) |> map_decl (csubst_subst sigma subst) in
-      (push_var id subst, Id.Set.add id avoid, push_named_context_val d nc)
+      (push_var id subst, Id.Set.add id avoid, (push_named_context_val d nc, nc_for_naming_instance))
     else
       (* spiwack: if [id<>id0], rather than introducing a new
           binding named [id], we will keep [id0] (the name given
@@ -336,10 +339,10 @@ let push_rel_decl_to_named_context
       let d = decl |> NamedDecl.of_rel_decl (fun _ -> id0) |> map_decl (csubst_subst sigma subst) in
       let nc = replace_var_named_declaration id0 id nc in
       let avoid = Id.Set.add id (Id.Set.add id0 avoid) in
-      (push_var id0 subst, avoid, push_named_context_val d nc)
+      (push_var id0 subst, avoid, (push_named_context_val d nc, nc_for_naming_instance))
   | None ->
     let d = decl |> NamedDecl.of_rel_decl (fun _ -> id) |> map_decl (csubst_subst sigma subst) in
-    (push_var id subst, Id.Set.add id avoid, push_named_context_val d nc)
+    (push_var id subst, Id.Set.add id avoid, (push_named_context_val d nc, nc_for_naming_instance))
 
 let csubst_instance subst ctx =
   let fold decl accu = match Id.Map.find (NamedDecl.get_id decl) subst.csubst_rev with
@@ -354,7 +357,7 @@ let ext_rev_subst (subst, _, _) id0 =
   | SRel n -> EConstr.mkRel (subst.csubst_len - n)
   | SVar id -> EConstr.mkVar id
 
-let default_ext_instance (subst, _, ctx) =
+let default_ext_instance (subst, _, (ctx, _)) =
   csubst_instance subst (named_context_of_val ctx)
 
 let push_rel_context_to_named_context ~hypnaming env sigma typ =
@@ -363,7 +366,7 @@ let push_rel_context_to_named_context ~hypnaming env sigma typ =
   let ctx = named_context_val env in
   if List.is_empty (Environ.rel_context env) then
     let inst = SList.defaultn (List.length @@ named_context_of_val ctx) SList.empty in
-    (ctx, typ, inst, empty_csubst)
+    ((ctx, ctx), typ, inst, empty_csubst)
   else
     let avoid = Environ.ids_of_named_context_val (named_context_val env) in
     (* move the rel context to a named context and extend the named instance *)
@@ -371,7 +374,7 @@ let push_rel_context_to_named_context ~hypnaming env sigma typ =
     (* We do keep the instances corresponding to local definition (see above) *)
     let (subst, _, env) as ext =
       Context.Rel.fold_outside (fun d acc -> push_rel_decl_to_named_context ~hypnaming sigma d acc)
-        (rel_context env) ~init:(empty_csubst, avoid, ctx) in
+        (rel_context env) ~init:(empty_csubst, avoid, (ctx, ctx)) in
     let inst = default_ext_instance ext in
     (env, csubst_subst sigma subst typ, inst, subst)
 
@@ -397,7 +400,7 @@ let new_evar ?src ?filter ?relevance ?abstract_arguments ?candidates ?(naming = 
   | Some n -> n
   | None -> VarSet.variables (Global.env ())
   in
-  let sign,typ',instance,subst = push_rel_context_to_named_context ~hypnaming env evd typ in
+  let (sign,sign_for_naming_instance),typ',instance,subst = push_rel_context_to_named_context ~hypnaming env evd typ in
   let map c = csubst_subst evd subst c in
   let candidates = Option.map (fun l -> List.map map l) candidates in
   let instance =
@@ -408,7 +411,7 @@ let new_evar ?src ?filter ?relevance ?abstract_arguments ?candidates ?(naming = 
   | Some r -> r
   | None -> ERelevance.relevant (* FIXME: relevant_of_type not defined yet *)
   in
-  let (evd, evk) = new_pure_evar sign evd typ' ?src ?rrpat ?filter ~relevance ?abstract_arguments ?candidates ?name
+  let (evd, evk) = new_pure_evar sign ~sign_for_naming_instance evd typ' ?src ?rrpat ?filter ~relevance ?abstract_arguments ?candidates ?name
     ?typeclass_candidate in
   (evd, EConstr.mkEvar (evk, instance))
 
