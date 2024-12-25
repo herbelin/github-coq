@@ -1931,6 +1931,7 @@ Section S.
       +  (* pol = false *)
         intros.
         apply hold_eNOT.
+        simpl.
         rewrite hold_eAND.
         rewrite or_cnf_opt_correct in H.
         rewrite or_cnf_correct in H.

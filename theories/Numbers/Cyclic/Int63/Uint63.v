@@ -1204,7 +1204,7 @@ Proof.
  intros Hj; generalize Hj k; pattern j; apply natlike_ind;
    auto; clear k j Hj.
  - intros _ k Hk; repeat rewrite Zplus_0_l.
-   apply  Zmult_le_0_compat; generalize (Z_div_pos k 2); auto with zarith.
+   apply  Zmult_le_0_compat; generalize (Z_div_pos k 2); simpl; auto with zarith.
  - intros j Hj Hrec _ k Hk; pattern k; apply natlike_ind; auto; clear k Hk.
    + rewrite -> Zmult_0_r, Zplus_0_r, Zplus_0_l.
      generalize (sqr_pos (Z.succ j / 2)) (quotient_by_2 (Z.succ j));
@@ -1465,7 +1465,7 @@ Proof.
    assert ((1 + φ j) <= 2 ^ (Z_of_nat size - 1)); auto with zarith.
    apply Z.le_trans with ((2 ^ (Z_of_nat size - 1)) ^2); auto with zarith.
    + assert (0 <= 1 + φ j); auto with zarith.
-     apply Zmult_le_compat; auto with zarith.
+     apply Zmult_le_compat; unfold Pos.iter; auto with zarith.
    + change ((2 ^ (Z_of_nat size - 1))^2) with (2 ^ (Z_of_nat size - 2) * wB).
      apply Z.le_trans with (φ ih * wB); auto with zarith.
      unfold zn2z_to_Z, wB; auto with zarith.
