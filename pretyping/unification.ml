@@ -1099,7 +1099,7 @@ let rec unify_0_with_initial_metas (subst : subst0) conv_at_top env cv_pb flags 
       in
       let f1, l1 = expand_proj f1 f2 l1 in
       let f2, l2 = expand_proj f2 f1 l2 in
-      let opta = {opt with at_top = true; with_types = false} in
+      let opta = {opt with at_top = true; with_types = false; visited_fix1 = false; visited_fix2 = false} in
       let optf = {opt with at_top = true; with_types = true} in
       let (f1,l1,f2,l2) = adjust_app_array_size f1 l1 f2 l2 in
         if Array.length l1 == 0 then error_cannot_unify (fst curenvnb) sigma (cM,cN)
