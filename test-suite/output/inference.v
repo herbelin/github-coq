@@ -24,3 +24,24 @@ Print P.
 Inductive T (n:nat) := A : T n.
 Check fun n (y:=A n:T n) => _ _ : T n.
 Check fun n => _ _ : T n.
+
+(* Check refolding of global fixpoints *)
+
+Module PrimProjRefold.
+
+Set Primitive Projections.
+Record sigT A P := { projT1 : A; projT2 : P projT1 }.
+Notation "{ x : A &T P }" := (sigT A (fun x => P%_type)) (at level 0, x at level 99) : type_scope.
+Arguments projT1 {A P} _.
+Arguments projT2 {A P} _.
+
+Fixpoint TELE n :=
+  match n with
+  | 0 => unit
+  | S n => { a : nat &T TELE n }
+  end.
+
+Check fun n (x : TELE (S n)) => projT2 x.
+Check fun n (x : TELE (S n)) (q:nat) => projT2 x. (* Note: q is useful to force retyping *)
+
+End PrimProjRefold.

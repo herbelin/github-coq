@@ -16,3 +16,7 @@ fun n : nat => ?t ?x : T n
 where
 ?t : [n : nat |- ?T -> T n]
 ?x : [n : nat |- ?T]
+fun (n : nat) (x : TELE (S n)) => projT2 x
+     : forall n : nat, TELE (S n) -> TELE n
+fun (n : nat) (x : TELE (S n)) (_ : nat) => projT2 x
+     : forall n : nat, TELE (S n) -> nat -> TELE n
