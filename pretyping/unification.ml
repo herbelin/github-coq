@@ -2454,6 +2454,12 @@ let fast_atyp_check knd atyp = match knd, atyp with
 | HeadProd, ATySort -> false
 | _ -> true
 
+let { Goptions.get = breadthfirst_subterm_search } =
+  Goptions.declare_bool_option_and_ref
+    ~key:["Breadth"; "First"; "Subterm"; "Search"]
+    ~value:false
+    ()
+
 (* Tries to find an instance of term [cl] in term [op].
    Unifies [cl] to every subterm of [op] until it finds a match.
    Fails if no match is found *)
@@ -2462,6 +2468,73 @@ let w_unify_to_subterm ~metas env evd ?where ?(flags=default_unify_flags ()) (op
   let kop = Keys.constr_key env (fun c -> EConstr.kind evd c) op in
   let opgnd = if occur_meta_or_undefined_evar evd op then NotGround else Ground in
   let knd = get_head_kind ~metas env evd op in
+  if breadthfirst_subterm_search () then
+  begin
+  let queue = ((Queue.create ()) : AConstr.t Queue.t) in
+  Queue.push cl queue;
+  let rec matchrec () =
+    match Queue.take_opt queue with
+    | None -> None
+    | Some cl ->
+    let rec strip_outer_cast c = match AConstr.kind c with
+    | ACast c -> strip_outer_cast c
+    | _ -> c
+    in
+    let cl = strip_outer_cast cl in
+    let ans =
+      let is_closed = AConstr.closed0 cl in
+      let atyp = AConstr.atyp cl in
+      let cl = AConstr.proj cl in
+      if is_closed && not (isEvar evd cl) && keyed_unify env evd kop cl && fast_head_check evd knd cl && fast_atyp_check knd atyp then
+        try
+          if is_keyed_unification () then
+            let f1, l1 = decompose_app evd op in
+            let f2, l2 = decompose_app evd cl in
+            Some (w_typed_unify_array ~metas env evd flags f1 l1 f2 l2, cl)
+          else
+            Some (w_typed_unify ~metas env evd CONV flags (op, opgnd) (cl, Unknown), cl)
+        with ex when precatchable_exception ex ->
+          let () = if Pretype_errors.unsatisfiable_exception ex then bestexn := Some ex in
+          None
+      else
+        None
+    in
+    match ans with
+    | Some _ as ans -> ans
+    | None ->
+      match AConstr.kind cl with
+      | ACast _ -> assert false (* just got stripped *)
+      | AApp (f, args) ->
+        begin match knd with
+        | HeadInd | HeadSort ->
+          (* If an application matches, then assuming well-typedness no longer application could match *)
+          begin
+            Queue.push f queue;
+            Array.iter (fun c -> Queue.push c queue) args;
+            matchrec ()
+          end
+        | HeadProd | HeadOther ->
+          let n = Array.length args in
+          let () = assert (n > 0) in
+          (* [c1] has necessarily a product type here because it is applied to [c2] *)
+          let c1 = AConstr.mkApp ATyProd (f,Array.sub args 0 (n-1)) in
+          let c2 = args.(n-1) in
+          Queue.push c1 queue;
+          Queue.push c2 queue;
+          matchrec ()
+        end
+      | AOther a ->
+        Array.iter (fun c -> Queue.push c queue) a;
+        matchrec ()
+  in
+  match matchrec () with
+  | Some ans -> ans
+  | None ->
+    match !bestexn with
+    | None -> raise (PretypeError (env,evd,NoOccurrenceFound (op, where)))
+    | Some e -> raise e
+  end
+  else
   let rec matchrec cl =
     let rec strip_outer_cast c = match AConstr.kind c with
     | ACast c -> strip_outer_cast c
